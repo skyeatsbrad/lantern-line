@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720">
+  <rect width="1280" height="720" fill="#080a0f"/>
+  <path d="M0 530 L120 470 L240 520 L360 455 L480 515 L620 445 L760 520 L900 460 L1040 520 L1160 450 L1280 505 L1280 720 L0 720 Z" fill="#171923"/>
+  <path d="M0 610 H1280" stroke="#5b4932" stroke-width="4"/>
+  <path d="M0 635 H1280" stroke="#3c3022" stroke-width="3"/>
+  <g transform="translate(450 430)">
+    <rect x="0" y="0" width="245" height="100" fill="#352b26" stroke="#e0ad64" stroke-width="3"/>
+    <rect x="30" y="-55" width="82" height="62" fill="#241e1c" stroke="#e0ad64" stroke-width="3"/>
+    <rect x="45" y="-40" width="27" height="24" fill="#ffd88f"/>
+    <rect x="160" y="-28" width="24" height="32" fill="#241e1c"/>
+    <circle cx="48" cy="112" r="26" fill="#080a0f" stroke="#b98b50" stroke-width="4"/>
+    <circle cx="132" cy="112" r="34" fill="#080a0f" stroke="#b98b50" stroke-width="4"/>
+    <circle cx="215" cy="112" r="26" fill="#080a0f" stroke="#b98b50" stroke-width="4"/>
+    <circle cx="235" cy="48" r="12" fill="#ffe3aa"/>
+    <path d="M247 48 L710 -95 L710 190 Z" fill="#ffe3aa" opacity="0.22"/>
+    <path d="M247 48 L650 -20 L650 125 Z" fill="#ffe3aa" opacity="0.26"/>
+  </g>
+  <text x="640" y="205" text-anchor="middle" fill="#f1c982" font-family="Segoe UI, Arial, sans-serif" font-size="66" letter-spacing="10">THE LANTERN LINE</text>
+  <text x="640" y="258" text-anchor="middle" fill="#aeb0bc" font-family="Segoe UI, Arial, sans-serif" font-size="24" letter-spacing="4">A FORTRESS-TRAIN SURVIVAL STORY</text>
+</svg>

@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "cars": {
+    "Battery": {
+      "display": "Battery Car",
+      "max_integrity": 60,
+      "power_production": 5.0,
+      "power_draw": 0.0,
+      "weight": 1.0,
+      "crew_slots": 0,
+      "trait": "adds_power",
+      "description": "Boosts base power production. Fragile."
+    },
+    "Workshop": {
+      "display": "Workshop Car",
+      "max_integrity": 80,
+      "power_production": 0.0,
+      "power_draw": 1.5,
+      "weight": 1.1,
+      "crew_slots": 2,
+      "trait": "repair_boost",
+      "description": "Crew here repair the train faster."
+    },
+    "Passenger": {
+      "display": "Passenger Car",
+      "max_integrity": 70,
+      "power_production": 0.0,
+      "power_draw": 0.5,
+      "weight": 1.0,
+      "crew_slots": 3,
+      "trait": "supply_efficiency",
+      "description": "Extra crew capacity; supplies drain slower."
+    },
+    "Greenhouse": {
+      "display": "Greenhouse Car",
+      "max_integrity": 55,
+      "power_production": 0.0,
+      "power_draw": 1.0,
+      "weight": 1.2,
+      "crew_slots": 1,
+      "trait": "supply_production",
+      "description": "Slowly generates supplies while powered."
+    },
+    "Defense": {
+      "display": "Defense Platform",
+      "max_integrity": 90,
+      "power_production": 0.0,
+      "power_draw": 2.5,
+      "weight": 1.3,
+      "crew_slots": 2,
+      "trait": "turret",
+      "description": "Automated turret; consumes power for firepower."
+    },
+    "Utility": {
+      "display": "Empty Utility",
+      "max_integrity": 60,
+      "power_production": 0.0,
+      "power_draw": 0.0,
+      "weight": 0.8,
+      "crew_slots": 1,
+      "trait": "none",
+      "description": "A modular flatbed. Cheap. Uninspired."
+    }
+  }
+}

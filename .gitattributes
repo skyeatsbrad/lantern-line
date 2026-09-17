@@ -1,0 +1,16 @@
+* text=auto
+
+*.cfg text eol=lf
+*.gd text eol=lf
+*.godot text eol=lf
+*.html text eol=lf
+*.js text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.svg text eol=lf
+*.tscn text eol=lf
+*.uid text eol=lf
+
+*.pck binary
+*.png binary
+*.wasm binary

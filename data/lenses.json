@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "lenses": {
+    "Standard": {
+      "display": "Standard Lens",
+      "color": [1.0, 0.86, 0.62],
+      "reveal_range": 1.0,
+      "weight_bias": {"living": 1.0, "machinery": 1.0, "danger": 1.0},
+      "description": "Balanced illumination. Reveals mixed signatures."
+    },
+    "Hearth": {
+      "display": "Hearth Lens",
+      "color": [1.0, 0.7, 0.4],
+      "reveal_range": 0.85,
+      "weight_bias": {"living": 2.0, "machinery": 0.4, "danger": 0.7},
+      "description": "Warm glow. Draws out survivors, farms, and living routes."
+    },
+    "Pale": {
+      "display": "Pale Lens",
+      "color": [0.7, 0.85, 1.0],
+      "reveal_range": 1.15,
+      "weight_bias": {"living": 0.4, "machinery": 2.0, "danger": 1.3},
+      "description": "Cold flare. Reveals machinery, scrap, and unnatural things."
+    }
+  }
+}

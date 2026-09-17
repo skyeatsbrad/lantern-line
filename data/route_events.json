@@ -1,0 +1,69 @@
+{
+  "version": 1,
+  "events": [
+    {
+      "id": "living_grove",
+      "category": "living",
+      "title": "A Sheltered Grove",
+      "description": "Firelight in the branches. Farmers wave you down.",
+      "rewards": {"supplies": 12, "lumen": 2},
+      "danger": 0
+    },
+    {
+      "id": "living_wayhouse",
+      "category": "living",
+      "title": "Wayhouse Signal",
+      "description": "A patched lantern swings from a signal post.",
+      "rewards": {"supplies": 8, "scrap": 4},
+      "danger": 0
+    },
+    {
+      "id": "living_refugee",
+      "category": "living",
+      "title": "Refugee Column",
+      "description": "Cold hands, warm hearts. They ride with you a while.",
+      "rewards": {"supplies": 6, "crew_boost": 1},
+      "danger": 1
+    },
+    {
+      "id": "machinery_scrapfield",
+      "category": "machinery",
+      "title": "Scrapfield Rails",
+      "description": "Old rolling stock, gutted. Rich pickings for a workshop.",
+      "rewards": {"scrap": 16, "power": 2},
+      "danger": 1
+    },
+    {
+      "id": "machinery_pylons",
+      "category": "machinery",
+      "title": "Silent Pylons",
+      "description": "A dead grid, still humming. Wire it up briefly.",
+      "rewards": {"scrap": 6, "power": 8},
+      "danger": 1
+    },
+    {
+      "id": "machinery_signal",
+      "category": "machinery",
+      "title": "Broken Signal Yard",
+      "description": "Tangled rails, tangled dispatchers. Someone hums.",
+      "rewards": {"scrap": 10, "lumen": 3},
+      "danger": 2
+    },
+    {
+      "id": "danger_hollow",
+      "category": "danger",
+      "title": "Hollow Cut",
+      "description": "The rails vanish into a pale, chewing throat.",
+      "rewards": {"scrap": 4, "lumen": -4},
+      "danger": 3
+    },
+    {
+      "id": "danger_shrike_nest",
+      "category": "danger",
+      "title": "Shrike Nest",
+      "description": "Somebody is watching. Everyone is watching.",
+      "rewards": {"scrap": 6},
+      "danger": 3
+    }
+  ]
+}

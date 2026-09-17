@@ -1,0 +1,15 @@
+.godot/
+.chrome-*/
+build/
+*.import
+*.log
+
+compact-*.png
+final-gameplay.png
+gameplay-smoke.png
+loaded-title.png
+themed-*.png
+title-smoke.png
+
+.DS_Store
+Thumbs.db
