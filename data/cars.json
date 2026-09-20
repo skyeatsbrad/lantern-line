@@ -1,65 +1,159 @@
 {
-  "version": 1,
+  "version": 2,
   "cars": {
     "Battery": {
       "display": "Battery Car",
+      "cost": 13,
       "max_integrity": 60,
       "power_production": 5.0,
       "power_draw": 0.0,
       "weight": 1.0,
       "crew_slots": 0,
       "trait": "adds_power",
-      "description": "Boosts base power production. Fragile."
+      "description": "Boosts base power production. Fragile.",
+      "upgrades": {
+        "deep_cells": {
+          "display": "Deep Cells",
+          "cost": 12,
+          "description": "+2 sustained power production.",
+          "effects": {"power_production": 2.0}
+        },
+        "arc_reserve": {
+          "display": "Arc Reserve",
+          "cost": 12,
+          "description": "Focus costs 2 less lumen and recharges 20% faster.",
+          "effects": {"focus_cost": -2.0, "focus_cooldown_mult": 0.8}
+        }
+      }
     },
     "Workshop": {
       "display": "Workshop Car",
+      "cost": 14,
       "max_integrity": 80,
       "power_production": 0.0,
       "power_draw": 1.5,
       "weight": 1.1,
       "crew_slots": 2,
       "trait": "repair_boost",
-      "description": "Crew here repair the train faster."
+      "description": "Crew here repair the train faster.",
+      "upgrades": {
+        "field_foundry": {
+          "display": "Field Foundry",
+          "cost": 12,
+          "description": "Repair output increases by 35%.",
+          "effects": {"repair_mult": 1.35}
+        },
+        "salvage_rig": {
+          "display": "Salvage Rig",
+          "cost": 10,
+          "description": "Dangerous routes yield 2 controlled salvage.",
+          "effects": {"danger_salvage": 2}
+        }
+      }
     },
     "Passenger": {
       "display": "Passenger Car",
+      "cost": 12,
       "max_integrity": 70,
       "power_production": 0.0,
       "power_draw": 0.5,
       "weight": 1.0,
       "crew_slots": 3,
       "trait": "supply_efficiency",
-      "description": "Extra crew capacity; supplies drain slower."
+      "description": "Extra crew capacity; supplies drain slower.",
+      "upgrades": {
+        "ration_lockers": {
+          "display": "Ration Lockers",
+          "cost": 10,
+          "description": "Supply consumption falls another 15%.",
+          "effects": {"supply_efficiency_mult": 0.85}
+        },
+        "safe_quarters": {
+          "display": "Safe Quarters",
+          "cost": 12,
+          "description": "+1 crew post; occupants evacuate if this car is detached.",
+          "effects": {"crew_slots": 1, "crew_detach_protection": true}
+        }
+      }
     },
     "Greenhouse": {
       "display": "Greenhouse Car",
+      "cost": 14,
       "max_integrity": 55,
       "power_production": 0.0,
       "power_draw": 1.0,
       "weight": 1.2,
       "crew_slots": 1,
       "trait": "supply_production",
-      "description": "Slowly generates supplies while powered."
+      "description": "Slowly generates supplies while powered.",
+      "upgrades": {
+        "hydroponics": {
+          "display": "Hydroponics",
+          "cost": 12,
+          "description": "Produces substantially more supplies.",
+          "effects": {"supply_generation": 0.08}
+        },
+        "glowbeds": {
+          "display": "Glowbeds",
+          "cost": 12,
+          "description": "Produces lumen while powered.",
+          "effects": {"lumen_generation": 0.05}
+        }
+      }
     },
     "Defense": {
       "display": "Defense Platform",
+      "cost": 18,
       "max_integrity": 90,
       "power_production": 0.0,
       "power_draw": 2.5,
       "weight": 1.3,
       "crew_slots": 2,
       "trait": "turret",
-      "description": "Automated turret; consumes power for firepower."
+      "description": "One automated mount; consumes power for firepower.",
+      "upgrades": {
+        "heavy_cannon": {
+          "display": "Heavy Cannon",
+          "cost": 14,
+          "description": "Powerful single-target fire with extra boss damage.",
+          "effects": {"defense_mode": "cannon", "defense_damage": 8.0, "defense_targets": 1}
+        },
+        "flak_array": {
+          "display": "Flak Array",
+          "cost": 14,
+          "description": "Engages up to three roof or airborne threats.",
+          "effects": {"defense_mode": "flak", "defense_damage": 3.2, "defense_targets": 3}
+        }
+      }
     },
     "Utility": {
       "display": "Empty Utility",
+      "cost": 8,
       "max_integrity": 60,
       "power_production": 0.0,
       "power_draw": 0.0,
       "weight": 0.8,
       "crew_slots": 1,
       "trait": "none",
-      "description": "A modular flatbed. Cheap. Uninspired."
+      "description": "A modular flatbed. Cheap and easy to refit.",
+      "upgrades": {
+        "plated_bulkhead": {
+          "display": "Plated Bulkhead",
+          "cost": 10,
+          "description": "Takes 40% less damage while it is the rear car.",
+          "effects": {"rear_damage_mult": 0.6}
+        },
+        "breakaway_coupling": {
+          "display": "Breakaway Coupling",
+          "cost": 10,
+          "description": "A detachment grants a longer boost and wider purge.",
+          "effects": {
+            "detach_boost_duration": 12.0,
+            "detach_power_gain": 4.0,
+            "detach_purge_radius": 320.0
+          }
+        }
+      }
     }
   }
 }

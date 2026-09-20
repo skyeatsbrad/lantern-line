@@ -1,11 +1,12 @@
 {
-  "version": 1,
+  "version": 2,
   "events": [
     {
       "id": "living_grove",
       "category": "living",
       "title": "A Sheltered Grove",
-      "description": "Firelight in the branches. Farmers wave you down.",
+      "description": "Firelight in the branches. Farmers wave the line beneath canvas awnings.",
+      "summary": "Supplies +12, lumen +2",
       "rewards": {"supplies": 12, "lumen": 2},
       "danger": 0
     },
@@ -13,7 +14,8 @@
       "id": "living_wayhouse",
       "category": "living",
       "title": "Wayhouse Signal",
-      "description": "A patched lantern swings from a signal post.",
+      "description": "A patched lantern swings from a signal post beside a stocked wayhouse.",
+      "summary": "Supplies +8, scrap +4",
       "rewards": {"supplies": 8, "scrap": 4},
       "danger": 0
     },
@@ -21,49 +23,240 @@
       "id": "living_refugee",
       "category": "living",
       "title": "Refugee Column",
-      "description": "Cold hands, warm hearts. They ride with you a while.",
+      "description": "Cold hands, warm hearts. They ride the running boards until the next light.",
+      "summary": "Supplies +6, danger 1",
       "rewards": {"supplies": 6, "crew_boost": 1},
       "danger": 1
+    },
+    {
+      "id": "living_lantern_menders",
+      "category": "living",
+      "title": "Lantern Menders",
+      "description": "A family of glassworkers trades sealed oil and a newly silvered reflector.",
+      "summary": "Supplies +7, lumen +5",
+      "rewards": {"supplies": 7, "lumen": 5},
+      "danger": 0
+    },
+    {
+      "id": "living_river_ice",
+      "category": "living",
+      "title": "The Frozen Ferry",
+      "description": "Ferryfolk chain their flywheel to the train and ask passage across the black ice.",
+      "summary": "Supplies +7, power +3, danger 1",
+      "rewards": {"supplies": 7, "power": 3},
+      "danger": 1
+    },
+    {
+      "id": "living_quiet_chapel",
+      "category": "living",
+      "title": "Chapel of Quiet Brass",
+      "description": "No sermon remains, only careful hands and a pit beneath the rails.",
+      "summary": "Repair 9 integrity, supplies +4",
+      "rewards": {"supplies": 4},
+      "effects": [
+        {"op": "repair_all", "amount": 9},
+        {"op": "resource", "key": "supplies", "amount": 4}
+      ],
+      "danger": 0
+    },
+    {
+      "id": "living_moth_orchard",
+      "category": "living",
+      "title": "Moth Orchard",
+      "description": "Pale fruit hangs under netting while luminous moths crowd the headlamp.",
+      "summary": "Lumen +8, supplies +5, danger 1",
+      "rewards": {"lumen": 8, "supplies": 5},
+      "danger": 1
+    },
+    {
+      "id": "living_ash_seed",
+      "category": "living",
+      "title": "The Ash Seed",
+      "description": "A gardener presses one warm seed into Mara's palm and marks a siding east.",
+      "summary": "Supplies +4, begins the Ash Garden trail",
+      "rewards": {"supplies": 4},
+      "effects": [
+        {"op": "resource", "key": "supplies", "amount": 4},
+        {"op": "set_flag", "key": "ash_seed_planted"}
+      ],
+      "excludes_flags": ["ash_seed_planted"],
+      "danger": 0
+    },
+    {
+      "id": "living_ash_garden",
+      "category": "living",
+      "title": "The Ash Garden",
+      "description": "The marked siding blooms gold around a greenhouse built from carriage glass.",
+      "summary": "Supplies +13, lumen +6",
+      "rewards": {"supplies": 13, "lumen": 6},
+      "effects": [
+        {"op": "resource", "key": "supplies", "amount": 13},
+        {"op": "resource", "key": "lumen", "amount": 6},
+        {"op": "set_flag", "key": "ash_garden_found"}
+      ],
+      "requires_flags": ["ash_seed_planted"],
+      "danger": 0
+    },
+    {
+      "id": "living_bell_listener",
+      "category": "living",
+      "title": "A Bell Under Earth",
+      "description": "A child at a lonely crossing asks whether you can hear the bell below the rails.",
+      "summary": "Lumen +4, begins the Buried Bell trail",
+      "rewards": {"lumen": 4},
+      "effects": [
+        {"op": "resource", "key": "lumen", "amount": 4},
+        {"op": "set_flag", "key": "buried_bell_heard"}
+      ],
+      "excludes_flags": ["buried_bell_heard"],
+      "danger": 0
+    },
+    {
+      "id": "living_bell_return",
+      "category": "living",
+      "title": "The Bell Keeper",
+      "description": "The bell rises on chains. Its keeper pays in bronze and patches the train in silence.",
+      "summary": "Scrap +8, repair 7 integrity",
+      "rewards": {"scrap": 8},
+      "effects": [
+        {"op": "resource", "key": "scrap", "amount": 8},
+        {"op": "repair_all", "amount": 7},
+        {"op": "set_flag", "key": "buried_bell_answered"}
+      ],
+      "requires_flags": ["buried_bell_heard"],
+      "danger": 0
     },
     {
       "id": "machinery_scrapfield",
       "category": "machinery",
       "title": "Scrapfield Rails",
-      "description": "Old rolling stock, gutted. Rich pickings for a workshop.",
-      "rewards": {"scrap": 16, "power": 2},
+      "description": "Old rolling stock lies gutted but not empty. The Workshop crew brings torches.",
+      "summary": "Scrap +10, power +2, danger 1",
+      "rewards": {"scrap": 10, "power": 2},
       "danger": 1
     },
     {
       "id": "machinery_pylons",
       "category": "machinery",
       "title": "Silent Pylons",
-      "description": "A dead grid, still humming. Wire it up briefly.",
-      "rewards": {"scrap": 6, "power": 8},
+      "description": "A dead grid still hums beneath rain. The Battery drinks before the breakers fail.",
+      "summary": "Scrap +5, power +8, danger 1",
+      "rewards": {"scrap": 5, "power": 8},
       "danger": 1
     },
     {
       "id": "machinery_signal",
       "category": "machinery",
       "title": "Broken Signal Yard",
-      "description": "Tangled rails, tangled dispatchers. Someone hums.",
-      "rewards": {"scrap": 10, "lumen": 3},
+      "description": "Tangled rails, tangled dispatchers. Something keeps changing the points.",
+      "summary": "Scrap +8, lumen +3, danger 2",
+      "rewards": {"scrap": 8, "lumen": 3},
+      "danger": 2
+    },
+    {
+      "id": "machinery_relay_cache",
+      "category": "machinery",
+      "title": "Relay Cache",
+      "description": "Copper-wound relays sit dry in a dispatch bunker with one surviving accumulator.",
+      "summary": "Scrap +7, power +4",
+      "rewards": {"scrap": 7, "power": 4},
+      "danger": 0
+    },
+    {
+      "id": "machinery_switchyard",
+      "category": "machinery",
+      "title": "Blind Switchyard",
+      "description": "The safe points must be thrown by hand while silhouettes move between parked cars.",
+      "summary": "Scrap +7, supplies +3, danger 1",
+      "rewards": {"scrap": 7, "supplies": 3},
+      "danger": 1
+    },
+    {
+      "id": "machinery_lampwright",
+      "category": "machinery",
+      "title": "The Last Lampwright",
+      "description": "A workshop window opens just long enough to pour blue-white oil into your tanks.",
+      "summary": "Lumen +10, scrap +3",
+      "rewards": {"lumen": 10, "scrap": 3},
+      "danger": 0
+    },
+    {
+      "id": "machinery_signal_code",
+      "category": "machinery",
+      "title": "Repeating Signal",
+      "description": "Three green, one dark, two amber. Orrin copies the impossible sequence.",
+      "summary": "Scrap +3, begins the Signal Vault trail",
+      "rewards": {"scrap": 3},
+      "effects": [
+        {"op": "resource", "key": "scrap", "amount": 3},
+        {"op": "set_flag", "key": "signal_code_known"}
+      ],
+      "excludes_flags": ["signal_code_known"],
+      "danger": 0
+    },
+    {
+      "id": "machinery_signal_vault",
+      "category": "machinery",
+      "title": "Signal Vault 3-1-2",
+      "description": "The copied sequence opens a buried dispatch vault as watchers gather on the roof.",
+      "summary": "Scrap +14, power +4, danger 2",
+      "rewards": {"scrap": 14, "power": 4},
+      "effects": [
+        {"op": "resource", "key": "scrap", "amount": 14},
+        {"op": "resource", "key": "power", "amount": 4},
+        {"op": "set_flag", "key": "signal_vault_opened"}
+      ],
+      "requires_flags": ["signal_code_known"],
       "danger": 2
     },
     {
       "id": "danger_hollow",
       "category": "danger",
       "title": "Hollow Cut",
-      "description": "The rails vanish into a pale, chewing throat.",
-      "rewards": {"scrap": 4, "lumen": -4},
+      "description": "The rails vanish into a pale, chewing throat that drinks the edge of the beam.",
+      "summary": "Scrap +5, lumen -4, danger 3",
+      "rewards": {"scrap": 5, "lumen": -4},
       "danger": 3
     },
     {
       "id": "danger_shrike_nest",
       "category": "danger",
       "title": "Shrike Nest",
-      "description": "Somebody is watching. Everyone is watching.",
-      "rewards": {"scrap": 6},
+      "description": "Metal feathers cover the ballast. Somebody is watching. Everyone is watching.",
+      "summary": "Scrap +7, danger 3",
+      "rewards": {"scrap": 7},
       "danger": 3
+    },
+    {
+      "id": "danger_black_rain",
+      "category": "danger",
+      "title": "Black Rain",
+      "description": "Oily rain drums on the roofs while a derailed tender glints beside the track.",
+      "summary": "Scrap +9, supplies -6, danger 2",
+      "rewards": {"scrap": 9, "supplies": -6},
+      "danger": 2
+    },
+    {
+      "id": "danger_crawler_bridge",
+      "category": "danger",
+      "title": "Crawler Bridge",
+      "description": "The bridge is intact. The things pretending to be rivets are not.",
+      "summary": "Scrap +9, rear car takes 8, danger 2",
+      "rewards": {"scrap": 9},
+      "effects": [
+        {"op": "resource", "key": "scrap", "amount": 9},
+        {"op": "damage_rear", "amount": 8}
+      ],
+      "danger": 2
+    },
+    {
+      "id": "danger_false_dawn",
+      "category": "danger",
+      "title": "False Dawn",
+      "description": "A bright horizon pulls current from every wire before revealing rows of teeth.",
+      "summary": "Lumen +7, power -4, danger 2",
+      "rewards": {"lumen": 7, "power": -4},
+      "danger": 2
     }
   ]
 }

@@ -6,10 +6,7 @@ extends Node2D
 
 var _time: float = 0.0
 var _distance: float = 0.0
-var _lens_color: Color = Color(1.0, 0.86, 0.62)
-var _lens_key: String = "Standard"
-var _light_dir: Vector2 = Vector2(1, 0)
-var _light_intensity: float = 1.0
+var _light_profile: LightProfile = LightProfile.new()
 var _view_size: Vector2 = Vector2(1280, 720)
 var _train_x: float = 320.0
 var _train_y: float = 460.0
@@ -21,12 +18,9 @@ func setup(view_size: Vector2) -> void:
 	set_process(true)
 
 
-func update_state(distance: float, lens_key: String, lens_color: Color, light_dir: Vector2, light_intensity: float, train_pos: Vector2) -> void:
+func update_state(distance: float, light_profile: LightProfile, train_pos: Vector2) -> void:
 	_distance = distance
-	_lens_key = lens_key
-	_lens_color = lens_color
-	_light_dir = light_dir
-	_light_intensity = light_intensity
+	_light_profile = light_profile
 	_train_x = train_pos.x
 	_train_y = train_pos.y
 
@@ -102,15 +96,15 @@ func _draw_ridge(s: Vector2, parallax_speed: float, base_y: float, steps: int, c
 
 
 func _draw_light_cone() -> void:
-	if _light_intensity <= 0.0:
+	if _light_profile == null or _light_profile.intensity <= 0.0:
 		return
-	var origin: Vector2 = Vector2(_train_x + 74.0, _train_y - 24.0)
-	var dir: Vector2 = _light_dir.normalized()
-	var length: float = 500.0 * _light_intensity
-	var spread: float = 0.42
+	var origin: Vector2 = _light_profile.origin
+	var dir: Vector2 = _light_profile.direction
+	var length: float = _light_profile.range_px
+	var spread: float = _light_profile.spread_radians
 	var left: Vector2 = dir.rotated(-spread) * length + origin
 	var right: Vector2 = dir.rotated(spread) * length + origin
-	var col: Color = _lens_color
+	var col: Color = _light_profile.color
 	# Additive-like translucent layers
 	var poly: PackedVector2Array = PackedVector2Array([origin, left, right])
 	draw_colored_polygon(poly, Color(col.r, col.g, col.b, 0.18))

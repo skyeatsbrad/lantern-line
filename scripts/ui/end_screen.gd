@@ -31,8 +31,8 @@ func show_end(victory: bool, run_state: RunState) -> void:
 	v.anchor_bottom = 0.5
 	v.offset_left = -280
 	v.offset_right = 280
-	v.offset_top = -160
-	v.offset_bottom = 180
+	v.offset_top = -240
+	v.offset_bottom = 240
 	v.add_theme_constant_override("separation", 12)
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
 	add_child(v)
@@ -54,7 +54,7 @@ func show_end(victory: bool, run_state: RunState) -> void:
 	body.custom_minimum_size = Vector2(500, 100)
 	body.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
 	if victory:
-		body.text = "The pale sky opens. Warm light finds the rails. Your cars roll into the beacon and stop, breathing steam like grateful animals."
+		body.text = "The pale sky opens. Warm light finds the rails. The surviving cars roll into the beacon and stop, breathing steam like grateful animals."
 	else:
 		body.text = "The lantern falters. The train drifts. In the dark, the quiet is complete. Somebody remembers your distance mark and lifts a lantern for the next crew."
 	v.add_child(body)
@@ -70,6 +70,14 @@ func show_end(victory: bool, run_state: RunState) -> void:
 	stat.add_theme_color_override("font_color", Color(0.75, 0.75, 0.8))
 	v.add_child(stat)
 
+	var ledger := Label.new()
+	ledger.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	ledger.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	ledger.custom_minimum_size = Vector2(540, 125)
+	ledger.text = _build_ledger(run_state)
+	ledger.add_theme_color_override("font_color", Color(0.82, 0.78, 0.68))
+	v.add_child(ledger)
+
 	var btn: Button = Button.new()
 	btn.text = "  Return to Title  "
 	btn.custom_minimum_size = Vector2(220, 40)
@@ -82,3 +90,43 @@ func show_end(victory: bool, run_state: RunState) -> void:
 		AudioManager.play("victory")
 	else:
 		AudioManager.play("defeat")
+
+
+func _build_ledger(run_state: RunState) -> String:
+	var fit_names: Array[String] = []
+	var lost_names: Array[String] = []
+	for member_variant in run_state.crew:
+		var member: Dictionary = member_variant
+		if String(member.get("status", "fit")) == "fit":
+			fit_names.append(String(member.get("name", "Crew")))
+		else:
+			lost_names.append(String(member.get("name", "Crew")))
+	var car_names: Array[String] = []
+	for car_variant in run_state.cars:
+		var car: Dictionary = car_variant
+		var name := String(car.get("display", car.get("type", "Car")))
+		var upgrade_key := String(car.get("upgrade", ""))
+		if not upgrade_key.is_empty():
+			var cfg: Dictionary = run_state.cars_config.get(String(car.get("type", "")), {})
+			name += " [%s]" % String(
+				(cfg.get("upgrades", {}) as Dictionary).get(upgrade_key, {}).get(
+					"display",
+					upgrade_key
+				)
+			)
+		car_names.append(name)
+	var detached_count := (run_state.run_history.get("detached_cars", []) as Array).size()
+	var upgrade_count := (run_state.run_history.get("upgrades", []) as Array).size()
+	var lines: Array[String] = [
+		"DAWN LEDGER",
+		"Routes committed: %d  |  Cars remaining: %d/%d  |  Refit choices: %d"
+		% [run_state.route_history.size(), run_state.cars.size(), run_state.slot_capacity, upgrade_count],
+		"Consist: %s" % (" > ".join(car_names) if not car_names.is_empty() else "Locomotive only"),
+		"Crew through: %s" % (", ".join(fit_names) if not fit_names.is_empty() else "None"),
+		"Cars deliberately cut loose: %d" % detached_count
+	]
+	if not lost_names.is_empty():
+		lines.append("Remembered in the dark: %s" % ", ".join(lost_names))
+	elif _victory:
+		lines.append("No crew were left behind.")
+	return "\n".join(lines)

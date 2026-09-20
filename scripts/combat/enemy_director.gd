@@ -14,19 +14,16 @@ var _pool: Array = []
 var _active: Array = []
 var _elapsed: float = 0.0
 var _spawn_cooldown: float = 3.0
-var _boss_active: bool = false
+var _wave_index: int = 0
 var _view_size: Vector2 = Vector2(1280, 720)
 var _train_pos: Vector2 = Vector2(320, 460)
-var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
-var _light_dir: Vector2 = Vector2.RIGHT
-var _light_intensity: float = 1.0
+var _light_profile: LightProfile = LightProfile.new()
 var _reduced_motion: bool = false
 
 
 func setup(run_state: RunState, view_size: Vector2) -> void:
 	_run_state = run_state
 	_view_size = view_size
-	_rng.seed = run_state.run_seed ^ 0xC0FFEE
 	for i in range(POOL_SIZE):
 		_pool.append(Enemy.new())
 	set_process(true)
@@ -36,30 +33,12 @@ func set_train_pos(p: Vector2) -> void:
 	_train_pos = p
 
 
-func set_light(dir: Vector2, intensity: float) -> void:
-	_light_dir = dir
-	_light_intensity = intensity
+func set_light_profile(profile: LightProfile) -> void:
+	_light_profile = profile
 
 
 func active_count() -> int:
 	return _active.size()
-
-
-func boss_active() -> bool:
-	return _boss_active
-
-
-func spawn_boss() -> void:
-	if _boss_active:
-		return
-	var boss: Enemy = _acquire()
-	if boss == null:
-		return
-	var cfg: Dictionary = _run_state.enemy_config.get("Boss", {})
-	boss.init_from_config("Boss", cfg)
-	boss.position = Vector2(_view_size.x + 40, _train_pos.y - 8)
-	boss.target = Vector2(_train_pos.x + 80, _train_pos.y - 8)
-	_boss_active = true
 
 
 func spawn_threat_waves(wave_count: int = 1) -> void:
@@ -71,18 +50,20 @@ func _process(delta: float) -> void:
 	if _run_state == null:
 		return
 	_reduced_motion = bool(GameManager.get_setting("reduced_motion", false))
-	var scaled: float = delta * (0.0 if _run_state.paused else _run_state.speed_scale)
+	var scaled: float = delta * (0.0 if _run_state.is_simulation_paused() else _run_state.speed_scale)
 	_elapsed += scaled
 	# Spawn logic scales with distance
-	if not _boss_active and not _run_state.boss_triggered:
-		_spawn_cooldown -= scaled
-		if _spawn_cooldown <= 0.0:
+	if not _run_state.boss_triggered:
+		if _run_state.resume_grace_time <= 0.0:
+			_spawn_cooldown -= scaled
+		if _spawn_cooldown <= 0.0 and _run_state.resume_grace_time <= 0.0:
 			_spawn_wave()
 			var difficulty: float = clampf(_run_state.distance / RunState.JOURNEY_TARGET, 0.0, 1.0)
 			_spawn_cooldown = lerp(4.5, 1.7, difficulty)
 	# Update active
 	for e in _active:
 		_update_enemy(e, scaled)
+	_apply_defense_fire(scaled)
 	# Cleanup
 	var new_active: Array = []
 	for e in _active:
@@ -95,11 +76,15 @@ func _process(delta: float) -> void:
 
 
 func _spawn_wave() -> void:
+	_wave_index += 1
+	var wave_rng := RandomNumberGenerator.new()
+	wave_rng.seed = _run_state.run_seed ^ (_wave_index * 0xC0FFEE)
 	var difficulty: float = clampf(_run_state.distance / RunState.JOURNEY_TARGET, 0.0, 1.0)
 	var count: int = 1 + int(difficulty * 2.0)
+	var kinds: Array[String] = ["Pursuer", "Boarder", "Drainer"]
+	var kind_offset := posmod(_run_state.run_seed, kinds.size())
 	for i in range(count):
-		var kinds: Array = ["Pursuer", "Boarder", "Drainer"]
-		var kind: String = kinds[_rng.randi() % kinds.size()]
+		var kind: String = kinds[posmod(_wave_index - 1 + i + kind_offset, kinds.size())]
 		var e: Enemy = _acquire()
 		if e == null:
 			return
@@ -116,7 +101,7 @@ func _spawn_wave() -> void:
 				e.target = Vector2(_train_pos.x + 20, _train_pos.y - 60)
 				e.role = "roof"
 			"Drainer":
-				e.position = Vector2(_view_size.x + 40, _train_pos.y - 80 - _rng.randf() * 40)
+				e.position = Vector2(_view_size.x + 40, _train_pos.y - 80 - wave_rng.randf() * 40)
 				e.target = Vector2(_train_pos.x + 100, _train_pos.y - 60)
 				e.role = "air"
 			_:
@@ -148,7 +133,7 @@ func _update_enemy(e: Enemy, delta: float) -> void:
 		return
 	# Update target based on role
 	if e.role == "ground":
-		e.target = _rear_target() if e.kind != "Boss" else Vector2(_train_pos.x + 60, _train_pos.y - 8)
+		e.target = _rear_target()
 	elif e.role == "air":
 		e.target = Vector2(_train_pos.x + 74, _train_pos.y - 24)
 	# Move toward target
@@ -161,38 +146,58 @@ func _update_enemy(e: Enemy, delta: float) -> void:
 		if e.attack_timer <= 0.0:
 			_apply_attack(e)
 			e.attack_timer = e.attack_interval
-	# Damage from light cone (Drainer weak to light; others gently)
-	if _light_intensity > 0.05:
-		var origin: Vector2 = Vector2(_train_pos.x + 74, _train_pos.y - 24)
-		var to_e: Vector2 = e.position - origin
-		var dist: float = to_e.length()
-		if dist < 500.0 * _light_intensity:
-			var d: Vector2 = to_e.normalized()
-			var dot: float = d.dot(_light_dir.normalized())
-			if dot > 0.75:
-				var dmg: float = (10.0 if e.kind == "Drainer" else 3.0) * delta * _run_state.priorities["light"]
-				e.hp -= dmg
-	# Turret damage from Defense car
-	if _run_state._has_car_type("Defense") and _run_state._car_powered("Defense") and _run_state.priorities["defense"] > 0:
-		var tur_dmg: float = 4.0 * float(_run_state.priorities["defense"]) * delta
-		for c in _run_state.crew:
-			if c.get("id") == "ilo":
-				tur_dmg *= 1.0 + float(c["bonus"].get("turret_damage", 0.0))
-		# only target closest; simplified: apply to all in range gently
-		if e.position.distance_to(_train_pos) < 400.0:
-			e.hp -= tur_dmg
+	if _light_profile != null and _light_profile.contains(e.position):
+		var base_damage: float = 10.0 if e.kind == "Drainer" else 3.0
+		e.hp -= (
+			base_damage
+			* delta
+			* float(_run_state.priorities["light"])
+			* _light_profile.damage_multiplier
+		)
 	if e.hp <= 0.0:
-		e.alive = false
-		emit_signal("enemy_killed", e.kind, e.value)
-		if e.kind == "Boss":
-			_boss_active = false
-			_run_state.boss_defeated = true
-			# reward
-			_run_state.scrap = clampf(_run_state.scrap + 12, 0, 200)
-			_run_state.supplies = clampf(_run_state.supplies + 10, 0, 200)
+		_kill_enemy(e)
 
 
+func _apply_defense_fire(delta: float) -> void:
+	if delta <= 0.0 or int(_run_state.priorities.get("defense", 0)) <= 0:
+		return
+	var available: Array[Enemy] = []
+	for enemy_variant in _active:
+		var enemy: Enemy = enemy_variant
+		if enemy.alive and enemy.position.distance_to(_train_pos) < 400.0:
+			available.append(enemy)
+	available.sort_custom(func(a: Enemy, b: Enemy) -> bool:
+		return a.position.distance_squared_to(_train_pos) < b.position.distance_squared_to(_train_pos)
+	)
+	for mount_variant in _run_state.stats().defense_mounts:
+		var mount: Dictionary = mount_variant
+		var target_count: int = maxi(1, int(mount.get("targets", 1)))
+		var candidates: Array[Enemy] = available
+		if String(mount.get("mode", "")) == "flak":
+			candidates = available.filter(func(enemy: Enemy) -> bool: return enemy.role == "air")
+			if candidates.is_empty():
+				candidates = available
+		for index in range(mini(target_count, candidates.size())):
+			var target: Enemy = candidates[index]
+			if not target.alive:
+				continue
+			target.hp -= (
+				float(mount.get("damage", 0.0))
+				* float(_run_state.priorities["defense"])
+				* delta
+			)
+			if target.hp <= 0.0:
+				_kill_enemy(target)
+
+
+func _kill_enemy(enemy: Enemy) -> void:
+	if not enemy.alive:
+		return
+	enemy.alive = false
+	emit_signal("enemy_killed", enemy.kind, enemy.value)
 func _apply_attack(e: Enemy) -> void:
+	if _run_state.resume_grace_time > 0.0:
+		return
 	match e.kind:
 		"Pursuer":
 			var res: Dictionary = _run_state.damage_rear_car(e.damage)
@@ -205,11 +210,6 @@ func _apply_attack(e: Enemy) -> void:
 		"Drainer":
 			_run_state.lumen = maxf(0.0, _run_state.lumen - e.damage * 0.3)
 			AudioManager.play("impact")
-		"Boss":
-			_run_state.damage_locomotive(e.damage)
-			AudioManager.play("alarm")
-
-
 func on_detach(nearby_purge: float) -> void:
 	# destroy/delay any ground enemies close to the rear
 	var rear: Vector2 = _rear_target()
@@ -217,11 +217,33 @@ func on_detach(nearby_purge: float) -> void:
 		if not e.alive:
 			continue
 		if e.position.distance_to(rear) < nearby_purge:
-			if e.role == "ground" and e.kind != "Boss":
+			if e.role == "ground":
 				e.alive = false
 				emit_signal("enemy_killed", e.kind, 0)
 			else:
 				e.position += Vector2(180, -40)
+
+
+func checkpoint_state() -> Dictionary:
+	return {
+		"spawn_cooldown": _spawn_cooldown,
+		"wave_index": _wave_index
+	}
+
+
+func apply_checkpoint_state(state: Dictionary) -> void:
+	for enemy_variant in _active:
+		_release(enemy_variant)
+	_active.clear()
+	_spawn_cooldown = maxf(0.1, float(state.get("spawn_cooldown", 3.0)))
+	_wave_index = maxi(0, int(state.get("wave_index", 0)))
+
+
+func clear_regular_enemies() -> void:
+	for enemy_variant in _active:
+		_release(enemy_variant)
+	_active.clear()
+	queue_redraw()
 
 
 func _draw() -> void:
@@ -235,8 +257,6 @@ func _draw() -> void:
 				_draw_boarder(e)
 			"Drainer":
 				_draw_drainer(e)
-			"Boss":
-				_draw_boss(e)
 		_draw_hp(e)
 
 
@@ -270,23 +290,11 @@ func _draw_drainer(e: Enemy) -> void:
 		draw_line(p, p + Vector2(cos(a), sin(a)) * 12.0, e.color, 1.5)
 
 
-func _draw_boss(e: Enemy) -> void:
-	var p: Vector2 = e.position
-	var body: PackedVector2Array = PackedVector2Array([
-		p + Vector2(-40, 0), p + Vector2(-30, -30), p + Vector2(20, -36),
-		p + Vector2(40, -14), p + Vector2(30, 12), p + Vector2(-30, 12)
-	])
-	draw_colored_polygon(body, e.color)
-	# glowing eyes
-	draw_circle(p + Vector2(-10, -18), 3, Color(1.0, 0.85, 0.4))
-	draw_circle(p + Vector2(10, -18), 3, Color(1.0, 0.85, 0.4))
-
-
 func _draw_hp(e: Enemy) -> void:
 	if e.max_hp <= 0.0:
 		return
 	var ratio: float = clampf(e.hp / e.max_hp, 0.0, 1.0)
-	var w: float = 20.0 if e.kind != "Boss" else 60.0
+	var w: float = 20.0
 	var pos: Vector2 = e.position + Vector2(-w * 0.5, -22)
 	draw_rect(Rect2(pos, Vector2(w, 3)), Color(0.1, 0.1, 0.1))
 	draw_rect(Rect2(pos, Vector2(w * ratio, 3)), Color(0.9, 0.3, 0.25))

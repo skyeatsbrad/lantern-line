@@ -1,33 +1,37 @@
 {
-  "version": 1,
+  "version": 2,
   "crew": [
     {
       "id": "mara",
       "name": "Mara Vex",
       "role": "engineer",
       "trait": "Boosts engine efficiency: +10% train speed at full power.",
-      "bonus": {"engine_efficiency": 0.10}
+      "bonus": {"engine_efficiency": 0.10},
+      "compatible_cars": ["Workshop", "Battery"]
     },
     {
       "id": "ilo",
       "name": "Ilo Carn",
       "role": "gunner",
       "trait": "Sharper turret targeting: +25% turret damage.",
-      "bonus": {"turret_damage": 0.25}
+      "bonus": {"turret_damage": 0.25},
+      "compatible_cars": ["Defense", "Utility"]
     },
     {
       "id": "sable",
       "name": "Sable Wren",
       "role": "medic",
       "trait": "Steady hands: passenger cars produce supplies passively.",
-      "bonus": {"supply_bonus": 0.4}
+      "bonus": {"supply_bonus": 0.4, "supply_efficiency": 0.15},
+      "compatible_cars": ["Passenger", "Greenhouse"]
     },
     {
       "id": "orrin",
       "name": "Orrin Kell",
       "role": "mechanic",
       "trait": "Faster repairs when Workshop is powered.",
-      "bonus": {"repair_bonus": 0.35}
+      "bonus": {"repair_bonus": 0.35},
+      "compatible_cars": ["Workshop", "Utility"]
     }
   ]
 }

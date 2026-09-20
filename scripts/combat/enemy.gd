@@ -18,7 +18,7 @@ var position: Vector2 = Vector2.ZERO
 var target: Vector2 = Vector2.ZERO
 var alive: bool = false
 var role: String = "ground"  # ground, roof, air
-var value: int = 1  # boss=5 else 1
+var value: int = 1
 
 
 func init_from_config(kind_key: String, cfg: Dictionary) -> void:
@@ -31,14 +31,11 @@ func init_from_config(kind_key: String, cfg: Dictionary) -> void:
 	attack_interval = float(cfg.get("attack_interval", 1.6))
 	var col_arr: Array = cfg.get("color", [0.7, 0.3, 0.3])
 	color = Color(float(col_arr[0]), float(col_arr[1]), float(col_arr[2]))
+	value = 1
 	if kind == "Boarder":
 		role = "roof"
 	elif kind == "Drainer":
 		role = "air"
-	elif kind == "Boss":
-		role = "ground"
-		value = 5
 	else:
 		role = "ground"
-		value = 1
 	attack_timer = 0.0

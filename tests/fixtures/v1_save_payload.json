@@ -1,0 +1,107 @@
+{
+  "version": 1,
+  "settings": {
+    "master_volume": 0.73,
+    "music_volume": 0.51,
+    "sfx_volume": 0.62
+  },
+  "meta": {
+    "dawn_reached": true
+  },
+  "has_pending_run": true,
+  "pending_run": {
+    "run_seed": 48291,
+    "distance": 8123.5,
+    "travel_time": 318.75,
+    "locomotive_hp": 63.5,
+    "fuel": 58.0,
+    "supplies": 41.25,
+    "scrap": 19,
+    "lumen": 74.0,
+    "cars": [
+      {
+        "type": "Battery",
+        "display": "Battery Car",
+        "hp": 82.0,
+        "max_hp": 100.0,
+        "power_production": 5.0,
+        "power_draw": 0.1,
+        "weight": 0.1
+      },
+      {
+        "type": "Workshop",
+        "display": "Workshop",
+        "hp": 76.0,
+        "max_hp": 100.0,
+        "power_production": 0.0,
+        "power_draw": 1.5,
+        "weight": 0.11
+      },
+      {
+        "type": "Passenger",
+        "display": "Passenger Car",
+        "hp": 91.0,
+        "max_hp": 100.0,
+        "power_production": 0.0,
+        "power_draw": 0.5,
+        "weight": 0.1
+      },
+      {
+        "type": "Defense",
+        "display": "Defense Car",
+        "hp": 68.0,
+        "max_hp": 100.0,
+        "power_production": 0.0,
+        "power_draw": 2.5,
+        "weight": 0.13
+      }
+    ],
+    "crew": [
+      {
+        "id": "mara",
+        "name": "Mara Vex",
+        "role": "engineer",
+        "trait": "Boosts engine efficiency: +10% train speed at full power.",
+        "bonus": {"engine_efficiency": 0.1},
+        "assigned_role": "engine"
+      },
+      {
+        "id": "ilo",
+        "name": "Ilo Carn",
+        "role": "gunner",
+        "trait": "Sharper turret targeting: +25% turret damage.",
+        "bonus": {"turret_damage": 0.25},
+        "assigned_role": "defense"
+      },
+      {
+        "id": "sable",
+        "name": "Sable Wren",
+        "role": "medic",
+        "trait": "Steady hands: passenger cars produce supplies passively.",
+        "bonus": {"supply_bonus": 0.4},
+        "assigned_role": "light"
+      },
+      {
+        "id": "orrin",
+        "name": "Orrin Kell",
+        "role": "mechanic",
+        "trait": "Faster repairs when Workshop is powered.",
+        "bonus": {"repair_bonus": 0.35},
+        "assigned_role": "repair"
+      }
+    ],
+    "priorities": {
+      "engine": 2,
+      "light": 3,
+      "defense": 1,
+      "repair": 2
+    },
+    "selected_lens": "Longglass",
+    "distance_since_event": 321.0,
+    "station_triggered": true,
+    "boss_triggered": false,
+    "boss_defeated": false,
+    "ended": false,
+    "ending": ""
+  }
+}

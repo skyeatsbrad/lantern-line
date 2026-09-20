@@ -5,10 +5,11 @@ extends Control
 ## Railway-equipment styled interface. Not color-only: text + icons + bars.
 
 signal request_lens(name: String)
-signal request_priority_cycle(role: String)
+signal request_priority(role: String, level: int)
 signal request_pause()
 signal request_speed()
-signal request_detach()
+signal request_focus()
+signal detach_hold_changed(active: bool)
 
 var _run_state: RunState
 var _lens_config: Dictionary
@@ -21,10 +22,15 @@ var _compact_layout: bool = false
 @onready var _time_label: Label
 @onready var _lens_label: Label
 var _bars: Dictionary = {}
-var _prio_labels: Dictionary = {}
+var _prio_buttons: Dictionary = {}
 @onready var _notification_label: Label
 @onready var _hint_label: Label
 @onready var _loco_bar: ProgressBar
+@onready var _focus_button: Button
+@onready var _focus_label: Label
+@onready var _detach_button: Button
+@onready var _detach_progress: ProgressBar
+@onready var _boss_label: Label
 
 
 func setup(run_state: RunState, lens_config: Dictionary) -> void:
@@ -50,7 +56,7 @@ func _build_ui() -> void:
 	_compact_layout = viewport_size.x < 1100.0 or viewport_size.y < 620.0
 	if _compact_layout:
 		base_font_size = mini(base_font_size, 12)
-	var bottom_height: float = 142.0 if _compact_layout else 128.0
+	var bottom_height: float = 172.0 if _compact_layout else 158.0
 
 	# Top-left: distance and time
 	var top: PanelContainer = PanelContainer.new()
@@ -80,7 +86,7 @@ func _build_ui() -> void:
 	var right: PanelContainer = PanelContainer.new()
 	right.anchor_left = 1.0
 	right.anchor_right = 1.0
-	right.offset_left = -230 if _compact_layout else -260
+	right.offset_left = -250 if _compact_layout else -310
 	right.offset_top = 12
 	right.offset_right = -12
 	right.offset_bottom = 200
@@ -101,7 +107,7 @@ func _build_ui() -> void:
 	mid.offset_left = -110 if _compact_layout else -140
 	mid.offset_right = 110 if _compact_layout else 140
 	mid.offset_top = 12
-	mid.offset_bottom = 56
+	mid.offset_bottom = 78
 	add_child(mid)
 	var mid_v: VBoxContainer = VBoxContainer.new()
 	mid.add_child(mid_v)
@@ -118,6 +124,12 @@ func _build_ui() -> void:
 	_loco_bar.show_percentage = false
 	_loco_bar.custom_minimum_size = Vector2(240, 12)
 	mid_v.add_child(_loco_bar)
+	_boss_label = Label.new()
+	_boss_label.visible = false
+	_boss_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_boss_label.add_theme_font_size_override("font_size", base_font_size - 1)
+	_boss_label.add_theme_color_override("font_color", Color(0.95, 0.55, 0.42))
+	mid_v.add_child(_boss_label)
 
 	# Bottom-left: lens breaker panel
 	var lens_panel: PanelContainer = PanelContainer.new()
@@ -175,17 +187,27 @@ func _build_ui() -> void:
 	for role in ["engine", "light", "defense", "repair"]:
 		var col: VBoxContainer = VBoxContainer.new()
 		prio_row.add_child(col)
-		var b: Button = Button.new()
-		b.text = role.capitalize()
-		b.custom_minimum_size = Vector2(82 if _compact_layout else 110, 30)
-		var rk: String = role
-		b.pressed.connect(func() -> void: emit_signal("request_priority_cycle", rk))
-		col.add_child(b)
-		var lbl: Label = Label.new()
-		lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		lbl.add_theme_font_size_override("font_size", base_font_size)
-		col.add_child(lbl)
-		_prio_labels[role] = lbl
+		var role_label: Label = Label.new()
+		role_label.text = role.capitalize()
+		role_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		role_label.add_theme_font_size_override("font_size", base_font_size - 1)
+		col.add_child(role_label)
+		var levels := HBoxContainer.new()
+		levels.add_theme_constant_override("separation", 2)
+		col.add_child(levels)
+		var buttons: Array = []
+		for level in range(4):
+			var level_button := Button.new()
+			level_button.text = str(level)
+			level_button.custom_minimum_size = Vector2(25 if _compact_layout else 30, 28)
+			var role_key: String = role
+			var requested_level: int = level
+			level_button.pressed.connect(
+				func() -> void: emit_signal("request_priority", role_key, requested_level)
+			)
+			levels.add_child(level_button)
+			buttons.append(level_button)
+		_prio_buttons[role] = buttons
 
 	# Bottom-right: pause / speed / detach
 	var ctrl: PanelContainer = PanelContainer.new()
@@ -215,10 +237,26 @@ func _build_ui() -> void:
 	speed_btn.text = "Speed" if _compact_layout else "Speed (T)"
 	speed_btn.pressed.connect(func() -> void: emit_signal("request_speed"))
 	row.add_child(speed_btn)
-	var detach_btn: Button = Button.new()
-	detach_btn.text = "Detach rear (X)"
-	detach_btn.pressed.connect(func() -> void: emit_signal("request_detach"))
-	ctrl_v.add_child(detach_btn)
+	_focus_button = Button.new()
+	_focus_button.text = "Focus (F)"
+	_focus_button.pressed.connect(func() -> void: emit_signal("request_focus"))
+	row.add_child(_focus_button)
+	_focus_label = Label.new()
+	_focus_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_focus_label.add_theme_font_size_override("font_size", base_font_size - 2)
+	ctrl_v.add_child(_focus_label)
+	_detach_button = Button.new()
+	_detach_button.text = "Hold to detach rear (X)"
+	_detach_button.button_down.connect(func() -> void: emit_signal("detach_hold_changed", true))
+	_detach_button.button_up.connect(func() -> void: emit_signal("detach_hold_changed", false))
+	ctrl_v.add_child(_detach_button)
+	_detach_progress = ProgressBar.new()
+	_detach_progress.min_value = 0.0
+	_detach_progress.max_value = 1.0
+	_detach_progress.value = 0.0
+	_detach_progress.show_percentage = false
+	_detach_progress.custom_minimum_size = Vector2(0.0, 5.0)
+	ctrl_v.add_child(_detach_progress)
 	_hint_label = Label.new()
 	_hint_label.add_theme_font_size_override("font_size", base_font_size - 2)
 	_hint_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.75))
@@ -271,7 +309,21 @@ func _process(delta: float) -> void:
 	var s: int = int(_run_state.travel_time) % 60
 	_time_label.text = "Time: %02d:%02d   %sx  %s" % [m, s, str(_run_state.speed_scale), ("[PAUSED]" if _run_state.paused else "")]
 	_lens_label.text = "Active: %s   (cd %.1fs)" % [_run_state.current_lens, _run_state.lens_cooldown]
-	_hint_label.text = ("Mouse aim | 1-3 lens | X detach" if _compact_layout else "Aim: mouse   1/2/3 lens   X detach") + "   [%s]" % ("2x" if _run_state.speed_scale >= 2.0 else "1x")
+	var focus_cost: float = _run_state.stats().focus_cost
+	if _run_state.focus_active_time > 0.0:
+		_focus_label.text = "FOCUSED %.1fs" % _run_state.focus_active_time
+	elif _run_state.focus_cooldown > 0.0:
+		_focus_label.text = "Focus recharge %.1fs" % _run_state.focus_cooldown
+	elif _run_state.lumen < focus_cost:
+		_focus_label.text = "Focus needs %.0f lumen" % focus_cost
+	else:
+		_focus_label.text = "Focus ready - %.0f lumen" % focus_cost
+	_focus_button.disabled = (
+		_run_state.focus_active_time > 0.0
+		or _run_state.focus_cooldown > 0.0
+		or _run_state.lumen < focus_cost
+	)
+	_hint_label.text = ("Mouse aim | 1-3 lens | hold X" if _compact_layout else "Aim: mouse   1/2/3 lens   F focus   hold X") + "   [%s]" % ("2x" if _run_state.speed_scale >= 2.0 else "1x")
 	_notification_timer = maxf(0.0, _notification_timer - delta)
 	if _notification_timer <= 0.0:
 		_notification_label.text = ""
@@ -282,7 +334,7 @@ func _refresh() -> void:
 		return
 	# Resource bars/values
 	_bars["power"]["bar"].value = clampf(_run_state.power / 12.0, 0.0, 1.0) * 100.0
-	_bars["power"]["value"].text = "%0.1f" % _run_state.power
+	_bars["power"]["value"].text = "%0.1f (%+.1f)" % [_run_state.power, _run_state.stats().power_net]
 	_bars["scrap"]["bar"].value = clampf(_run_state.scrap / 60.0, 0.0, 1.0) * 100.0
 	_bars["scrap"]["value"].text = "%d" % int(_run_state.scrap)
 	_bars["supplies"]["bar"].value = clampf(_run_state.supplies / 120.0, 0.0, 1.0) * 100.0
@@ -292,17 +344,10 @@ func _refresh() -> void:
 	# priorities
 	for role in ["engine", "light", "defense", "repair"]:
 		var v: int = int(_run_state.priorities[role])
-		_prio_labels[role].text = "Lv %d" % v
-		var col: Color = Color(0.8, 0.8, 0.8)
-		if v == 0:
-			col = Color(0.5, 0.5, 0.5)
-		elif v == 1:
-			col = Color(0.95, 0.85, 0.5)
-		elif v == 2:
-			col = Color(0.95, 0.65, 0.35)
-		elif v == 3:
-			col = Color(0.95, 0.35, 0.35)
-		_prio_labels[role].add_theme_color_override("font_color", col)
+		var buttons: Array = _prio_buttons.get(role, [])
+		for level in range(buttons.size()):
+			var button: Button = buttons[level]
+			button.text = ("[%d]" % level) if level == v else str(level)
 	# locomotive
 	_loco_bar.value = _run_state.locomotive_hp / _run_state.locomotive_max_hp * 100.0
 
@@ -310,3 +355,21 @@ func _refresh() -> void:
 func flash(msg: String, duration: float = 2.0) -> void:
 	_notification_label.text = msg
 	_notification_timer = duration
+
+
+func set_detach_hold(progress: float, preview: String = "") -> void:
+	if _detach_progress == null:
+		return
+	_detach_progress.value = clampf(progress, 0.0, 1.0)
+	_detach_button.text = (
+		"Release to cancel: %s" % preview
+		if progress > 0.0 and not preview.is_empty()
+		else "Hold to detach rear (X)"
+	)
+
+
+func set_boss_status(text: String, ratio: float = -1.0) -> void:
+	if _boss_label == null:
+		return
+	_boss_label.visible = not text.is_empty()
+	_boss_label.text = text if ratio < 0.0 else "%s  %d%%" % [text, int(clampf(ratio, 0.0, 1.0) * 100.0)]

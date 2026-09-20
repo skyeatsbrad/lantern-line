@@ -35,7 +35,7 @@ func _process(delta: float) -> void:
 	if _run_state == null:
 		return
 	_reduced_motion = bool(GameManager.get_setting("reduced_motion", false))
-	var scaled: float = delta * (0.0 if _run_state.paused else _run_state.speed_scale)
+	var scaled: float = delta * (0.0 if _run_state.is_simulation_paused() else _run_state.speed_scale)
 	_time += scaled
 	var speed: float = _run_state.current_speed()
 	_wheel_angle += scaled * speed * 0.05
@@ -127,6 +127,20 @@ func _draw_car(car: Dictionary, pos: Vector2, is_rear: bool) -> void:
 	draw_rect(Rect2(pos.x, pos.y - CAR_HEIGHT, CAR_WIDTH, 5), Color(0.30, 0.24, 0.18))
 	# type icon (glyph)
 	_draw_car_glyph(pos, type_key)
+	_draw_crew_posts(car, pos)
+	if float(car.get("hp", 0.0)) <= 0.0:
+		draw_line(
+			Vector2(pos.x + 10.0, pos.y - CAR_HEIGHT + 8.0),
+			Vector2(pos.x + CAR_WIDTH - 10.0, pos.y - 18.0),
+			Color(0.85, 0.22, 0.18),
+			4.0
+		)
+		draw_line(
+			Vector2(pos.x + CAR_WIDTH - 10.0, pos.y - CAR_HEIGHT + 8.0),
+			Vector2(pos.x + 10.0, pos.y - 18.0),
+			Color(0.85, 0.22, 0.18),
+			4.0
+		)
 	# wheels
 	_draw_wheel(Vector2(pos.x + 16, pos.y + 6), 10.0)
 	_draw_wheel(Vector2(pos.x + CAR_WIDTH - 16, pos.y + 6), 10.0)
@@ -143,6 +157,24 @@ func _draw_car(car: Dictionary, pos: Vector2, is_rear: bool) -> void:
 		var bx: float = pos.x + 20 + i * 20
 		var by: float = pos.y - CAR_HEIGHT - 8
 		draw_circle(Vector2(bx, by), 3.0, Color(0.85, 0.55, 0.2))
+
+
+func _draw_crew_posts(car: Dictionary, pos: Vector2) -> void:
+	var occupants: Array = _run_state.active_crew_for_car(String(car.get("id", "")))
+	for index in range(occupants.size()):
+		var member: Dictionary = occupants[index]
+		var center := Vector2(pos.x + 12.0 + index * 17.0, pos.y - 17.0)
+		draw_circle(center, 6.0, Color(0.12, 0.12, 0.14, 0.95))
+		draw_circle(center, 5.0, Color(0.88, 0.7, 0.38, 0.9))
+		draw_string(
+			ThemeDB.fallback_font,
+			center + Vector2(-3.0, 3.0),
+			String(member.get("name", "?")).left(1),
+			HORIZONTAL_ALIGNMENT_LEFT,
+			8.0,
+			8,
+			Color(0.1, 0.08, 0.06)
+		)
 
 
 func _draw_car_glyph(pos: Vector2, type_key: String) -> void:

@@ -8,6 +8,8 @@ var _elapsed: float = 0.0
 var _duration: float = 8.0
 var _saw_enemies: bool = false
 var _detached: bool = false
+var _detach_hold_started: bool = false
+var _focused: bool = false
 var _distance_start: float = 0.0
 var _game_world: Node
 var _bootstrapped: bool = false
@@ -56,12 +58,13 @@ func _process(delta: float) -> void:
 			if _elapsed > 4.0 and ed != null and not _saw_enemies:
 				ed._spawn_wave()
 				_saw_enemies = ed.active_count() > 0
-			if _elapsed > 5.0 and not _detached:
-				# force detach test
-				var before: int = int(rs.cars.size())
-				rs.detach_rear_car()
-				if before > 0 and rs.cars.size() < before:
-					_detached = true
+			if _elapsed > 4.2 and not _focused:
+				_focused = bool(rs.request_focus())
+			if _elapsed > 5.0 and not _detach_hold_started:
+				_detach_hold_started = true
+				_game_world.call("_on_detach_hold_changed", true)
+			if _detach_hold_started and int(rs.cars.size()) == 2:
+				_detached = true
 	if _elapsed >= _duration:
 		var rs2: Object = _game_world.get("run_state") if _game_world else null
 		if rs2 == null:
@@ -76,6 +79,9 @@ func _process(delta: float) -> void:
 			return
 		if not _detached:
 			_finish(8, "[probe] detach not observed", true)
+			return
+		if not _focused:
+			_finish(9, "[probe] focus activation not observed", true)
 			return
 		_finish(0, "[probe] OK distance=%s" % dist)
 

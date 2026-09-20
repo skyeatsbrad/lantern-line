@@ -5,7 +5,7 @@ extends Node
 ## The active run stores its own state in the game_world scene tree.
 
 const SAVE_PATH: String = "user://lantern_line.save"
-const SAVE_VERSION: int = 1
+const SAVE_VERSION: int = 2
 
 signal settings_changed()
 
@@ -36,8 +36,8 @@ func has_continue() -> bool:
 
 
 func store_run_checkpoint(run_snapshot: Dictionary) -> void:
-	pending_run = run_snapshot.duplicate(true)
-	has_pending_run = true
+	pending_run = RunSnapshot.normalize(run_snapshot)
+	has_pending_run = not pending_run.is_empty()
 	_save()
 
 
@@ -108,15 +108,42 @@ func _load() -> void:
 	if typeof(parsed) != TYPE_DICTIONARY:
 		return
 	var data: Dictionary = parsed
-	var ver: int = int(data.get("version", 0))
-	if ver != SAVE_VERSION:
-		return
 	if data.has("settings") and typeof(data["settings"]) == TYPE_DICTIONARY:
 		for k in data["settings"].keys():
 			settings[k] = data["settings"][k]
 	if data.has("meta") and typeof(data["meta"]) == TYPE_DICTIONARY:
 		for k in data["meta"].keys():
 			meta[k] = data["meta"][k]
+	var ver: int = int(data.get("version", 0))
+	if ver <= SAVE_VERSION and data.has("pending_run") and typeof(data["pending_run"]) == TYPE_DICTIONARY:
+		pending_run = RunSnapshot.normalize(data["pending_run"])
+	has_pending_run = (
+		ver <= SAVE_VERSION
+		and bool(data.get("has_pending_run", false))
+		and not pending_run.is_empty()
+	)
+	if ver == 1:
+		_save()
+
+
+func migrate_payload_for_test(data: Dictionary) -> Dictionary:
+	var result: Dictionary = {
+		"version": SAVE_VERSION,
+		"settings": settings.duplicate(true),
+		"meta": meta.duplicate(true),
+		"pending_run": {},
+		"has_pending_run": false
+	}
+	if data.has("settings") and typeof(data["settings"]) == TYPE_DICTIONARY:
+		for key in data["settings"].keys():
+			result["settings"][key] = data["settings"][key]
+	if data.has("meta") and typeof(data["meta"]) == TYPE_DICTIONARY:
+		for key in data["meta"].keys():
+			result["meta"][key] = data["meta"][key]
 	if data.has("pending_run") and typeof(data["pending_run"]) == TYPE_DICTIONARY:
-		pending_run = data["pending_run"]
-	has_pending_run = bool(data.get("has_pending_run", false)) and not pending_run.is_empty()
+		result["pending_run"] = RunSnapshot.normalize(data["pending_run"])
+		result["has_pending_run"] = (
+			bool(data.get("has_pending_run", false))
+			and not (result["pending_run"] as Dictionary).is_empty()
+		)
+	return result

@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "enemies": {
     "Pursuer": {
       "display": "Rail Pursuer",
@@ -27,15 +27,6 @@
       "attack_interval": 1.2,
       "color": [0.35, 0.75, 0.85],
       "description": "Swarms the headlight to drink its glow."
-    },
-    "Boss": {
-      "display": "The Longshadow",
-      "hp": 240,
-      "damage": 10.0,
-      "speed": 30.0,
-      "attack_interval": 1.8,
-      "color": [0.55, 0.15, 0.45],
-      "description": "A guardian of the last tunnel before the Dawn Beacon."
     }
   }
 }

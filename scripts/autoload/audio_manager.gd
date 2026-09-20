@@ -29,6 +29,7 @@ func _ready() -> void:
 		_players.append(p)
 	_ambient = AudioStreamPlayer.new()
 	_ambient.bus = "Master"
+	_ambient.playback_type = AudioServer.PLAYBACK_TYPE_STREAM
 	add_child(_ambient)
 	_apply_volume()
 	GameManager.settings_changed.connect(_apply_volume)
