@@ -6,22 +6,26 @@ A fortress-train survival strategy game through a world without sunlight, built 
 
 ![The Lantern Line gameplay](assets/screenshots/gameplay.png)
 
-## v0.2 - September 20, 2026
+## v0.3 - September 20, 2026
 
-The v0.2 release turns the original proof of concept into a more deliberate run-based strategy game:
+The v0.3 release focuses on readable consequences, recoverable power failures, active combat, and a finale with room to breathe:
 
 - Aim the locomotive headlight into world-space rail junctions to choose routes.
 - Discover 24 deterministic events, including three gated two-part story trails.
-- Manage exact power priorities from 0-3 and read the live power surplus or deficit.
+- Manage clamped power priorities from 0-3 with visible full-load demand and priority-based brownout shedding.
+- Track every car's integrity and powered state from a persistent consist readout.
 - Spend lumen on **Focus Beam**, a narrow long-range burst with 4x light damage.
+- Fire a manual **Defense Salvo** from powered weapon platforms.
+- Spend late-run scrap on field patches and emergency power/lumen overcharges.
 - Build within four starting coupling slots, then buy one permanent expansion to five.
-- Purchase six car types and choose one permanent upgrade branch for each car.
+- Preview power, speed, reserve endurance, and brownout consequences before station purchases.
+- Undo station transactions until departure, with a confirmation step for negative-power builds.
 - Reorder the consist and assign four named crew members to compatible car posts.
 - Hold to detach the rear car, with visible crew-loss or Safe Quarters evacuation consequences.
-- Fight one weapon mount per powered Defense car.
-- Defeat **The Longshadow** across Veil, Tether, and Charge phases.
+- Fight differentiated rear, roof, and aerial threats with clearer warnings.
+- Defeat **The Longshadow** across paced Veil, Tether, and Charge phases with distinct tactical prompts.
 - Resume from versioned checkpoints, including exact boss phase state and deterministic wave cadence.
-- Review the surviving consist, upgrades, routes, detachments, and crew in the Dawn Ledger.
+- Review cars added, upgrades, field actions, power history, detachments, and crew in the Dawn Ledger.
 
 ## How to play
 
@@ -32,7 +36,9 @@ Open `project.godot` in Godot 4.7.2 or run an exported build.
 | Mouse | Aim the headlight. During a route reveal, cursor height selects the upper, middle, or lower rail. |
 | **1 / 2 / 3** | Select Standard / Hearth / Pale lens. |
 | **F** | Fire Focus Beam when ready. |
-| **Q / W / E / R** | Cycle Engine / Light / Defense / Repair priority. Hold Shift to cycle backward. |
+| **C** | Fire the active Defense Salvo when a powered Defense Platform has a target. |
+| **V / B** | Spend scrap on a field patch / emergency overcharge. |
+| **Q / W / E / R** | Raise Engine / Light / Defense / Repair priority. Hold Shift to lower it. Values stop at 0 and 3. |
 | HUD priority buttons | Set an exact priority level from 0-3. |
 | **Space** | Pause or resume. |
 | **T** | Toggle 1x / 2x speed. |
@@ -45,8 +51,8 @@ All major controls also have clickable UI equivalents.
 
 1. **Travel:** Balance power, supplies, lumen, repairs, movement, and defense while aiming the headlight at approaching threats.
 2. **Route reveals:** Every roughly 52 seconds, inspect three projected rail branches and commit one. Offered events do not repeat until the eligible pool is exhausted.
-3. **Waypost Five:** At 7,600 m, make the run's only major refit. Buy a car, fit the fifth slot, install permanent upgrades, repair, reorder, and assign crew.
-4. **The Longshadow:** At 14,500 m, survive the Veil, sever the moving Tether, then interrupt and break the Charge.
+3. **Waypost Five:** At 7,600 m, preview and undo refit decisions before committing. Buy a car, fit the fifth slot, install upgrades, repair, reorder, and assign crew.
+4. **The Longshadow:** At 14,500 m, survive readable minimum-length phases: hold the Veil in the beam, follow the Tether, then time Focus against the Charge.
 5. **Dawn Beacon:** After the boss falls, complete the final 300 m and review the Dawn Ledger.
 
 A typical 1x run lasts about 8-13 minutes. Defeat occurs when locomotive integrity reaches zero or the crew remains without supplies long enough for the train to fail.
@@ -65,6 +71,8 @@ A typical 1x run lasts about 8-13 minutes. Defeat occurs when locomotive integri
 | Utility | Rear protection and detachment | Plated Bulkhead / Breakaway Coupling |
 
 Each car can receive only one upgrade. Purchases, repairs, ordering, slot expansion, and assignments are validated transactions, so failed actions do not consume resources.
+
+When reserves fall into brownout, loads are shed by their selected priorities instead of every powered system failing simultaneously. The HUD and train both identify active, throttled, standby, offline, and destroyed cars.
 
 ### Crew
 
@@ -138,7 +146,7 @@ $env:LANTERN_PROBE = "1"
 & "C:\Users\bradleywo\Tools\Godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe" --headless --path .
 ```
 
-The deterministic suite covers save migration, malformed-save rejection, mode precedence, route uniqueness and chain gates, slot and upgrade transactions, crew loss and evacuation, Focus geometry, hold-to-detach, exact boss resume, three complete strategy archetypes, and a six-seed balance sweep. The reference campaigns finish in approximately 11-13 simulated minutes.
+The deterministic suite covers save migration, malformed-save rejection, priority clamping, brownout recovery, station previews and undo, field actions, route uniqueness and chain effects, crew loss and evacuation, Focus geometry, manual salvos, hold-to-detach, boss pacing and resume, three complete strategy archetypes, and a six-seed balance sweep. The reference campaigns finish in approximately 11-13 simulated minutes.
 
 Godot may print `ObjectDB` or `CanvasItem` cleanup warnings while the headless test process exits; these are engine teardown warnings and do not change a successful exit code.
 

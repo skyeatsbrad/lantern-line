@@ -20,13 +20,19 @@ func run(_host: Node) -> void:
 	_test_data_load()
 	_test_route_generation()
 	_test_run_state_tick()
+	_test_priority_fail_safes()
+	_test_brownout_load_shedding()
 	_test_derived_stats_and_light()
+	_test_story_modifiers()
 	_test_station_transactions()
+	_test_station_undo(_host)
+	_test_field_actions()
 	_test_crew_detachment()
 	_test_crew_resume_and_repeat_destruction()
 	_test_disabled_car_power()
 	_test_run_length()
 	_test_enemy_flow()
+	_test_defense_salvo()
 	_test_detach()
 	_test_deterministic_damage()
 	_test_save_roundtrip()
@@ -34,6 +40,7 @@ func run(_host: Node) -> void:
 	_test_mode_boundaries(_host)
 	_test_hold_to_detach(_host)
 	_test_boss_resume(_host)
+	_test_boss_phase_pacing()
 	_test_campaign_flow(_host)
 	_test_balance_archetypes(_host)
 	_test_seed_sweep(_host)
@@ -174,6 +181,7 @@ func _test_run_state_tick() -> void:
 	var configs: Dictionary = _mk_configs()
 	var rs: RunState = RunState.new()
 	rs.setup(42, configs)
+	_expect(int(rs.priorities.get("defense", -1)) == 0, "new runs keep absent Defense systems unpowered")
 	var start: float = rs.distance
 	for i in range(60):
 		rs.tick(0.1)
@@ -191,11 +199,43 @@ func _test_run_state_tick() -> void:
 	rs.cycle_priority("light")
 
 
+func _test_priority_fail_safes() -> void:
+	var rs := RunState.new()
+	rs.setup(4201, _mk_configs())
+	rs.set_priority("light", 3)
+	_expect(rs.change_priority("light", 1) == 3, "priority increase wrapped maximum to zero")
+	_expect(int(rs.priorities["light"]) == 3, "priority maximum was not clamped")
+	rs.set_priority("light", 0)
+	_expect(rs.change_priority("light", -1) == 0, "priority decrease wrapped zero to maximum")
+	_expect(int(rs.priorities["light"]) == 0, "priority minimum was not clamped")
+
+
+func _test_brownout_load_shedding() -> void:
+	var rs := RunState.new()
+	rs.setup(4202, _mk_configs())
+	_expect(rs.add_car("Defense"), "could not add Defense car for brownout test")
+	for role in ["engine", "light", "defense", "repair"]:
+		rs.set_priority(role, 3)
+	rs.power = 0.5
+	rs.brownout_active = true
+	rs.refresh_stats()
+	var stats: TrainStats = rs.stats()
+	_expect(stats.requested_power_net < 0.0, "brownout test did not create excess demand")
+	_expect(stats.power_net > 0.0, "load shedding left no recharge headroom")
+	_expect(stats.system_state("light") == "active", "highest-priority Light load was shed")
+	_expect(stats.system_state("defense") == "offline", "lower-priority Defense load was not shed")
+	var before: float = rs.power
+	rs.tick(1.0)
+	_expect(rs.power > before, "brownout did not begin recovering stored power")
+
+
 func _test_derived_stats_and_light() -> void:
 	var rs := RunState.new()
 	rs.setup(2244, _mk_configs())
 	_expect(rs.stats().defense_mounts.is_empty(), "train stats invented a Defense mount")
 	_expect(rs.add_car("Defense"), "could not add Defense car for derived-stat test")
+	_expect(rs.stats().defense_mounts.is_empty(), "zero-priority Defense mount did not remain in standby")
+	rs.set_priority("defense", 1)
 	_expect(rs.stats().defense_mounts.size() == 1, "Defense car did not create exactly one mount")
 	var origin := Vector2(100.0, 100.0)
 	var normal: LightProfile = LightProfile.build(rs, rs.stats(), Vector2.RIGHT, origin)
@@ -206,6 +246,32 @@ func _test_derived_stats_and_light() -> void:
 	_expect(focused.range_px > normal.range_px, "Focus did not extend headlight range")
 	_expect(focused.spread_radians < normal.spread_radians, "Focus did not narrow headlight spread")
 	_expect(is_equal_approx(focused.damage_multiplier, 4.0), "Focus damage multiplier changed")
+	rs.focus_active_time = 0.0
+	rs.current_lens = "Pale"
+	var pale: LightProfile = LightProfile.build(rs, rs.stats(), Vector2.RIGHT, origin)
+	_expect(pale.damage_multiplier > normal.damage_multiplier, "Pale lens did not increase beam damage")
+
+
+func _test_story_modifiers() -> void:
+	var rs := RunState.new()
+	rs.setup(2245, _mk_configs())
+	_expect(rs.add_car("Greenhouse"), "could not add Greenhouse for story modifier test")
+	var base_supply_generation: float = rs.stats().supply_generation
+	var base_repair: float = rs.stats().repair_rate
+	var base_focus_cooldown: float = rs.stats().focus_cooldown
+	rs.event_flags["ash_garden_found"] = true
+	rs.event_flags["buried_bell_answered"] = true
+	rs.event_flags["signal_vault_opened"] = true
+	rs.refresh_stats()
+	_expect(
+		rs.stats().supply_generation > base_supply_generation,
+		"Ash Garden did not improve Greenhouse output"
+	)
+	_expect(rs.stats().repair_rate > base_repair, "Bell Keeper did not improve repairs")
+	_expect(
+		rs.stats().focus_cooldown < base_focus_cooldown,
+		"Signal Vault did not improve Focus recharge"
+	)
 
 
 func _test_station_transactions() -> void:
@@ -230,9 +296,64 @@ func _test_station_transactions() -> void:
 	)
 	_expect(bool(rs.move_car(defense_id, -3).get("ok", false)), "car reorder transaction failed")
 	_expect(String(rs.cars.front().get("id", "")) == defense_id, "car reorder moved the wrong car")
+	for role in ["engine", "light", "defense", "repair"]:
+		rs.set_priority(role, 3)
+	var projection: Dictionary = rs.station_projection()
+	_expect(float(projection.get("power_net", 0.0)) < 0.0, "station projection missed a power deficit")
+	_expect(
+		not (projection.get("brownout_systems", []) as Array).is_empty(),
+		"station projection did not identify brownout consequences"
+	)
 	rs.locomotive_hp -= 20.0
 	_expect(bool(rs.purchase_repair().get("ok", false)), "repair transaction failed")
 	_expect(is_equal_approx(rs.locomotive_hp, rs.locomotive_max_hp), "repair did not restore locomotive")
+
+
+func _test_station_undo(host: Node) -> void:
+	var rs := RunState.new()
+	rs.setup(31338, _mk_configs())
+	rs.scrap = 100.0
+	var panel := StationPanel.new()
+	host.add_child(panel)
+	panel.present(rs)
+	var before_count: int = rs.cars.size()
+	var before_scrap: float = rs.scrap
+	panel.call("_try_add", "Defense")
+	_expect(rs.cars.size() == before_count + 1, "station purchase did not apply before undo")
+	panel.call("_undo_last")
+	_expect(rs.cars.size() == before_count, "station undo did not restore the consist")
+	_expect(is_equal_approx(rs.scrap, before_scrap), "station undo did not refund scrap")
+	_expect(rs.add_car("Defense"), "could not prepare station departure warning")
+	for role in ["engine", "light", "defense", "repair"]:
+		rs.set_priority(role, 3)
+	panel.present(rs)
+	panel.call("_close")
+	_expect(bool(panel.get("_open")), "station allowed an unconfirmed power-deficit departure")
+	panel.call("_close")
+	_expect(not bool(panel.get("_open")), "station did not accept the confirmed deficit departure")
+	panel.queue_free()
+
+
+func _test_field_actions() -> void:
+	var rs := RunState.new()
+	rs.setup(31339, _mk_configs())
+	rs.station_completed = true
+	rs.scrap = 20.0
+	rs.locomotive_hp = 70.0
+	var patch_result: Dictionary = rs.purchase_field_patch()
+	_expect(bool(patch_result.get("ok", false)), "field patch transaction failed")
+	_expect(is_equal_approx(rs.locomotive_hp, 92.0), "field patch restored the wrong amount")
+	_expect(is_equal_approx(rs.scrap, 14.0), "field patch charged the wrong scrap cost")
+	rs.power = 2.0
+	rs.lumen = 4.0
+	var overcharge_result: Dictionary = rs.purchase_emergency_overcharge()
+	_expect(bool(overcharge_result.get("ok", false)), "emergency overcharge transaction failed")
+	_expect(is_equal_approx(rs.power, 6.0), "emergency overcharge restored the wrong power")
+	_expect(is_equal_approx(rs.lumen, 7.0), "emergency overcharge restored the wrong lumen")
+	_expect(
+		(rs.run_history.get("field_actions", []) as Array).size() == 2,
+		"field actions were not recorded"
+	)
 
 
 func _test_crew_detachment() -> void:
@@ -340,6 +461,27 @@ func _test_enemy_flow() -> void:
 		_fail("enemy did not die after hp<=0")
 
 
+func _test_defense_salvo() -> void:
+	var rs := RunState.new()
+	rs.setup(100, _mk_configs())
+	_expect(rs.add_car("Defense"), "could not add Defense car for salvo test")
+	rs.set_priority("defense", 2)
+	rs.power = 12.0
+	var director := EnemyDirector.new()
+	director.setup(rs, Vector2(1280, 720))
+	director.set_train_pos(Vector2(360, 500))
+	director._spawn_wave()
+	for enemy_variant in director._active:
+		var enemy: Enemy = enemy_variant
+		enemy.position = Vector2(500, 450)
+	var request: Dictionary = rs.request_defense_salvo()
+	_expect(bool(request.get("ok", false)), "powered Defense Platform could not fire a salvo")
+	var salvo: Dictionary = director.fire_manual_salvo(rs.stats())
+	_expect(float(salvo.get("damage", 0.0)) > 0.0, "manual salvo dealt no damage")
+	_expect(rs.defense_salvo_cooldown > 0.0, "manual salvo did not start its cooldown")
+	director.free()
+
+
 func _test_detach() -> void:
 	var configs: Dictionary = _mk_configs()
 	var rs: RunState = RunState.new()
@@ -377,6 +519,8 @@ func _test_save_roundtrip() -> void:
 	rs.supplies = 22.0
 	rs.focus_active_time = 0.75
 	rs.focus_cooldown = 6.25
+	rs.defense_salvo_cooldown = 4.5
+	rs.brownout_active = true
 	rs.route_history = ["living_grove"]
 	rs.route_seen_ids = ["living_grove", "machinery_pylons"]
 	rs.event_flags = {"signal_code_known": true}
@@ -395,6 +539,11 @@ func _test_save_roundtrip() -> void:
 		_fail("damage roll index did not survive save roundtrip")
 	_expect(is_equal_approx(rs2.focus_active_time, 0.75), "Focus active time did not survive save")
 	_expect(is_equal_approx(rs2.focus_cooldown, 6.25), "Focus cooldown did not survive save")
+	_expect(
+		is_equal_approx(rs2.defense_salvo_cooldown, 4.5),
+		"Defense salvo cooldown did not survive save"
+	)
+	_expect(rs2.brownout_active, "brownout state did not survive save")
 	_expect(rs2.route_history == rs.route_history, "route history did not survive save")
 	_expect(rs2.route_seen_ids == rs.route_seen_ids, "seen route pool did not survive save")
 	_expect(bool(rs2.event_flags.get("signal_code_known", false)), "event flags did not survive save")
@@ -486,6 +635,28 @@ func _test_boss_resume(host: Node) -> void:
 			"boss resume changed phase timer"
 		)
 	world.queue_free()
+
+
+func _test_boss_phase_pacing() -> void:
+	var rs := RunState.new()
+	rs.setup(993, _mk_configs())
+	rs.set_priority("light", 3)
+	var encounter := LongshadowEncounter.new()
+	encounter.setup(rs, Vector2(1280, 720), Vector2(360, 500))
+	encounter.start()
+	var profile := LightProfile.new()
+	profile.origin = Vector2.ZERO
+	profile.direction = Vector2.RIGHT
+	profile.range_px = 5000.0
+	profile.spread_radians = PI
+	profile.damage_multiplier = 100.0
+	encounter.advance(3.1, profile, rs.stats())
+	for index in range(15):
+		encounter.advance(1.0, profile, rs.stats())
+	_expect(encounter.phase_name() == "VEIL", "Longshadow Veil ended before its minimum duration")
+	encounter.advance(1.1, profile, rs.stats())
+	_expect(encounter.phase_name() == "TETHER", "Longshadow Veil did not advance after its duration")
+	encounter.free()
 
 
 func _test_campaign_flow(host: Node) -> void:
@@ -652,6 +823,13 @@ func _run_campaign_scenario(host: Node, seed_value: int, strategy: String) -> Di
 		)
 		if encounter.is_active() and rs.focus_cooldown <= 0.0:
 			rs.request_focus()
+		if (
+			(strategy == "gunline" or strategy == "adaptive")
+			and rs.defense_salvo_cooldown <= 0.0
+			and rs.power >= 4.0
+			and (encounter.is_active() or director.has_salvo_target())
+		):
+			world.call("_on_defense_salvo")
 		world.call("_process", 0.25)
 		director.call("_process", 0.25)
 		if (

@@ -29,22 +29,23 @@ static func build(
 	result.origin = origin_point
 	result.direction = aim_direction.normalized()
 	result.focused = run_state.focus_active_time > 0.0
+	var effective_light: float = stats.effective_priority("light")
 	var power_factor: float = lerpf(0.35, 1.0, clampf(run_state.power / 6.0, 0.0, 1.0))
 	result.intensity = clampf(
-		(0.35 + float(run_state.priorities.get("light", 0)) * 0.22 + run_state.lumen * 0.008)
+		(0.35 + effective_light * 0.22 + run_state.lumen * 0.008)
 		* power_factor,
 		0.16,
 		1.5
 	)
 	var lens_range: float = float(lens.get("reveal_range", 1.0))
 	result.range_px = 500.0 * lens_range * result.intensity
+	result.damage_multiplier = float(lens.get("beam_damage_multiplier", 1.0))
 	if result.focused:
 		result.range_px *= 1.16
 		result.spread_radians = 0.17
-		result.damage_multiplier = 4.0
+		result.damage_multiplier *= 4.0
 	else:
 		result.spread_radians = 0.7227342478
-		result.damage_multiplier = 1.0
 	return result
 
 

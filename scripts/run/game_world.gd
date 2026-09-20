@@ -19,7 +19,7 @@ const DATA_CREW: String = "res://data/crew.json"
 const DATA_ROUTES: String = "res://data/route_events.json"
 const REVEAL_INTERVAL: float = 52.0
 const DETACH_HOLD_SECONDS: float = 0.85
-const VICTORY_REVEAL_SECONDS: float = 2.5
+const VICTORY_REVEAL_SECONDS: float = 4.5
 
 var run_state: RunState
 var route_director: RouteDirector
@@ -191,6 +191,8 @@ func _wire_signals() -> void:
 	_hud.request_pause.connect(_on_pause)
 	_hud.request_speed.connect(_on_speed)
 	_hud.request_focus.connect(_on_focus)
+	_hud.request_defense_salvo.connect(_on_defense_salvo)
+	_hud.request_field_action.connect(_on_field_action)
 	_hud.detach_hold_changed.connect(_on_detach_hold_changed)
 
 	_route_choice.chosen.connect(_on_route_chosen)
@@ -201,6 +203,7 @@ func _wire_signals() -> void:
 
 	_end_screen.closed.connect(_on_end_closed)
 	_enemy_director.enemy_killed.connect(_on_enemy_killed)
+	_enemy_director.threat_announced.connect(_on_threat_announced)
 	_longshadow.phase_changed.connect(_on_boss_phase_changed)
 	_longshadow.attack_landed.connect(_on_boss_attack)
 	_longshadow.defeated.connect(_on_boss_defeated)
@@ -288,12 +291,16 @@ func _update_presentational_state() -> void:
 		else current_stats.speed / 80.0
 	)
 	AudioManager.set_wheel_rate(clampf(speed_ratio * 4.0, 0.2, 6.0))
-	_effects.set_dawn_progress(clampf(
-		(run_state.distance - RunState.BOSS_DISTANCE)
-		/ (RunState.JOURNEY_TARGET - RunState.BOSS_DISTANCE),
-		0.0,
-		1.0
-	))
+	_effects.set_dawn_progress(
+		clampf(
+			(run_state.distance - RunState.BOSS_GATE_DISTANCE)
+			/ (RunState.JOURNEY_TARGET - RunState.BOSS_GATE_DISTANCE),
+			0.0,
+			1.0
+		)
+		if run_state.boss_defeated
+		else 0.0
+	)
 	var world_layer: Node = get_node_or_null("WorldLayer")
 	if world_layer is Node2D:
 		(world_layer as Node2D).position = _effects.shake_offset()
@@ -319,7 +326,12 @@ func _open_reveal() -> void:
 	_set_mode(RunMode.ROUTE_REVEAL)
 	var selected_index := _route_projection.index_for_cursor_y(get_viewport().get_mouse_position().y)
 	_route_projection.present(choices, selected_index)
-	_route_choice.present(choices, run_state.current_lens, _train_controller.current_band())
+	_route_choice.present(
+		choices,
+		run_state.current_lens,
+		_train_controller.current_band(),
+		run_state.lens_config.get(run_state.current_lens, {})
+	)
 	_route_choice.set_selected_index(selected_index)
 
 
@@ -337,10 +349,12 @@ func _start_boss() -> void:
 		return
 	run_state.boss_triggered = true
 	run_state.distance = minf(run_state.distance, RunState.BOSS_GATE_DISTANCE)
+	run_state.speed_scale = 1.0
 	_enemy_director.clear_regular_enemies()
 	_longshadow.start()
 	_set_mode(RunMode.BOSS)
-	_hud.flash("THE LONGSHADOW APPROACHES", 3.0)
+	_hud.flash("THE LONGSHADOW APPROACHES - speed set to 1x", 3.5)
+	_effects.request_flash(Color(0.32, 0.08, 0.28, 0.65), 1.2)
 	AudioManager.play("alarm")
 	_save_checkpoint()
 
@@ -386,8 +400,16 @@ func _on_lens(name: String) -> void:
 func _on_priority(role: String, delta: int = 1) -> void:
 	if not _gameplay_controls_enabled():
 		return
-	run_state.change_priority(role, delta)
+	var before: int = int(run_state.priorities.get(role, 0))
+	var after: int = run_state.change_priority(role, delta)
 	AudioManager.play("click")
+	var boundary: String = " (limit)" if before == after else ""
+	_hud.flash("%s priority %d%s | full-load net %+.1f" % [
+		role.capitalize(),
+		after,
+		boundary,
+		run_state.stats().requested_power_net
+	], 1.4)
 
 
 func _on_priority_level(role: String, level: int) -> void:
@@ -395,6 +417,11 @@ func _on_priority_level(role: String, level: int) -> void:
 		return
 	run_state.set_priority(role, level)
 	AudioManager.play("click")
+	_hud.flash("%s priority %d | full-load net %+.1f" % [
+		role.capitalize(),
+		int(run_state.priorities.get(role, 0)),
+		run_state.stats().requested_power_net
+	], 1.4)
 
 
 func _on_focus() -> void:
@@ -403,6 +430,61 @@ func _on_focus() -> void:
 	if run_state.request_focus():
 		AudioManager.play("reveal")
 		_hud.flash("FOCUS BEAM", 1.0)
+	else:
+		AudioManager.play("alarm")
+
+
+func _on_defense_salvo() -> void:
+	if not _gameplay_controls_enabled():
+		return
+	if not _longshadow.is_active() and not _enemy_director.has_salvo_target():
+		_hud.flash("Defense salvo: no target in range.", 1.5)
+		AudioManager.play("alarm")
+		return
+	var salvo_stats: TrainStats = run_state.stats()
+	var request: Dictionary = run_state.request_defense_salvo()
+	if not bool(request.get("ok", false)):
+		_hud.flash(String(request.get("message", "Defense salvo unavailable.")), 1.8)
+		AudioManager.play("alarm")
+		return
+	var hit_positions: Array = []
+	var damage: float = 0.0
+	if _longshadow.is_active():
+		damage = _longshadow.apply_defense_salvo(salvo_stats)
+		hit_positions.append(_longshadow.current_target_position())
+	else:
+		var salvo_result: Dictionary = _enemy_director.fire_manual_salvo(salvo_stats)
+		hit_positions = salvo_result.get("positions", [])
+		damage = float(salvo_result.get("damage", 0.0))
+	for position_variant in hit_positions:
+		_effects.add_hit(position_variant, Color(1.0, 0.58, 0.24))
+	_effects.request_shake(7.0)
+	_effects.request_flash(Color(1.0, 0.5, 0.2, 0.28), 0.22)
+	AudioManager.play("salvo")
+	_hud.flash("DEFENSE SALVO - %.0f damage" % damage, 1.5)
+
+
+func _on_field_action(action: String) -> void:
+	if not _gameplay_controls_enabled():
+		return
+	var result: Dictionary
+	match action:
+		"patch":
+			result = run_state.purchase_field_patch()
+		"overcharge":
+			result = run_state.purchase_emergency_overcharge()
+		_:
+			return
+	_hud.flash(String(result.get("message", "No change.")), 2.0)
+	if bool(result.get("ok", false)):
+		AudioManager.play("repair" if action == "patch" else "overcharge")
+		_effects.request_flash(
+			Color(0.36, 0.78, 0.48, 0.2)
+			if action == "patch"
+			else Color(1.0, 0.78, 0.3, 0.24),
+			0.35
+		)
+		_save_checkpoint()
 	else:
 		AudioManager.play("alarm")
 
@@ -455,12 +537,14 @@ func _on_detach() -> void:
 	if not _gameplay_controls_enabled():
 		return
 	var detach_stats: TrainStats = run_state.stats()
+	var detached_position: Vector2 = _train_renderer.car_screen_center(run_state.cars.size() - 1)
 	var rear: Dictionary = run_state.detach_rear_car()
 	if rear.is_empty():
 		AudioManager.play("alarm")
 		return
 	AudioManager.play("detach")
 	_effects.request_shake(8.0)
+	_effects.add_detached_car(detached_position)
 	_enemy_director.on_detach(detach_stats.detach_purge_radius)
 	run_state.trigger_detach_boost(detach_stats.detach_boost_duration)
 	run_state.power = clampf(
@@ -485,8 +569,19 @@ func _on_enemy_killed(kind: String, _value: int) -> void:
 
 
 func _on_boss_phase_changed(phase_name: String) -> void:
-	_hud.flash("LONGSHADOW: %s" % phase_name, 2.0)
+	var instruction: String
+	match phase_name:
+		"VEIL":
+			instruction = "Hold the shadow inside the beam."
+		"TETHER":
+			instruction = "Track the moving anchor."
+		"CHARGE":
+			instruction = "Save Focus to interrupt each charge."
+		_:
+			instruction = "Keep the lantern trained."
+	_hud.flash("LONGSHADOW: %s - %s" % [phase_name, instruction], 3.2)
 	_effects.request_shake(4.0)
+	_effects.request_flash(Color(0.52, 0.12, 0.42, 0.34), 0.65)
 
 
 func _on_boss_attack(message: String, severity: float) -> void:
@@ -500,21 +595,34 @@ func _on_boss_defeated() -> void:
 	run_state.external_speed_multiplier = 1.0
 	_set_mode(RunMode.TRAVEL)
 	_hud.set_boss_status("")
-	_hud.flash("THE LONGSHADOW FALLS - DAWN IS 300 M AHEAD", 4.0)
+	_hud.flash("THE LONGSHADOW FALLS - ride the final 300 m into dawn", 4.5)
+	_effects.request_flash(Color(1.0, 0.82, 0.46, 0.42), 1.4)
 	_save_checkpoint()
 
 
 func _on_car_destroyed(display_name: String, evacuated_names: Array) -> void:
-	var message: String = "%s destroyed" % display_name
+	var message: String = "%s destroyed | full-load net %+.1f" % [
+		display_name,
+		run_state.stats().requested_power_net
+	]
+	if run_state.brownout_active:
+		message += " | LOAD SHEDDING ACTIVE"
 	if not evacuated_names.is_empty():
 		message += " | Evacuated: %s" % ", ".join(PackedStringArray(evacuated_names))
 	_hud.flash(message, 2.5)
 	_effects.request_shake(6.0)
 
 
+func _on_threat_announced(_kind: String, guidance: String) -> void:
+	_hud.flash(guidance, 2.5)
+	AudioManager.play("alarm")
+
+
 func _input(event: InputEvent) -> void:
 	if event is InputEventMouseButton or event is InputEventKey:
 		AudioManager.notify_user_gesture()
+	if event is InputEventKey and (event as InputEventKey).echo:
+		return
 	if event.is_action_released("detach_car"):
 		_on_detach_hold_changed(false)
 	if not _gameplay_controls_enabled():
@@ -534,6 +642,12 @@ func _input(event: InputEvent) -> void:
 		_on_lens("Pale")
 	elif event.is_action_pressed("focus_beam"):
 		_on_focus()
+	elif event.is_action_pressed("defense_salvo"):
+		_on_defense_salvo()
+	elif event.is_action_pressed("field_patch"):
+		_on_field_action("patch")
+	elif event.is_action_pressed("field_overcharge"):
+		_on_field_action("overcharge")
 	elif event.is_action_pressed("detach_car"):
 		_on_detach_hold_changed(true)
 	elif event.is_action_pressed("power_engine"):

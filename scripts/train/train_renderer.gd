@@ -31,6 +31,15 @@ func set_position_hint(p: Vector2) -> void:
 	_pos = p
 
 
+func car_screen_center(index: int) -> Vector2:
+	if index < 0:
+		return _pos
+	return Vector2(
+		_pos.x - LOCO_WIDTH * 0.5 - float(index + 1) * (CAR_WIDTH + 8.0) + CAR_WIDTH * 0.5,
+		_pos.y - CAR_HEIGHT * 0.5
+	)
+
+
 func _process(delta: float) -> void:
 	if _run_state == null:
 		return
@@ -128,6 +137,7 @@ func _draw_car(car: Dictionary, pos: Vector2, is_rear: bool) -> void:
 	# type icon (glyph)
 	_draw_car_glyph(pos, type_key)
 	_draw_crew_posts(car, pos)
+	_draw_power_state(car, pos)
 	if float(car.get("hp", 0.0)) <= 0.0:
 		draw_line(
 			Vector2(pos.x + 10.0, pos.y - CAR_HEIGHT + 8.0),
@@ -175,6 +185,45 @@ func _draw_crew_posts(car: Dictionary, pos: Vector2) -> void:
 			8,
 			Color(0.1, 0.08, 0.06)
 		)
+
+
+func _draw_power_state(car: Dictionary, pos: Vector2) -> void:
+	var state: String = _run_state.car_power_state(car)
+	if state == "offline" or state == "destroyed":
+		draw_rect(
+			Rect2(pos.x, pos.y - CAR_HEIGHT, CAR_WIDTH, CAR_HEIGHT * 0.75),
+			Color(0.02, 0.02, 0.03, 0.58)
+		)
+	elif state == "throttled":
+		for stripe in range(4):
+			var x: float = pos.x + 8.0 + stripe * 22.0
+			draw_line(
+				Vector2(x, pos.y - CAR_HEIGHT + 4.0),
+				Vector2(x - 14.0, pos.y - 17.0),
+				Color(0.95, 0.58, 0.18, 0.5),
+				2.0
+			)
+	if state == "active" or state == "passive" or state == "producing":
+		return
+	var badge_text: String = {
+		"throttled": "LOW",
+		"offline": "OFF",
+		"standby": "STBY",
+		"destroyed": "DEST"
+	}.get(state, state.to_upper())
+	draw_rect(
+		Rect2(pos.x + CAR_WIDTH - 34.0, pos.y - CAR_HEIGHT + 7.0, 29.0, 13.0),
+		Color(0.06, 0.06, 0.07, 0.9)
+	)
+	draw_string(
+		ThemeDB.fallback_font,
+		Vector2(pos.x + CAR_WIDTH - 32.0, pos.y - CAR_HEIGHT + 17.0),
+		badge_text,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		27.0,
+		9,
+		Color(1.0, 0.78, 0.42)
+	)
 
 
 func _draw_car_glyph(pos: Vector2, type_key: String) -> void:

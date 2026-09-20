@@ -24,6 +24,12 @@ const SLOT_EXPANSION_COST: int = 16
 const SCRAP_MAX: float = 120.0
 const SUPPLIES_MAX: float = 120.0
 const LUMEN_MAX: float = 40.0
+const BROWNOUT_ENTER_POWER: float = 1.0
+const BROWNOUT_RECOVER_POWER: float = 3.0
+const FIELD_PATCH_COST: int = 6
+const FIELD_OVERCHARGE_COST: int = 5
+const DEFENSE_SALVO_POWER_COST: float = 2.0
+const DEFENSE_SALVO_COOLDOWN: float = 12.0
 
 # ----- Progress -----
 var distance: float = 0.0
@@ -43,7 +49,16 @@ var run_history: Dictionary = {
 	"lost_crew": [],
 	"purchased_cars": [],
 	"upgrades": [],
-	"boss_responses": []
+	"boss_responses": [],
+	"field_actions": [],
+	"car_losses": [],
+	"telemetry": {
+		"focus_uses": 0,
+		"defense_salvos": 0,
+		"min_power": 6.0,
+		"brownout_time": 0.0,
+		"boss_phase_times": {}
+	}
 }
 
 # ----- Resources -----
@@ -59,7 +74,7 @@ var damage_roll_index: int = 0
 var priorities: Dictionary = {
 	"engine": 1,
 	"light": 2,
-	"defense": 1,
+	"defense": 0,
 	"repair": 1
 }
 
@@ -80,6 +95,8 @@ var current_lens: String = "Standard"
 var lens_cooldown: float = 0.0
 var focus_active_time: float = 0.0
 var focus_cooldown: float = 0.0
+var defense_salvo_cooldown: float = 0.0
+var brownout_active: bool = false
 
 # ----- Speed control -----
 var paused: bool = false
@@ -144,16 +161,20 @@ func tick(delta: float) -> void:
 	if is_simulation_paused() or victory or defeat:
 		return
 	var scaled: float = delta * speed_scale
+	_update_brownout_state()
 	refresh_stats()
 	travel_time += scaled
 	distance = minf(distance_cap, distance + scaled * frame_stats.speed)
 	power = clampf(power + frame_stats.power_net * scaled * 0.5, 0.0, 12.0)
+	_update_brownout_state()
 	if lens_cooldown > 0.0:
 		lens_cooldown = maxf(0.0, lens_cooldown - scaled)
 	if focus_active_time > 0.0:
 		focus_active_time = maxf(0.0, focus_active_time - scaled)
 	if focus_cooldown > 0.0:
 		focus_cooldown = maxf(0.0, focus_cooldown - scaled)
+	if defense_salvo_cooldown > 0.0:
+		defense_salvo_cooldown = maxf(0.0, defense_salvo_cooldown - scaled)
 	if detach_boost_time > 0.0:
 		detach_boost_time = maxf(0.0, detach_boost_time - scaled)
 	var supply_rate: float = 0.07 + 0.012 * float(alive_crew_count())
@@ -181,9 +202,21 @@ func tick(delta: float) -> void:
 		_supplies_zero_time = 0.0
 	if resume_grace_time > 0.0:
 		resume_grace_time = maxf(0.0, resume_grace_time - scaled)
+	var telemetry: Dictionary = _telemetry()
+	telemetry["min_power"] = minf(float(telemetry.get("min_power", power)), power)
+	if brownout_active:
+		telemetry["brownout_time"] = float(telemetry.get("brownout_time", 0.0)) + scaled
 	refresh_stats()
 	emit_signal("resources_changed")
 	emit_signal("power_changed")
+
+
+func _update_brownout_state() -> void:
+	if brownout_active:
+		if power >= BROWNOUT_RECOVER_POWER:
+			brownout_active = false
+	elif power <= BROWNOUT_ENTER_POWER:
+		brownout_active = true
 
 
 func supply_efficiency_factor() -> float:
@@ -225,11 +258,26 @@ func _car_powered(type_key: String) -> bool:
 
 
 func has_powered_car_type(type_key: String) -> bool:
-	return has_car_type(type_key) and power > 1.0
+	for car_variant in cars:
+		var car: Dictionary = car_variant
+		if String(car.get("type", "")) == type_key and is_car_powered(car):
+			return true
+	return false
 
 
 func is_car_powered(car: Dictionary) -> bool:
-	return float(car.get("hp", 0.0)) > 0.0 and power > 1.0
+	var state: String = car_power_state(car)
+	return state == "active" or state == "throttled" or state == "producing" or state == "passive"
+
+
+func car_power_state(car: Dictionary) -> String:
+	if float(car.get("hp", 0.0)) <= 0.0:
+		return "destroyed"
+	return stats().car_state(String(car.get("id", "")))
+
+
+func effective_priority(role: String) -> float:
+	return stats().effective_priority(role)
 
 
 func car_by_id(car_id: String) -> Dictionary:
@@ -310,6 +358,7 @@ func request_lens(lens_key: String) -> bool:
 		return false
 	current_lens = lens_key
 	lens_cooldown = 4.0
+	refresh_stats()
 	return true
 
 
@@ -322,8 +371,35 @@ func request_focus() -> bool:
 	lumen = maxf(0.0, lumen - current_stats.focus_cost)
 	focus_active_time = 1.8
 	focus_cooldown = current_stats.focus_cooldown
+	var telemetry: Dictionary = _telemetry()
+	telemetry["focus_uses"] = int(telemetry.get("focus_uses", 0)) + 1
 	emit_signal("resources_changed")
 	return true
+
+
+func request_defense_salvo() -> Dictionary:
+	var current_stats: TrainStats = stats()
+	if defense_salvo_cooldown > 0.0:
+		return _result(false, "Defense salvo recharging for %.1fs." % defense_salvo_cooldown)
+	if int(priorities.get("defense", 0)) <= 0:
+		return _result(false, "Raise Defense priority before firing.")
+	if current_stats.defense_mounts.is_empty():
+		return _result(false, "No powered Defense Platform is ready.")
+	if power < DEFENSE_SALVO_POWER_COST:
+		return _result(false, "Defense salvo needs %.0f stored power." % DEFENSE_SALVO_POWER_COST)
+	power = maxf(0.0, power - DEFENSE_SALVO_POWER_COST)
+	defense_salvo_cooldown = (
+		DEFENSE_SALVO_COOLDOWN * 0.8
+		if bool(event_flags.get("signal_vault_opened", false))
+		else DEFENSE_SALVO_COOLDOWN
+	)
+	var telemetry: Dictionary = _telemetry()
+	telemetry["defense_salvos"] = int(telemetry.get("defense_salvos", 0)) + 1
+	_update_brownout_state()
+	refresh_stats()
+	emit_signal("resources_changed")
+	emit_signal("power_changed")
+	return _result(true, "Defense salvo fired.")
 
 
 func set_priority(role: String, level: int) -> void:
@@ -335,13 +411,15 @@ func set_priority(role: String, level: int) -> void:
 
 
 func cycle_priority(role: String) -> void:
-	set_priority(role, (int(priorities[role]) + 1) % 4)
+	change_priority(role, 1)
 
 
-func change_priority(role: String, delta: int) -> void:
+func change_priority(role: String, delta: int) -> int:
 	if not priorities.has(role):
-		return
-	set_priority(role, posmod(int(priorities[role]) + delta, 4))
+		return 0
+	var next_level: int = clampi(int(priorities[role]) + delta, 0, 3)
+	set_priority(role, next_level)
+	return next_level
 
 
 func toggle_pause() -> void:
@@ -387,6 +465,20 @@ func damage_random_car(amount: float) -> Dictionary:
 		and not bool(cars[idx].get("destroyed_notified", false))
 	):
 		return _disable_destroyed_car(idx)
+	return {}
+
+
+func damage_car_at(index: int, amount: float) -> Dictionary:
+	if cars.is_empty() or index < 0:
+		damage_locomotive(amount)
+		return {}
+	var target_index: int = clampi(index, 0, cars.size() - 1)
+	cars[target_index]["hp"] = maxf(0.0, float(cars[target_index]["hp"]) - amount)
+	if (
+		float(cars[target_index].get("hp", 0.0)) <= 0.0
+		and not bool(cars[target_index].get("destroyed_notified", false))
+	):
+		return _disable_destroyed_car(target_index)
 	return {}
 
 
@@ -479,7 +571,9 @@ func apply_route_event(event: Dictionary) -> void:
 		route_history.append(event_id)
 	if int(event.get("danger", 0)) > 0 and _has_upgrade("Workshop", "salvage_rig"):
 		scrap = minf(SCRAP_MAX, scrap + 2.0)
+	refresh_stats()
 	emit_signal("resources_changed")
+	emit_signal("power_changed")
 
 
 func record_offered_routes(choices: Array) -> void:
@@ -503,6 +597,71 @@ func repair_train(amount: float) -> void:
 			car["destroyed_notified"] = false
 
 
+func field_patch_available() -> bool:
+	if not station_completed:
+		return false
+	if scrap < FIELD_PATCH_COST:
+		return false
+	if locomotive_hp < locomotive_max_hp:
+		return true
+	for car_variant in cars:
+		var car: Dictionary = car_variant
+		if float(car.get("hp", 0.0)) < float(car.get("max_hp", 0.0)):
+			return true
+	return false
+
+
+func purchase_field_patch() -> Dictionary:
+	if not station_completed:
+		return _result(false, "Field actions unlock after Waypost Five.")
+	if scrap < FIELD_PATCH_COST:
+		return _result(false, "Field patch needs %d scrap." % FIELD_PATCH_COST)
+	if not field_patch_available():
+		return _result(false, "No damaged section needs a field patch.")
+	scrap -= FIELD_PATCH_COST
+	var target_name: String = "Locomotive"
+	var target_ratio: float = locomotive_hp / maxf(1.0, locomotive_max_hp)
+	var target_car: Dictionary = {}
+	for car_variant in cars:
+		var car: Dictionary = car_variant
+		var ratio: float = float(car.get("hp", 0.0)) / maxf(1.0, float(car.get("max_hp", 0.0)))
+		if ratio < target_ratio:
+			target_ratio = ratio
+			target_car = car
+	if target_car.is_empty():
+		locomotive_hp = minf(locomotive_max_hp, locomotive_hp + 22.0)
+	else:
+		target_car["hp"] = minf(
+			float(target_car.get("max_hp", 0.0)),
+			float(target_car.get("hp", 0.0)) + 22.0
+		)
+		target_car["destroyed_notified"] = false
+		target_name = String(target_car.get("display", target_car.get("type", "Car")))
+	(run_history["field_actions"] as Array).append("patch")
+	refresh_stats()
+	emit_signal("resources_changed")
+	emit_signal("power_changed")
+	return _result(true, "Field patch restored %s." % target_name)
+
+
+func purchase_emergency_overcharge() -> Dictionary:
+	if not station_completed:
+		return _result(false, "Field actions unlock after Waypost Five.")
+	if scrap < FIELD_OVERCHARGE_COST:
+		return _result(false, "Emergency overcharge needs %d scrap." % FIELD_OVERCHARGE_COST)
+	if power >= 11.5 and lumen >= LUMEN_MAX - 1.0:
+		return _result(false, "Power and lumen reserves are already full.")
+	scrap -= FIELD_OVERCHARGE_COST
+	power = minf(12.0, power + 4.0)
+	lumen = minf(LUMEN_MAX, lumen + 3.0)
+	(run_history["field_actions"] as Array).append("overcharge")
+	_update_brownout_state()
+	refresh_stats()
+	emit_signal("resources_changed")
+	emit_signal("power_changed")
+	return _result(true, "Emergency overcharge: power +4, lumen +3.")
+
+
 func car_purchase_cost(type_key: String) -> int:
 	return int(cars_config.get(type_key, {}).get("cost", 10))
 
@@ -515,6 +674,93 @@ func repair_quote() -> int:
 	if missing <= 0.01:
 		return 0
 	return clampi(int(ceil(missing / 12.0)), 4, 18)
+
+
+func station_projection() -> Dictionary:
+	var preview: RunState = _preview_clone()
+	preview.brownout_active = false
+	preview.refresh_stats()
+	return _build_station_projection(preview)
+
+
+func preview_car_purchase(type_key: String) -> Dictionary:
+	if not cars_config.has(type_key) or cars.size() >= slot_capacity:
+		return {}
+	var preview: RunState = _preview_clone()
+	if not preview.add_car(type_key):
+		return {}
+	var assumption: String = ""
+	if type_key == "Defense" and int(preview.priorities.get("defense", 0)) <= 0:
+		preview.set_priority("defense", 1)
+		assumption = "at Defense 1"
+	preview.brownout_active = false
+	preview.refresh_stats()
+	var projection: Dictionary = _build_station_projection(preview)
+	projection["assumption"] = assumption
+	return projection
+
+
+func preview_upgrade(car_id: String, upgrade_key: String) -> Dictionary:
+	var preview: RunState = _preview_clone()
+	var car: Dictionary = preview.car_by_id(car_id)
+	if car.is_empty():
+		return {}
+	var cfg: Dictionary = preview.cars_config.get(String(car.get("type", "")), {})
+	if not (cfg.get("upgrades", {}) as Dictionary).has(upgrade_key):
+		return {}
+	car["upgrade"] = upgrade_key
+	preview.brownout_active = false
+	preview.refresh_stats()
+	return _build_station_projection(preview)
+
+
+func _build_station_projection(source: RunState) -> Dictionary:
+	var nominal: TrainStats = source.stats()
+	var endurance_seconds: float = -1.0
+	if nominal.requested_power_net < 0.0:
+		endurance_seconds = source.power / maxf(0.01, -nominal.requested_power_net * 0.5)
+
+	var brownout_preview: RunState = source._preview_clone()
+	brownout_preview.power = minf(0.5, source.power)
+	brownout_preview.brownout_active = true
+	brownout_preview.refresh_stats()
+	var at_risk: Array[String] = []
+	for role in ["engine", "light", "defense", "repair", "support"]:
+		if role != "support" and int(source.priorities.get(role, 0)) <= 0:
+			continue
+		if role == "support" and not source.has_car_type("Greenhouse"):
+			continue
+		var state: String = brownout_preview.stats().system_state(role)
+		if state == "offline" or state == "throttled":
+			at_risk.append("%s %s" % [
+				"Greenhouse" if role == "support" else role.capitalize(),
+				state
+			])
+	return {
+		"power_net": nominal.requested_power_net,
+		"active_power_net": nominal.power_net,
+		"power_draw": nominal.requested_power_draw,
+		"power_production": nominal.power_production,
+		"endurance_seconds": endurance_seconds,
+		"speed": nominal.speed,
+		"repair_rate": nominal.repair_rate,
+		"supply_generation": nominal.supply_generation,
+		"lumen_generation": nominal.lumen_generation,
+		"brownout_systems": at_risk
+	}
+
+
+func _preview_clone() -> RunState:
+	var preview: RunState = RunState.new()
+	preview.setup(run_seed, {
+		"cars": cars_config,
+		"lenses": lens_config,
+		"enemies": enemy_config,
+		"crew": crew_config,
+		"events": events_config
+	})
+	preview.apply_dict(to_dict())
+	return preview
 
 
 func purchase_car(type_key: String) -> Dictionary:
@@ -688,6 +934,8 @@ func to_dict() -> Dictionary:
 		"lens_cooldown": lens_cooldown,
 		"focus_active_time": focus_active_time,
 		"focus_cooldown": focus_cooldown,
+		"defense_salvo_cooldown": defense_salvo_cooldown,
+		"brownout_active": brownout_active,
 		"locomotive_hp": locomotive_hp,
 		"supplies_zero_time": _supplies_zero_time,
 		"damage_roll_index": damage_roll_index,
@@ -722,6 +970,8 @@ func apply_dict(d: Dictionary) -> void:
 	lens_cooldown = maxf(0.0, float(d.get("lens_cooldown", 0.0)))
 	focus_active_time = maxf(0.0, float(d.get("focus_active_time", 0.0)))
 	focus_cooldown = maxf(0.0, float(d.get("focus_cooldown", 0.0)))
+	defense_salvo_cooldown = maxf(0.0, float(d.get("defense_salvo_cooldown", 0.0)))
+	brownout_active = bool(d.get("brownout_active", power <= BROWNOUT_ENTER_POWER))
 	locomotive_hp = float(d.get("locomotive_hp", locomotive_max_hp))
 	_supplies_zero_time = maxf(0.0, float(d.get("supplies_zero_time", 0.0)))
 	damage_roll_index = maxi(0, int(d.get("damage_roll_index", 0)))
@@ -749,6 +999,7 @@ func _remove_destroyed_car(index: int) -> Dictionary:
 		return {}
 	var removed: Dictionary = cars.pop_at(index)
 	var resolution: Dictionary = _resolve_crew_for_removed_car(removed, false)
+	_record_car_loss(removed)
 	_reindex_cars()
 	refresh_stats()
 	emit_signal(
@@ -774,6 +1025,7 @@ func _disable_destroyed_car(index: int) -> Dictionary:
 	car["hp"] = 0.0
 	car["destroyed_notified"] = true
 	var resolution: Dictionary = _resolve_crew_for_removed_car(car, false)
+	_record_car_loss(car)
 	refresh_stats()
 	emit_signal(
 		"car_destroyed",
@@ -810,6 +1062,44 @@ func _resolve_crew_for_removed_car(car: Dictionary, deliberate: bool) -> Diction
 		else:
 			evacuated_names.append(String(member.get("name", "Crew")))
 	return {"lost": lost_names, "evacuated": evacuated_names}
+
+
+func record_boss_phase_time(phase_name: String, duration: float) -> void:
+	var telemetry: Dictionary = _telemetry()
+	var phase_times: Dictionary = telemetry.get("boss_phase_times", {})
+	phase_times[phase_name.to_lower()] = maxf(
+		float(phase_times.get(phase_name.to_lower(), 0.0)),
+		duration
+	)
+	telemetry["boss_phase_times"] = phase_times
+
+
+func _record_car_loss(car: Dictionary) -> void:
+	(run_history["car_losses"] as Array).append({
+		"car_id": String(car.get("id", "")),
+		"type": String(car.get("type", "")),
+		"display": String(car.get("display", car.get("type", "Car"))),
+		"distance": distance,
+		"time": travel_time,
+		"power_net_after": current_power_net()
+	})
+
+
+func _telemetry() -> Dictionary:
+	if not run_history.has("telemetry") or typeof(run_history["telemetry"]) != TYPE_DICTIONARY:
+		run_history["telemetry"] = {}
+	var telemetry: Dictionary = run_history["telemetry"]
+	if not telemetry.has("focus_uses"):
+		telemetry["focus_uses"] = 0
+	if not telemetry.has("defense_salvos"):
+		telemetry["defense_salvos"] = 0
+	if not telemetry.has("min_power"):
+		telemetry["min_power"] = power
+	if not telemetry.has("brownout_time"):
+		telemetry["brownout_time"] = 0.0
+	if typeof(telemetry.get("boss_phase_times", null)) != TYPE_DICTIONARY:
+		telemetry["boss_phase_times"] = {}
+	return telemetry
 
 
 func _normalize_cars() -> void:
@@ -870,9 +1160,33 @@ func _normalize_crew(is_legacy: bool) -> void:
 
 
 func _normalize_history() -> void:
-	for key in ["detached_cars", "lost_crew", "purchased_cars", "upgrades", "boss_responses"]:
+	for key in [
+		"detached_cars",
+		"lost_crew",
+		"purchased_cars",
+		"upgrades",
+		"boss_responses",
+		"field_actions",
+		"car_losses"
+	]:
 		if not run_history.has(key) or typeof(run_history[key]) != TYPE_ARRAY:
 			run_history[key] = []
+	if not run_history.has("telemetry") or typeof(run_history["telemetry"]) != TYPE_DICTIONARY:
+		run_history["telemetry"] = {}
+	var telemetry: Dictionary = run_history["telemetry"]
+	var defaults: Dictionary = {
+		"focus_uses": 0,
+		"defense_salvos": 0,
+		"min_power": power,
+		"brownout_time": 0.0,
+		"boss_phase_times": {}
+	}
+	for key_variant in defaults.keys():
+		var key: String = String(key_variant)
+		if not telemetry.has(key):
+			telemetry[key] = defaults[key]
+	if typeof(telemetry.get("boss_phase_times", null)) != TYPE_DICTIONARY:
+		telemetry["boss_phase_times"] = {}
 
 
 func _default_assignment_for(crew_id: String) -> String:

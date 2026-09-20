@@ -19,6 +19,8 @@ var target: Vector2 = Vector2.ZERO
 var alive: bool = false
 var role: String = "ground"  # ground, roof, air
 var value: int = 1
+var boarder_car_index: int = -1
+var attack_warning_time: float = 0.65
 
 
 func init_from_config(kind_key: String, cfg: Dictionary) -> void:
@@ -38,4 +40,6 @@ func init_from_config(kind_key: String, cfg: Dictionary) -> void:
 		role = "air"
 	else:
 		role = "ground"
-	attack_timer = 0.0
+	boarder_car_index = -1
+	attack_warning_time = 0.65
+	attack_timer = attack_interval

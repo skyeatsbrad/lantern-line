@@ -73,7 +73,7 @@ func show_end(victory: bool, run_state: RunState) -> void:
 	var ledger := Label.new()
 	ledger.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	ledger.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	ledger.custom_minimum_size = Vector2(540, 125)
+	ledger.custom_minimum_size = Vector2(540, 150)
 	ledger.text = _build_ledger(run_state)
 	ledger.add_theme_color_override("font_color", Color(0.82, 0.78, 0.68))
 	v.add_child(ledger)
@@ -102,9 +102,14 @@ func _build_ledger(run_state: RunState) -> String:
 		else:
 			lost_names.append(String(member.get("name", "Crew")))
 	var car_names: Array[String] = []
+	var intact_count: int = 0
 	for car_variant in run_state.cars:
 		var car: Dictionary = car_variant
 		var name := String(car.get("display", car.get("type", "Car")))
+		if float(car.get("hp", 0.0)) > 0.0:
+			intact_count += 1
+		else:
+			name += " [destroyed]"
 		var upgrade_key := String(car.get("upgrade", ""))
 		if not upgrade_key.is_empty():
 			var cfg: Dictionary = run_state.cars_config.get(String(car.get("type", "")), {})
@@ -117,10 +122,22 @@ func _build_ledger(run_state: RunState) -> String:
 		car_names.append(name)
 	var detached_count := (run_state.run_history.get("detached_cars", []) as Array).size()
 	var upgrade_count := (run_state.run_history.get("upgrades", []) as Array).size()
+	var purchased_count := (run_state.run_history.get("purchased_cars", []) as Array).size()
+	var field_action_count := (run_state.run_history.get("field_actions", []) as Array).size()
+	var telemetry: Dictionary = run_state.run_history.get("telemetry", {})
 	var lines: Array[String] = [
 		"DAWN LEDGER",
-		"Routes committed: %d  |  Cars remaining: %d/%d  |  Refit choices: %d"
-		% [run_state.route_history.size(), run_state.cars.size(), run_state.slot_capacity, upgrade_count],
+		"Routes committed: %d  |  Cars intact: %d/%d"
+		% [run_state.route_history.size(), intact_count, run_state.slot_capacity],
+		"Cars added: %d  |  Upgrades installed: %d  |  Field actions: %d"
+		% [purchased_count, upgrade_count, field_action_count],
+		"Lowest power: %.1f  |  Brownout time: %.1fs  |  Focus uses: %d  |  Salvos: %d"
+		% [
+			float(telemetry.get("min_power", run_state.power)),
+			float(telemetry.get("brownout_time", 0.0)),
+			int(telemetry.get("focus_uses", 0)),
+			int(telemetry.get("defense_salvos", 0))
+		],
 		"Consist: %s" % (" > ".join(car_names) if not car_names.is_empty() else "Locomotive only"),
 		"Crew through: %s" % (", ".join(fit_names) if not fit_names.is_empty() else "None"),
 		"Cars deliberately cut loose: %d" % detached_count

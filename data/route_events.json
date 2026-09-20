@@ -87,7 +87,7 @@
       "category": "living",
       "title": "The Ash Garden",
       "description": "The marked siding blooms gold around a greenhouse built from carriage glass.",
-      "summary": "Supplies +13, lumen +6",
+      "summary": "Supplies +13, lumen +6; Greenhouse output +25%",
       "rewards": {"supplies": 13, "lumen": 6},
       "effects": [
         {"op": "resource", "key": "supplies", "amount": 13},
@@ -116,7 +116,7 @@
       "category": "living",
       "title": "The Bell Keeper",
       "description": "The bell rises on chains. Its keeper pays in bronze and patches the train in silence.",
-      "summary": "Scrap +8, repair 7 integrity",
+      "summary": "Scrap +8, repair 7; permanent repair bonus",
       "rewards": {"scrap": 8},
       "effects": [
         {"op": "resource", "key": "scrap", "amount": 8},
@@ -199,7 +199,7 @@
       "category": "machinery",
       "title": "Signal Vault 3-1-2",
       "description": "The copied sequence opens a buried dispatch vault as watchers gather on the roof.",
-      "summary": "Scrap +14, power +4, danger 2",
+      "summary": "Scrap +14, power +4; faster Focus and salvo recharge; danger 2",
       "rewards": {"scrap": 14, "power": 4},
       "effects": [
         {"op": "resource", "key": "scrap", "amount": 14},

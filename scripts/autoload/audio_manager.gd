@@ -110,6 +110,12 @@ func _synth(name: String) -> AudioStreamWAV:
 			return _make_noise(0.25, 0.8)
 		"detach":
 			return _make_click(0.6, 220.0, 60.0, true)
+		"salvo":
+			return _make_noise(0.32, 1.0)
+		"repair":
+			return _make_click(0.28, 420.0, 840.0)
+		"overcharge":
+			return _make_click(0.42, 180.0, 1100.0, true)
 		"victory":
 			return _make_chord([392.0, 523.0, 659.0], 1.2)
 		"defeat":

@@ -108,7 +108,7 @@ func _build_title() -> void:
 	vbox.add_child(title)
 
 	var subtitle: Label = Label.new()
-	subtitle.text = "A fortress-train survival strategy game - v0.2"
+	subtitle.text = "A fortress-train survival strategy game - v0.3"
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	subtitle.add_theme_font_size_override("font_size", 16)
 	subtitle.add_theme_color_override("font_color", Color(0.75, 0.75, 0.8))
@@ -145,7 +145,7 @@ func _build_title() -> void:
 		vbox.add_child(continue_button)
 
 	var options_hint: Label = Label.new()
-	options_hint.text = "Mouse aim  |  1/2/3 lens  |  F Focus  |  Q/W/E/R priorities\nSpace pause  |  T speed  |  Hold X detach  |  Up/Right/Down routes"
+	options_hint.text = "Mouse aim  |  1/2/3 lens  |  F Focus  |  C Salvo  |  Q/W/E/R priorities\nV Patch  |  B Overcharge  |  Space pause  |  T speed  |  Hold X detach"
 	options_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	options_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	options_hint.custom_minimum_size = Vector2(480, 40)

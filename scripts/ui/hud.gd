@@ -9,6 +9,8 @@ signal request_priority(role: String, level: int)
 signal request_pause()
 signal request_speed()
 signal request_focus()
+signal request_defense_salvo()
+signal request_field_action(action: String)
 signal detach_hold_changed(active: bool)
 
 var _run_state: RunState
@@ -28,9 +30,15 @@ var _prio_buttons: Dictionary = {}
 @onready var _loco_bar: ProgressBar
 @onready var _focus_button: Button
 @onready var _focus_label: Label
+@onready var _salvo_button: Button
+@onready var _salvo_label: Label
+@onready var _patch_button: Button
+@onready var _overcharge_button: Button
 @onready var _detach_button: Button
 @onready var _detach_progress: ProgressBar
 @onready var _boss_label: Label
+@onready var _consist_label: Label
+@onready var _power_status_label: Label
 
 
 func setup(run_state: RunState, lens_config: Dictionary) -> void:
@@ -56,7 +64,7 @@ func _build_ui() -> void:
 	_compact_layout = viewport_size.x < 1100.0 or viewport_size.y < 620.0
 	if _compact_layout:
 		base_font_size = mini(base_font_size, 12)
-	var bottom_height: float = 172.0 if _compact_layout else 158.0
+	var bottom_height: float = 204.0 if _compact_layout else 190.0
 
 	# Top-left: distance and time
 	var top: PanelContainer = PanelContainer.new()
@@ -89,7 +97,7 @@ func _build_ui() -> void:
 	right.offset_left = -250 if _compact_layout else -310
 	right.offset_top = 12
 	right.offset_right = -12
-	right.offset_bottom = 200
+	right.offset_bottom = 226
 	right.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(right)
 	var rvbox: VBoxContainer = VBoxContainer.new()
@@ -99,15 +107,36 @@ func _build_ui() -> void:
 	_bars["scrap"] = _make_bar(rvbox, "Scrap", Color(0.7, 0.6, 0.5), base_font_size)
 	_bars["supplies"] = _make_bar(rvbox, "Supplies", Color(0.55, 0.85, 0.5), base_font_size)
 	_bars["lumen"] = _make_bar(rvbox, "Lumen", Color(1.0, 0.86, 0.62), base_font_size)
+	_power_status_label = Label.new()
+	_power_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_power_status_label.add_theme_font_size_override("font_size", base_font_size - 2)
+	rvbox.add_child(_power_status_label)
+	var field_row := HBoxContainer.new()
+	field_row.add_theme_constant_override("separation", 5)
+	rvbox.add_child(field_row)
+	_patch_button = Button.new()
+	_patch_button.text = "Patch -%d" % RunState.FIELD_PATCH_COST
+	_patch_button.tooltip_text = "After Waypost Five: repair the most damaged section by 22 integrity."
+	_patch_button.pressed.connect(
+		func() -> void: emit_signal("request_field_action", "patch")
+	)
+	field_row.add_child(_patch_button)
+	_overcharge_button = Button.new()
+	_overcharge_button.text = "Overcharge -%d" % RunState.FIELD_OVERCHARGE_COST
+	_overcharge_button.tooltip_text = "After Waypost Five: convert scrap into +4 power and +3 lumen."
+	_overcharge_button.pressed.connect(
+		func() -> void: emit_signal("request_field_action", "overcharge")
+	)
+	field_row.add_child(_overcharge_button)
 
 	# Locomotive HP visible top center under title
 	var mid: PanelContainer = PanelContainer.new()
 	mid.anchor_left = 0.5
 	mid.anchor_right = 0.5
-	mid.offset_left = -110 if _compact_layout else -140
-	mid.offset_right = 110 if _compact_layout else 140
+	mid.offset_left = -165 if _compact_layout else -210
+	mid.offset_right = 165 if _compact_layout else 210
 	mid.offset_top = 12
-	mid.offset_bottom = 78
+	mid.offset_bottom = 132
 	add_child(mid)
 	var mid_v: VBoxContainer = VBoxContainer.new()
 	mid.add_child(mid_v)
@@ -130,6 +159,12 @@ func _build_ui() -> void:
 	_boss_label.add_theme_font_size_override("font_size", base_font_size - 1)
 	_boss_label.add_theme_color_override("font_color", Color(0.95, 0.55, 0.42))
 	mid_v.add_child(_boss_label)
+	_consist_label = Label.new()
+	_consist_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_consist_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_consist_label.add_theme_font_size_override("font_size", base_font_size - 2)
+	_consist_label.add_theme_color_override("font_color", Color(0.76, 0.78, 0.84))
+	mid_v.add_child(_consist_label)
 
 	# Bottom-left: lens breaker panel
 	var lens_panel: PanelContainer = PanelContainer.new()
@@ -160,6 +195,7 @@ func _build_ui() -> void:
 		lens_row.add_child(b)
 	_lens_label = Label.new()
 	_lens_label.add_theme_font_size_override("font_size", base_font_size)
+	_lens_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	lens_v.add_child(_lens_label)
 
 	# Bottom-center: priorities (Q/W/E/R)
@@ -237,14 +273,30 @@ func _build_ui() -> void:
 	speed_btn.text = "Speed" if _compact_layout else "Speed (T)"
 	speed_btn.pressed.connect(func() -> void: emit_signal("request_speed"))
 	row.add_child(speed_btn)
+	var ability_row := HBoxContainer.new()
+	ability_row.add_theme_constant_override("separation", 6)
+	ctrl_v.add_child(ability_row)
 	_focus_button = Button.new()
 	_focus_button.text = "Focus (F)"
 	_focus_button.pressed.connect(func() -> void: emit_signal("request_focus"))
-	row.add_child(_focus_button)
+	ability_row.add_child(_focus_button)
+	_salvo_button = Button.new()
+	_salvo_button.text = "Salvo (C)"
+	_salvo_button.pressed.connect(func() -> void: emit_signal("request_defense_salvo"))
+	ability_row.add_child(_salvo_button)
+	var ability_status := HBoxContainer.new()
+	ability_status.add_theme_constant_override("separation", 6)
+	ctrl_v.add_child(ability_status)
 	_focus_label = Label.new()
 	_focus_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_focus_label.add_theme_font_size_override("font_size", base_font_size - 2)
-	ctrl_v.add_child(_focus_label)
+	_focus_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	ability_status.add_child(_focus_label)
+	_salvo_label = Label.new()
+	_salvo_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_salvo_label.add_theme_font_size_override("font_size", base_font_size - 2)
+	_salvo_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	ability_status.add_child(_salvo_label)
 	_detach_button = Button.new()
 	_detach_button.text = "Hold to detach rear (X)"
 	_detach_button.button_down.connect(func() -> void: emit_signal("detach_hold_changed", true))
@@ -308,22 +360,44 @@ func _process(delta: float) -> void:
 	var m: int = int(_run_state.travel_time) / 60
 	var s: int = int(_run_state.travel_time) % 60
 	_time_label.text = "Time: %02d:%02d   %sx  %s" % [m, s, str(_run_state.speed_scale), ("[PAUSED]" if _run_state.paused else "")]
-	_lens_label.text = "Active: %s   (cd %.1fs)" % [_run_state.current_lens, _run_state.lens_cooldown]
+	var lens: Dictionary = _lens_config.get(_run_state.current_lens, {})
+	_lens_label.text = "%s (%.1fs)\n%s" % [
+		_run_state.current_lens,
+		_run_state.lens_cooldown,
+		String(lens.get("description", ""))
+	]
 	var focus_cost: float = _run_state.stats().focus_cost
 	if _run_state.focus_active_time > 0.0:
-		_focus_label.text = "FOCUSED %.1fs" % _run_state.focus_active_time
+		_focus_label.text = "F %.1fs ACTIVE" % _run_state.focus_active_time
 	elif _run_state.focus_cooldown > 0.0:
-		_focus_label.text = "Focus recharge %.1fs" % _run_state.focus_cooldown
+		_focus_label.text = "F %.1fs" % _run_state.focus_cooldown
 	elif _run_state.lumen < focus_cost:
-		_focus_label.text = "Focus needs %.0f lumen" % focus_cost
+		_focus_label.text = "F needs %.0fL" % focus_cost
 	else:
-		_focus_label.text = "Focus ready - %.0f lumen" % focus_cost
+		_focus_label.text = "F ready %.0fL" % focus_cost
 	_focus_button.disabled = (
 		_run_state.focus_active_time > 0.0
 		or _run_state.focus_cooldown > 0.0
 		or _run_state.lumen < focus_cost
 	)
-	_hint_label.text = ("Mouse aim | 1-3 lens | hold X" if _compact_layout else "Aim: mouse   1/2/3 lens   F focus   hold X") + "   [%s]" % ("2x" if _run_state.speed_scale >= 2.0 else "1x")
+	if _run_state.defense_salvo_cooldown > 0.0:
+		_salvo_label.text = "C %.1fs" % _run_state.defense_salvo_cooldown
+	elif _run_state.stats().defense_mounts.is_empty():
+		_salvo_label.text = "C needs Defense"
+	elif _run_state.power < RunState.DEFENSE_SALVO_POWER_COST:
+		_salvo_label.text = "C needs %.0fP" % RunState.DEFENSE_SALVO_POWER_COST
+	else:
+		_salvo_label.text = "C ready %.0fP" % RunState.DEFENSE_SALVO_POWER_COST
+	_salvo_button.disabled = (
+		_run_state.defense_salvo_cooldown > 0.0
+		or _run_state.stats().defense_mounts.is_empty()
+		or _run_state.power < RunState.DEFENSE_SALVO_POWER_COST
+	)
+	_hint_label.text = (
+		"Mouse aim | F focus | C salvo | hold X"
+		if _compact_layout
+		else "Aim: mouse   F focus   C salvo   V patch   B overcharge   hold X"
+	) + "   [%s]" % ("2x" if _run_state.speed_scale >= 2.0 else "1x")
 	_notification_timer = maxf(0.0, _notification_timer - delta)
 	if _notification_timer <= 0.0:
 		_notification_label.text = ""
@@ -334,7 +408,8 @@ func _refresh() -> void:
 		return
 	# Resource bars/values
 	_bars["power"]["bar"].value = clampf(_run_state.power / 12.0, 0.0, 1.0) * 100.0
-	_bars["power"]["value"].text = "%0.1f (%+.1f)" % [_run_state.power, _run_state.stats().power_net]
+	var stats: TrainStats = _run_state.stats()
+	_bars["power"]["value"].text = "%0.1f (%+.1f)" % [_run_state.power, stats.power_net]
 	_bars["scrap"]["bar"].value = clampf(_run_state.scrap / 60.0, 0.0, 1.0) * 100.0
 	_bars["scrap"]["value"].text = "%d" % int(_run_state.scrap)
 	_bars["supplies"]["bar"].value = clampf(_run_state.supplies / 120.0, 0.0, 1.0) * 100.0
@@ -350,6 +425,21 @@ func _refresh() -> void:
 			button.text = ("[%d]" % level) if level == v else str(level)
 	# locomotive
 	_loco_bar.value = _run_state.locomotive_hp / _run_state.locomotive_max_hp * 100.0
+	_consist_label.text = _consist_status()
+	_power_status_label.text = _power_status(stats)
+	_power_status_label.add_theme_color_override(
+		"font_color",
+		Color(0.95, 0.48, 0.38)
+		if _run_state.brownout_active or stats.requested_power_net < 0.0
+		else Color(0.55, 0.9, 0.58)
+	)
+	_patch_button.disabled = not _run_state.field_patch_available()
+	_overcharge_button.disabled = (
+		not _run_state.station_completed
+		or
+		_run_state.scrap < RunState.FIELD_OVERCHARGE_COST
+		or (_run_state.power >= 11.5 and _run_state.lumen >= RunState.LUMEN_MAX - 1.0)
+	)
 
 
 func flash(msg: String, duration: float = 2.0) -> void:
@@ -373,3 +463,56 @@ func set_boss_status(text: String, ratio: float = -1.0) -> void:
 		return
 	_boss_label.visible = not text.is_empty()
 	_boss_label.text = text if ratio < 0.0 else "%s  %d%%" % [text, int(clampf(ratio, 0.0, 1.0) * 100.0)]
+
+
+func _consist_status() -> String:
+	var parts: Array[String] = []
+	for car_variant in _run_state.cars:
+		var car: Dictionary = car_variant
+		var type_key: String = String(car.get("type", "Car"))
+		var short_name: String = {
+			"Battery": "BAT",
+			"Workshop": "WRK",
+			"Passenger": "PAS",
+			"Greenhouse": "GRN",
+			"Defense": "DEF",
+			"Utility": "UTL"
+		}.get(type_key, type_key.left(3).to_upper())
+		var state: String = _run_state.car_power_state(car)
+		var state_code: String = {
+			"active": "ON",
+			"throttled": "LOW",
+			"offline": "OFF",
+			"standby": "STBY",
+			"producing": "GEN",
+			"destroyed": "DEST",
+			"passive": "PASS"
+		}.get(state, state.to_upper())
+		parts.append("%s %d %s" % [short_name, int(car.get("hp", 0)), state_code])
+	return "CONSIST  " + (" | ".join(parts) if not parts.is_empty() else "LOCOMOTIVE ONLY")
+
+
+func _power_status(stats: TrainStats) -> String:
+	if _run_state.brownout_active:
+		var shed: Array[String] = []
+		for role in ["engine", "light", "defense", "repair", "support"]:
+			var state: String = stats.system_state(role)
+			if state == "offline" or state == "throttled":
+				shed.append(
+					"%s %s" % [
+						"greenhouse" if role == "support" else role,
+						state
+					]
+				)
+		return "BROWNOUT %+.1f recovery | full %+.1f | %s" % [
+			stats.power_net,
+			stats.requested_power_net,
+			", ".join(shed) if not shed.is_empty() else "essential load only"
+		]
+	if stats.requested_power_net < 0.0:
+		var seconds: int = maxi(
+			0,
+			int(ceil(_run_state.power / maxf(0.01, -stats.requested_power_net * 0.5)))
+		)
+		return "DRAINING - reserve about %d:%02d" % [seconds / 60, seconds % 60]
+	return "POWER STABLE - full demand supplied"

@@ -7,6 +7,7 @@ signal closed()
 
 var _choices: Array = []
 var _lens_key: String = "Standard"
+var _lens_data: Dictionary = {}
 var _selected_index: int = 1
 var _active: bool = false
 var _band_buttons: Array = []
@@ -17,9 +18,15 @@ var _outcome_label: Label
 var _commit_button: Button
 
 
-func present(choices: Array, lens_key: String, initial_band: String = "middle") -> void:
+func present(
+	choices: Array,
+	lens_key: String,
+	initial_band: String = "middle",
+	lens_data: Dictionary = {}
+) -> void:
 	_choices = choices
 	_lens_key = lens_key
+	_lens_data = lens_data
 	_selected_index = _band_to_index(initial_band)
 	_build()
 	_active = true
@@ -60,7 +67,9 @@ func _build() -> void:
 	root.add_child(heading)
 
 	var instruction := Label.new()
-	instruction.text = "Aim vertically across the junction, then commit the lit rail."
+	instruction.text = "%s\nAim vertically across the junction, then commit the lit rail." % String(
+		_lens_data.get("description", "The selected lens changes which signatures are easiest to find.")
+	)
 	instruction.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	instruction.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	instruction.add_theme_font_size_override("font_size", 12)

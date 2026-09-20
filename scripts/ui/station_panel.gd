@@ -10,11 +10,15 @@ var _open: bool = false
 var _message: String = "One stop. Make the consist count."
 var _compact_layout: bool = false
 var _content_width: float = 1010.0
+var _undo_stack: Array[Dictionary] = []
+var _departure_armed: bool = false
 
 
 func present(run_state: RunState) -> void:
 	_run_state = run_state
 	_message = "One stop. Make the consist count."
+	_undo_stack.clear()
+	_departure_armed = false
 	_build()
 	visible = true
 	_open = true
@@ -65,12 +69,16 @@ func _build() -> void:
 	body.add_theme_constant_override("separation", 10)
 	scroll.add_child(body)
 	_build_train_summary(body)
+	_build_crew(body)
 	_build_consist(body)
 	_build_market(body)
-	_build_crew(body)
 
 	var leave_button := Button.new()
-	leave_button.text = "Depart Waypost Five"
+	leave_button.text = (
+		"Confirm departure with power deficit"
+		if _departure_armed
+		else "Depart Waypost Five"
+	)
 	leave_button.custom_minimum_size = Vector2(0.0, 38.0)
 	leave_button.pressed.connect(_close)
 	root.add_child(leave_button)
@@ -92,7 +100,7 @@ func _build_header(parent: VBoxContainer) -> void:
 
 
 func _build_train_summary(parent: VBoxContainer) -> void:
-	var stats: TrainStats = _run_state.stats()
+	var projection: Dictionary = _run_state.station_projection()
 	var summary := Label.new()
 	summary.text = (
 		"Scrap %d  |  Slots %d/%d  |  Power net %+.1f  |  Speed %.1f  |  Repair %.1f/s"
@@ -100,17 +108,27 @@ func _build_train_summary(parent: VBoxContainer) -> void:
 			int(_run_state.scrap),
 			_run_state.cars.size(),
 			_run_state.slot_capacity,
-			stats.power_net,
-			stats.speed,
-			stats.repair_rate
+			float(projection.get("power_net", 0.0)),
+			float(projection.get("speed", 0.0)),
+			float(projection.get("repair_rate", 0.0))
 		]
 	)
 	summary.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	summary.add_theme_color_override(
 		"font_color",
-		Color(0.55, 0.9, 0.58) if stats.power_net >= 0.0 else Color(0.95, 0.48, 0.38)
+		Color(0.55, 0.9, 0.58)
+		if float(projection.get("power_net", 0.0)) >= 0.0
+		else Color(0.95, 0.48, 0.38)
 	)
 	parent.add_child(summary)
+
+	var power_detail := Label.new()
+	power_detail.text = _projection_status(projection)
+	power_detail.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	power_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	power_detail.add_theme_font_size_override("font_size", 12)
+	power_detail.add_theme_color_override("font_color", Color(0.76, 0.78, 0.84))
+	parent.add_child(power_detail)
 
 	var actions := HBoxContainer.new()
 	actions.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -140,6 +158,12 @@ func _build_train_summary(parent: VBoxContainer) -> void:
 	)
 	slot_button.pressed.connect(_try_expand_slot)
 	actions.add_child(slot_button)
+
+	var undo_button := Button.new()
+	undo_button.text = "Undo last change"
+	undo_button.disabled = _undo_stack.is_empty()
+	undo_button.pressed.connect(_undo_last)
+	actions.add_child(undo_button)
 
 
 func _build_consist(parent: VBoxContainer) -> void:
@@ -171,12 +195,13 @@ func _build_consist(parent: VBoxContainer) -> void:
 		title.add_theme_color_override("font_color", Color(0.95, 0.82, 0.58))
 		details.add_child(title)
 		var description := Label.new()
-		description.text = "%s  |  Power %+.1f / -%.1f  |  Crew %d/%d" % [
+		description.text = "%s  |  Power %+.1f / -%.1f  |  Crew %d/%d  |  %s" % [
 			String(cfg.get("description", "")),
 			float(cfg.get("power_production", 0.0)),
 			float(cfg.get("power_draw", 0.0)),
 			_run_state.active_crew_for_car(String(car.get("id", ""))).size(),
-			_run_state.crew_slots_for_car(car)
+			_run_state.crew_slots_for_car(car),
+			_run_state.car_power_state(car).to_upper()
 		]
 		description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		description.add_theme_font_size_override("font_size", 12)
@@ -214,7 +239,7 @@ func _build_upgrade_controls(parent: HBoxContainer, car: Dictionary, cfg: Dictio
 		parent.add_child(installed)
 		return
 	var choices := VBoxContainer.new()
-	choices.custom_minimum_size = Vector2(210.0, 0.0)
+	choices.custom_minimum_size = Vector2(240.0, 0.0)
 	parent.add_child(choices)
 	for upgrade_key_variant in upgrades.keys():
 		var upgrade_key := String(upgrade_key_variant)
@@ -222,11 +247,19 @@ func _build_upgrade_controls(parent: HBoxContainer, car: Dictionary, cfg: Dictio
 		var cost := int(upgrade.get("cost", 0))
 		var button := Button.new()
 		button.text = "%s - %d" % [String(upgrade.get("display", upgrade_key)), cost]
-		button.tooltip_text = String(upgrade.get("description", "Permanent refit"))
 		button.disabled = _run_state.scrap < cost
 		var car_id := String(car.get("id", ""))
 		button.pressed.connect(func() -> void: _try_upgrade(car_id, upgrade_key))
 		choices.add_child(button)
+		var description := Label.new()
+		description.text = "%s\n%s" % [
+			String(upgrade.get("description", "Permanent refit")),
+			_projection_delta(_run_state.preview_upgrade(car_id, upgrade_key))
+		]
+		description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		description.add_theme_font_size_override("font_size", 11)
+		description.add_theme_color_override("font_color", Color(0.7, 0.72, 0.78))
+		choices.add_child(description)
 
 
 func _build_market(parent: VBoxContainer) -> void:
@@ -242,16 +275,30 @@ func _build_market(parent: VBoxContainer) -> void:
 		var type_key := String(key_variant)
 		var cfg: Dictionary = _run_state.cars_config[type_key]
 		var cost := _run_state.car_purchase_cost(type_key)
+		var card := PanelContainer.new()
+		card.custom_minimum_size = Vector2(
+			(_content_width - 20.0) / float(grid.columns),
+			112.0
+		)
+		grid.add_child(card)
+		var content := VBoxContainer.new()
+		content.add_theme_constant_override("separation", 3)
+		card.add_child(content)
 		var button := Button.new()
 		button.text = "%s - %d scrap" % [String(cfg.get("display", type_key)), cost]
-		button.tooltip_text = String(cfg.get("description", ""))
-		button.custom_minimum_size = Vector2(
-			(_content_width - 20.0) / float(grid.columns),
-			36.0
-		)
+		button.custom_minimum_size = Vector2(0.0, 34.0)
 		button.disabled = _run_state.cars.size() >= _run_state.slot_capacity or _run_state.scrap < cost
 		button.pressed.connect(func() -> void: _try_add(type_key))
-		grid.add_child(button)
+		content.add_child(button)
+		var description := Label.new()
+		description.text = "%s\n%s" % [
+			String(cfg.get("description", "")),
+			_projection_delta(_run_state.preview_car_purchase(type_key))
+		]
+		description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		description.add_theme_font_size_override("font_size", 11)
+		description.add_theme_color_override("font_color", Color(0.72, 0.74, 0.8))
+		content.add_child(description)
 
 
 func _build_crew(parent: VBoxContainer) -> void:
@@ -317,9 +364,11 @@ func _add_section_title(parent: VBoxContainer, text: String) -> void:
 	parent.add_child(title)
 
 
-func _apply_transaction(result: Dictionary) -> void:
+func _apply_transaction(result: Dictionary, before: Dictionary) -> void:
 	_message = String(result.get("message", "No change."))
 	if bool(result.get("ok", false)):
+		_undo_stack.append(before)
+		_departure_armed = false
 		AudioManager.play("click")
 		emit_signal("state_changed")
 	else:
@@ -328,40 +377,120 @@ func _apply_transaction(result: Dictionary) -> void:
 
 
 func _try_add(type_key: String) -> void:
-	_apply_transaction(_run_state.purchase_car(type_key))
+	var before: Dictionary = _run_state.to_dict()
+	_apply_transaction(_run_state.purchase_car(type_key), before)
 
 
 func _try_repair() -> void:
-	_apply_transaction(_run_state.purchase_repair())
+	var before: Dictionary = _run_state.to_dict()
+	_apply_transaction(_run_state.purchase_repair(), before)
 
 
 func _try_expand_slot() -> void:
-	_apply_transaction(_run_state.purchase_slot())
+	var before: Dictionary = _run_state.to_dict()
+	_apply_transaction(_run_state.purchase_slot(), before)
 
 
 func _try_upgrade(car_id: String, upgrade_key: String) -> void:
-	_apply_transaction(_run_state.purchase_upgrade(car_id, upgrade_key))
+	var before: Dictionary = _run_state.to_dict()
+	_apply_transaction(_run_state.purchase_upgrade(car_id, upgrade_key), before)
 
 
 func _try_move(car_id: String, offset: int) -> void:
-	_apply_transaction(_run_state.move_car(car_id, offset))
+	var before: Dictionary = _run_state.to_dict()
+	_apply_transaction(_run_state.move_car(car_id, offset), before)
 
 
 func _try_reorder() -> void:
 	if _run_state.cars.size() < 2:
 		return
 	var rear_id := String(_run_state.cars.back().get("id", ""))
-	_apply_transaction(_run_state.move_car(rear_id, -(_run_state.cars.size() - 1)))
+	var before: Dictionary = _run_state.to_dict()
+	_apply_transaction(
+		_run_state.move_car(rear_id, -(_run_state.cars.size() - 1)),
+		before
+	)
 
 
 func _try_assign_crew(crew_id: String, car_id: String) -> void:
-	_apply_transaction(_run_state.assign_crew(crew_id, car_id))
+	var before: Dictionary = _run_state.to_dict()
+	_apply_transaction(_run_state.assign_crew(crew_id, car_id), before)
+
+
+func _undo_last() -> void:
+	if _undo_stack.is_empty():
+		return
+	var snapshot: Dictionary = _undo_stack.pop_back()
+	_run_state.apply_dict(snapshot)
+	_run_state.emit_signal("resources_changed")
+	_run_state.emit_signal("power_changed")
+	_run_state.emit_signal("crew_changed")
+	_message = "Last station change undone."
+	_departure_armed = false
+	AudioManager.play("click")
+	emit_signal("state_changed")
+	_build()
 
 
 func _close() -> void:
 	if not _open:
 		return
+	var projection: Dictionary = _run_state.station_projection()
+	if float(projection.get("power_net", 0.0)) < 0.0 and not _departure_armed:
+		_departure_armed = true
+		_message = (
+			"WARNING: reserves drain in %s. Brownout will shed %s. "
+			+ "Review, undo, or confirm departure."
+		) % [
+			_format_duration(float(projection.get("endurance_seconds", 0.0))),
+			_join_or_none(projection.get("brownout_systems", []))
+		]
+		AudioManager.play("alarm")
+		_build()
+		return
 	_open = false
 	visible = false
 	AudioManager.play("click")
 	emit_signal("closed")
+
+
+func _projection_delta(projection: Dictionary) -> String:
+	if projection.is_empty():
+		return "No valid projection."
+	var current: Dictionary = _run_state.station_projection()
+	var net: float = float(projection.get("power_net", 0.0))
+	var speed_delta: float = (
+		float(projection.get("speed", 0.0))
+		- float(current.get("speed", 0.0))
+	)
+	var text := "After: net %+.1f | speed %+.1f" % [net, speed_delta]
+	var assumption: String = String(projection.get("assumption", ""))
+	if not assumption.is_empty():
+		text += " (%s)" % assumption
+	if net < 0.0:
+		text += " | reserve %s | sheds %s" % [
+			_format_duration(float(projection.get("endurance_seconds", 0.0))),
+			_join_or_none(projection.get("brownout_systems", []))
+		]
+	return text
+
+
+func _projection_status(projection: Dictionary) -> String:
+	var net: float = float(projection.get("power_net", 0.0))
+	if net >= 0.0:
+		return "Power stable at full demand. Brownout load shedding is not expected."
+	return "Reserve lasts about %s at full demand. Brownout priority: %s." % [
+		_format_duration(float(projection.get("endurance_seconds", 0.0))),
+		_join_or_none(projection.get("brownout_systems", []))
+	]
+
+
+func _format_duration(seconds: float) -> String:
+	var total_seconds: int = maxi(0, int(ceil(seconds)))
+	return "%d:%02d" % [total_seconds / 60, total_seconds % 60]
+
+
+func _join_or_none(values: Array) -> String:
+	if values.is_empty():
+		return "no optional systems"
+	return ", ".join(PackedStringArray(values))
