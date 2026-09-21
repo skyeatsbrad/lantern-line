@@ -18,6 +18,7 @@ var _selected_tab: int = 0
 var _scroll_positions: Dictionary = {}
 var _input_guard_time: float = 0.0
 var _input_blocker: Control
+var _leave_button: Button
 
 
 func present(run_state: RunState) -> void:
@@ -32,7 +33,15 @@ func present(run_state: RunState) -> void:
 	visible = true
 	_open = true
 	set_process(true)
+	set_process_input(true)
 	AudioManager.play("reveal")
+
+
+func rebuild() -> void:
+	if not _open:
+		return
+	_input_guard_time = 0.1
+	_build()
 
 
 func _build() -> void:
@@ -52,7 +61,11 @@ func _build() -> void:
 	add_child(backdrop)
 
 	var viewport_size := get_viewport_rect().size
-	_compact_layout = viewport_size.x < 1100.0 or viewport_size.y < 650.0
+	_compact_layout = (
+		viewport_size.x < 1100.0
+		or viewport_size.y < 650.0
+		or UITheme.text_scale() > 1.15
+	)
 	var half_width := minf(530.0, viewport_size.x * 0.48)
 	var half_height := minf(330.0, viewport_size.y * 0.46)
 	_content_width = half_width * 2.0 - 24.0
@@ -74,6 +87,7 @@ func _build() -> void:
 	_build_train_summary(root)
 
 	_tabs = TabContainer.new()
+	_tabs.focus_mode = Control.FOCUS_ALL
 	_tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root.add_child(_tabs)
 
@@ -90,15 +104,15 @@ func _build() -> void:
 	_tabs.current_tab = clampi(_selected_tab, 0, maxi(0, _tabs.get_tab_count() - 1))
 	_tabs.tab_changed.connect(_on_tab_changed)
 
-	var leave_button := Button.new()
-	leave_button.text = (
+	_leave_button = Button.new()
+	_leave_button.text = (
 		"Confirm departure with power deficit"
 		if _departure_armed
 		else "Depart Waypost Five"
 	)
-	leave_button.custom_minimum_size = Vector2(0.0, 38.0)
-	leave_button.pressed.connect(_close)
-	root.add_child(leave_button)
+	_leave_button.custom_minimum_size = Vector2(0.0, 42.0)
+	_leave_button.pressed.connect(_close)
+	root.add_child(_leave_button)
 	if _input_guard_time > 0.0:
 		_add_input_blocker()
 	call_deferred("_restore_scroll_positions")
@@ -158,21 +172,34 @@ func _process(delta: float) -> void:
 	_input_guard_time = maxf(0.0, _input_guard_time - delta)
 	if _input_guard_time <= 0.0 and is_instance_valid(_input_blocker):
 		_input_blocker.queue_free()
+		if is_instance_valid(_tabs):
+			_tabs.grab_focus()
 
 
 func _build_header(parent: VBoxContainer) -> void:
 	var title := Label.new()
 	title.text = "WAYPOST FIVE - FINAL REFIT"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 20 if _compact_layout else 24)
-	title.add_theme_color_override("font_color", Color(1.0, 0.86, 0.62))
+	title.add_theme_font_size_override(
+		"font_size",
+		UITheme.font_size(20 if _compact_layout else 24)
+	)
+	title.add_theme_color_override("font_color", UITheme.accent_color())
 	parent.add_child(title)
 
 	var message := Label.new()
 	message.text = _message
 	message.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	message.add_theme_color_override("font_color", Color(0.78, 0.82, 0.88))
+	message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	message.add_theme_color_override("font_color", UITheme.muted_text_color())
 	parent.add_child(message)
+
+	var keyboard_hint := Label.new()
+	keyboard_hint.text = "Tab moves between controls. Ctrl+Z undoes the last change."
+	keyboard_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	keyboard_hint.add_theme_font_size_override("font_size", UITheme.font_size(12))
+	keyboard_hint.add_theme_color_override("font_color", UITheme.muted_text_color())
+	parent.add_child(keyboard_hint)
 
 
 func _build_train_summary(parent: VBoxContainer) -> void:
@@ -192,9 +219,9 @@ func _build_train_summary(parent: VBoxContainer) -> void:
 	summary.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	summary.add_theme_color_override(
 		"font_color",
-		Color(0.55, 0.9, 0.58)
+		UITheme.success_color()
 		if float(projection.get("power_net", 0.0)) >= 0.0
-		else Color(0.95, 0.48, 0.38)
+		else UITheme.danger_color()
 	)
 	parent.add_child(summary)
 
@@ -202,8 +229,8 @@ func _build_train_summary(parent: VBoxContainer) -> void:
 	power_detail.text = _projection_status(projection)
 	power_detail.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	power_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	power_detail.add_theme_font_size_override("font_size", 12)
-	power_detail.add_theme_color_override("font_color", Color(0.76, 0.78, 0.84))
+	power_detail.add_theme_font_size_override("font_size", UITheme.font_size(12))
+	power_detail.add_theme_color_override("font_color", UITheme.muted_text_color())
 	parent.add_child(power_detail)
 
 	var actions := HBoxContainer.new()
@@ -292,8 +319,8 @@ func _build_consist(
 			_run_state.car_power_state(car).to_upper()
 		]
 		description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		description.add_theme_font_size_override("font_size", 12)
-		description.add_theme_color_override("font_color", Color(0.72, 0.74, 0.8))
+		description.add_theme_font_size_override("font_size", UITheme.font_size(12))
+		description.add_theme_color_override("font_color", UITheme.muted_text_color())
 		details.add_child(description)
 
 		if show_reorder:
@@ -325,7 +352,7 @@ func _build_upgrade_controls(parent: Container, car: Dictionary, cfg: Dictionary
 		installed.text = "REFIT INSTALLED: %s" % String(
 			upgrades.get(installed_key, {}).get("display", installed_key)
 		)
-		installed.add_theme_color_override("font_color", Color(0.55, 0.9, 0.58))
+		installed.add_theme_color_override("font_color", UITheme.success_color())
 		parent.add_child(installed)
 		return
 	var choices := GridContainer.new()
@@ -362,9 +389,9 @@ func _build_upgrade_controls(parent: Container, car: Dictionary, cfg: Dictionary
 		description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		description.add_theme_font_size_override(
 			"font_size",
-			13 if _compact_layout else 11
+			UITheme.font_size(13 if _compact_layout else 11)
 		)
-		description.add_theme_color_override("font_color", Color(0.7, 0.72, 0.78))
+		description.add_theme_color_override("font_color", UITheme.muted_text_color())
 		option.add_child(description)
 
 
@@ -408,9 +435,9 @@ func _build_market(parent: VBoxContainer) -> void:
 		description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		description.add_theme_font_size_override(
 			"font_size",
-			13 if _compact_layout else 11
+			UITheme.font_size(13 if _compact_layout else 11)
 		)
-		description.add_theme_color_override("font_color", Color(0.72, 0.74, 0.8))
+		description.add_theme_color_override("font_color", UITheme.muted_text_color())
 		content.add_child(description)
 
 
@@ -472,7 +499,7 @@ func _build_crew(parent: VBoxContainer) -> void:
 func _add_section_title(parent: VBoxContainer, text: String) -> void:
 	var title := Label.new()
 	title.text = text
-	title.add_theme_font_size_override("font_size", 16)
+	title.add_theme_font_size_override("font_size", UITheme.font_size(16))
 	title.add_theme_color_override("font_color", Color(0.9, 0.72, 0.42))
 	parent.add_child(title)
 
@@ -607,3 +634,17 @@ func _join_or_none(values: Array) -> String:
 	if values.is_empty():
 		return "no optional systems"
 	return ", ".join(PackedStringArray(values))
+
+
+func _input(event: InputEvent) -> void:
+	if not _open or _input_guard_time > 0.0:
+		return
+	if event is InputEventKey and (event as InputEventKey).echo:
+		return
+	if (
+		event is InputEventKey
+		and (event as InputEventKey).ctrl_pressed
+		and (event as InputEventKey).keycode == KEY_Z
+	):
+		get_viewport().set_input_as_handled()
+		_undo_last()

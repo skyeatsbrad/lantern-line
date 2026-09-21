@@ -18,6 +18,7 @@ var _failures: Array = []
 func run(_host: Node) -> void:
 	print("[smoke] starting")
 	_test_data_load()
+	_test_accessibility_settings(_host)
 	_test_route_generation()
 	_test_run_state_tick()
 	_test_priority_fail_safes()
@@ -134,6 +135,45 @@ func _test_data_load() -> void:
 		_fail("enemies.json missing a regular enemy archetype")
 	if (c["crew"] as Array).is_empty(): _fail("crew.json empty")
 	if (c["events"] as Array).size() < 20: _fail("route_events.json too few events")
+
+
+func _test_accessibility_settings(host: Node) -> void:
+	var saved_settings: Dictionary = GameManager.settings.duplicate(true)
+	GameManager.set_setting("text_scale", 1.27)
+	_expect(
+		is_equal_approx(float(GameManager.get_setting("text_scale", 0.0)), 1.3),
+		"text scale setting was not normalized"
+	)
+	_expect(UITheme.font_size(20) == 26, "text scale did not affect explicit font sizes")
+	GameManager.set_setting("high_contrast", true)
+	_expect(UITheme.high_contrast(), "high contrast setting did not reach the theme")
+	GameManager.set_setting("reduced_flashes", true)
+	var effects := EffectsLayer.new()
+	effects.request_flash(Color(1.0, 0.4, 0.2, 0.8), 1.0)
+	var reduced_color: Color = effects.get("_flash_color")
+	_expect(reduced_color.a < 0.3, "reduced flashes did not limit overlay intensity")
+	effects.free()
+
+	var settings_panel := SettingsPanel.new()
+	host.add_child(settings_panel)
+	settings_panel.present()
+	_expect(settings_panel.visible and settings_panel.is_open(), "settings panel did not open")
+	settings_panel.hide_for_guide()
+	_expect(not settings_panel.visible, "settings panel did not hide for the guide")
+	settings_panel.free()
+
+	var guide := GuidePanel.new()
+	host.add_child(guide)
+	guide.present("Close")
+	_expect(guide.visible and guide.is_open(), "Conductor's Guide did not open")
+	for page in range(GuidePanel.PAGES.size()):
+		guide.call("_next_page")
+	_expect(not guide.visible and not guide.is_open(), "Conductor's Guide did not close")
+	guide.free()
+
+	GameManager.settings = saved_settings
+	GameManager.emit_signal("settings_changed")
+	GameManager.call("_save")
 
 
 func _test_route_generation() -> void:
@@ -317,12 +357,15 @@ func _test_station_transactions() -> void:
 
 
 func _test_station_undo(host: Node) -> void:
+	var saved_text_scale: float = float(GameManager.get_setting("text_scale", 1.0))
+	GameManager.set_setting("text_scale", 1.3)
 	var rs := RunState.new()
 	rs.setup(31338, _mk_configs())
 	rs.scrap = 100.0
 	var panel := StationPanel.new()
 	host.add_child(panel)
 	panel.present(rs)
+	_expect(bool(panel.get("_compact_layout")), "large text did not select the responsive station layout")
 	var before_count: int = rs.cars.size()
 	var before_scrap: float = rs.scrap
 	panel._tabs.current_tab = 2
@@ -344,6 +387,7 @@ func _test_station_undo(host: Node) -> void:
 	panel.call("_close")
 	_expect(not bool(panel.get("_open")), "station did not accept the confirmed deficit departure")
 	panel.queue_free()
+	GameManager.set_setting("text_scale", saved_text_scale)
 
 
 func _test_field_actions() -> void:
@@ -616,6 +660,13 @@ func _test_mode_boundaries(host: Node) -> void:
 	route_world.call("_process", 0.0)
 	_expect(bool(route_world.get("_reveal_open")), "route reveal did not enter explicit mode")
 	_expect(route_state.reveal_index == 0, "route index advanced before commitment")
+	route_world.call("_open_settings")
+	_expect(bool(route_world.get("_overlay_open")), "options did not open over route reveal")
+	_expect(route_state.paused, "route options did not preserve a paused run state")
+	var settings_panel: SettingsPanel = route_world.get("_settings_panel") as SettingsPanel
+	settings_panel.call("_close")
+	_expect(not bool(route_world.get("_overlay_open")), "route options did not close")
+	_expect(bool(route_world.get("_reveal_open")), "closing options dismissed route reveal")
 	var route_choice: RouteChoice = route_world.get("_route_choice") as RouteChoice
 	route_choice.call("_select", 0)
 	_expect(route_state.reveal_index == 1, "route index did not advance after commitment")
@@ -626,6 +677,8 @@ func _test_mode_boundaries(host: Node) -> void:
 
 
 func _test_hold_to_detach(host: Node) -> void:
+	var saved_short_holds: bool = bool(GameManager.get_setting("short_holds", false))
+	GameManager.set_setting("short_holds", true)
 	var scene: PackedScene = load("res://scenes/game_world.tscn")
 	var world: Node = scene.instantiate()
 	host.add_child(world)
@@ -633,10 +686,11 @@ func _test_hold_to_detach(host: Node) -> void:
 	var rs: RunState = world.get("run_state") as RunState
 	var before := rs.cars.size()
 	world.call("_on_detach_hold_changed", true)
-	world.call("_process_detach_hold", 0.9)
+	world.call("_process_detach_hold", 0.5)
 	_expect(rs.cars.size() == before - 1, "hold-to-detach did not remove exactly one car")
 	_expect(not bool(world.get("_detach_hold_active")), "detach hold remained active after completion")
 	world.free()
+	GameManager.set_setting("short_holds", saved_short_holds)
 
 
 func _test_boss_resume(host: Node) -> void:

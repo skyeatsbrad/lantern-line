@@ -6,6 +6,9 @@ const GAME_WORLD_SCENE: String = "res://scenes/game_world.tscn"
 @onready var _root: Control = self
 var _game_world: Node = null
 var _title_layer: Control
+var _settings_panel: SettingsPanel
+var _guide_panel: GuidePanel
+var _pending_new_run_seed: int = 0
 
 
 func _ready() -> void:
@@ -70,6 +73,7 @@ func _should_run_runtime_probe() -> bool:
 
 
 func _build_title() -> void:
+	theme = UITheme.build()
 	_title_layer = Control.new()
 	_title_layer.anchor_right = 1.0
 	_title_layer.anchor_bottom = 1.0
@@ -92,10 +96,10 @@ func _build_title() -> void:
 	vbox.anchor_top = 0.5
 	vbox.anchor_right = 0.5
 	vbox.anchor_bottom = 0.5
-	vbox.offset_left = -240
-	vbox.offset_top = -160
-	vbox.offset_right = 240
-	vbox.offset_bottom = 200
+	vbox.offset_left = -320
+	vbox.offset_top = -250
+	vbox.offset_right = 320
+	vbox.offset_bottom = 250
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
 	vbox.add_theme_constant_override("separation", 12)
 	_title_layer.add_child(vbox)
@@ -103,23 +107,24 @@ func _build_title() -> void:
 	var title: Label = Label.new()
 	title.text = "THE LANTERN LINE"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 48)
-	title.add_theme_color_override("font_color", Color(0.95, 0.82, 0.58))
+	title.add_theme_font_size_override("font_size", UITheme.font_size(48))
+	title.add_theme_color_override("font_color", UITheme.accent_color())
 	vbox.add_child(title)
 
 	var subtitle: Label = Label.new()
-	subtitle.text = "A fortress-train survival strategy game - v0.4"
+	subtitle.text = "A fortress-train survival strategy game - v0.5"
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	subtitle.add_theme_font_size_override("font_size", 16)
-	subtitle.add_theme_color_override("font_color", Color(0.75, 0.75, 0.8))
+	subtitle.add_theme_font_size_override("font_size", UITheme.font_size(16))
+	subtitle.add_theme_color_override("font_color", UITheme.muted_text_color())
 	vbox.add_child(subtitle)
 
 	var brief: Label = Label.new()
 	brief.text = "Aim the headlight. Choose the route. Manage power, cars, and crew.\nDetach the rear car when the darkness demands sacrifice. Reach the Dawn Beacon."
 	brief.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	brief.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	brief.custom_minimum_size = Vector2(480, 60)
-	brief.add_theme_color_override("font_color", Color(0.7, 0.7, 0.72))
+	brief.custom_minimum_size = Vector2(620, 60)
+	brief.add_theme_font_size_override("font_size", UITheme.font_size(14))
+	brief.add_theme_color_override("font_color", UITheme.muted_text_color())
 	vbox.add_child(brief)
 
 	var meta: Label = Label.new()
@@ -145,51 +150,39 @@ func _build_title() -> void:
 		vbox.add_child(continue_button)
 
 	var options_hint: Label = Label.new()
-	options_hint.text = "Mouse aim  |  1/2/3 lens  |  F Focus  |  C Salvo  |  Q/W/E/R priorities\nV Patch  |  B Overcharge  |  G Flare  |  Space pause  |  T 1/1.5/2x  |  Hold X detach"
+	options_hint.text = "Mouse aim  |  1/2/3 lens  |  F Focus  |  C Salvo  |  T pace  |  Space pause\nH Conductor's Guide  |  Escape Accessibility & Presentation"
 	options_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	options_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	options_hint.custom_minimum_size = Vector2(480, 40)
-	options_hint.add_theme_color_override("font_color", Color(0.55, 0.55, 0.6))
+	options_hint.custom_minimum_size = Vector2(620, 40)
+	options_hint.add_theme_color_override("font_color", UITheme.muted_text_color())
 	vbox.add_child(options_hint)
 
-	var settings_row: HBoxContainer = HBoxContainer.new()
-	settings_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	settings_row.add_theme_constant_override("separation", 12)
-	vbox.add_child(settings_row)
-
-	var vol_label: Label = Label.new()
-	vol_label.text = "Volume"
-	settings_row.add_child(vol_label)
-	var vol_slider: HSlider = HSlider.new()
-	vol_slider.min_value = 0.0
-	vol_slider.max_value = 1.0
-	vol_slider.step = 0.05
-	vol_slider.value = float(GameManager.get_setting("master_volume", 0.8))
-	vol_slider.custom_minimum_size = Vector2(120, 20)
-	vol_slider.value_changed.connect(func(v: float) -> void:
-		GameManager.set_setting("master_volume", v))
-	settings_row.add_child(vol_slider)
-
-	var shake_toggle: CheckBox = CheckBox.new()
-	shake_toggle.text = "Screen shake"
-	shake_toggle.button_pressed = bool(GameManager.get_setting("screen_shake", true))
-	shake_toggle.toggled.connect(func(p: bool) -> void:
-		GameManager.set_setting("screen_shake", p))
-	settings_row.add_child(shake_toggle)
-
-	var motion_toggle: CheckBox = CheckBox.new()
-	motion_toggle.text = "Reduced motion"
-	motion_toggle.button_pressed = bool(GameManager.get_setting("reduced_motion", false))
-	motion_toggle.toggled.connect(func(p: bool) -> void:
-		GameManager.set_setting("reduced_motion", p))
-	settings_row.add_child(motion_toggle)
+	var utility_row := HBoxContainer.new()
+	utility_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	utility_row.add_theme_constant_override("separation", 10)
+	vbox.add_child(utility_row)
+	var guide_button := Button.new()
+	guide_button.text = "Conductor's Guide"
+	guide_button.custom_minimum_size = Vector2(190.0, 40.0)
+	guide_button.pressed.connect(func() -> void: _show_guide("Close Guide"))
+	utility_row.add_child(guide_button)
+	var settings_button := Button.new()
+	settings_button.text = "Accessibility & Presentation"
+	settings_button.custom_minimum_size = Vector2(230.0, 40.0)
+	settings_button.pressed.connect(_show_settings)
+	utility_row.add_child(settings_button)
 
 
 func _on_new_run() -> void:
 	AudioManager.notify_user_gesture()
 	AudioManager.play("click")
 	GameManager.clear_run_checkpoint()
-	_start_run(Time.get_ticks_msec(), {})
+	var seed := Time.get_ticks_msec()
+	if not bool(GameManager.get_setting("tutorial_seen", false)):
+		_pending_new_run_seed = seed
+		_show_guide("Begin Run")
+		return
+	_start_run(seed, {})
 
 
 func _on_continue() -> void:
@@ -202,6 +195,8 @@ func _on_continue() -> void:
 
 
 func _start_run(run_seed: int, resume: Dictionary) -> void:
+	_pending_new_run_seed = 0
+	_close_title_overlays()
 	if _title_layer:
 		_title_layer.queue_free()
 		_title_layer = null
@@ -220,6 +215,88 @@ func _on_run_ended(_victory: bool) -> void:
 	_build_title()
 
 
+func _show_settings() -> void:
+	AudioManager.notify_user_gesture()
+	if is_instance_valid(_settings_panel):
+		_settings_panel.queue_free()
+	_settings_panel = SettingsPanel.new()
+	add_child(_settings_panel)
+	_settings_panel.closed.connect(_on_settings_closed)
+	_settings_panel.guide_requested.connect(_on_title_settings_guide_requested)
+	_settings_panel.present()
+
+
+func _show_guide(completion_label: String = "Close Guide") -> void:
+	AudioManager.notify_user_gesture()
+	if is_instance_valid(_guide_panel):
+		_guide_panel.queue_free()
+	_guide_panel = GuidePanel.new()
+	add_child(_guide_panel)
+	_guide_panel.closed.connect(_on_guide_closed)
+	_guide_panel.present(completion_label)
+
+
+func _on_settings_closed() -> void:
+	if is_instance_valid(_settings_panel):
+		_settings_panel.queue_free()
+	_settings_panel = null
+	_rebuild_title()
+
+
+func _on_title_settings_guide_requested() -> void:
+	if is_instance_valid(_settings_panel):
+		_settings_panel.queue_free()
+		_settings_panel = null
+	_show_guide("Close Guide")
+
+
+func _on_guide_closed() -> void:
+	if is_instance_valid(_guide_panel):
+		_guide_panel.queue_free()
+	_guide_panel = null
+	if _pending_new_run_seed != 0:
+		var seed := _pending_new_run_seed
+		_pending_new_run_seed = 0
+		_start_run(seed, {})
+
+
+func _input(event: InputEvent) -> void:
+	if _game_world != null:
+		return
+	if (
+		is_instance_valid(_settings_panel)
+		or is_instance_valid(_guide_panel)
+	):
+		return
+	if event is InputEventKey and (event as InputEventKey).echo:
+		return
+	if event.is_action_pressed("open_guide"):
+		get_viewport().set_input_as_handled()
+		_show_guide("Close Guide")
+	elif event.is_action_pressed("ui_cancel"):
+		get_viewport().set_input_as_handled()
+		_show_settings()
+
+
+func _rebuild_title() -> void:
+	if _game_world != null:
+		return
+	if is_instance_valid(_title_layer):
+		remove_child(_title_layer)
+		_title_layer.queue_free()
+		_title_layer = null
+	_build_title()
+
+
+func _close_title_overlays() -> void:
+	if is_instance_valid(_settings_panel):
+		_settings_panel.queue_free()
+		_settings_panel = null
+	if is_instance_valid(_guide_panel):
+		_guide_panel.queue_free()
+		_guide_panel = null
+
+
 func _run_smoke_test() -> void:
 	var smoke: Node = load("res://scripts/run/smoke_test.gd").new()
 	add_child(smoke)
@@ -233,7 +310,8 @@ class TitleDrawLayer extends Control:
 		set_process(true)
 
 	func _process(delta: float) -> void:
-		_t += delta
+		if not bool(GameManager.get_setting("reduced_motion", false)):
+			_t += delta
 		queue_redraw()
 
 	func _draw() -> void:

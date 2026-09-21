@@ -9,12 +9,18 @@ const SAVE_VERSION: int = 2
 
 signal settings_changed()
 
-var settings: Dictionary = {
+const DEFAULT_SETTINGS: Dictionary = {
 	"master_volume": 0.8,
 	"screen_shake": true,
 	"reduced_motion": false,
-	"text_scale": 1.0
+	"reduced_flashes": false,
+	"high_contrast": false,
+	"short_holds": false,
+	"text_scale": 1.0,
+	"tutorial_seen": false
 }
+
+var settings: Dictionary = DEFAULT_SETTINGS.duplicate(true)
 
 var meta: Dictionary = {
 	"best_distance": 0.0,
@@ -72,7 +78,12 @@ func record_run_end(final_distance: float, victory: bool, run_seed: int) -> void
 
 
 func set_setting(key: String, value: Variant) -> void:
-	settings[key] = value
+	if not DEFAULT_SETTINGS.has(key):
+		return
+	var normalized: Variant = _normalize_setting(key, value)
+	if settings.get(key) == normalized:
+		return
+	settings[key] = normalized
 	emit_signal("settings_changed")
 	_save()
 
@@ -110,7 +121,9 @@ func _load() -> void:
 	var data: Dictionary = parsed
 	if data.has("settings") and typeof(data["settings"]) == TYPE_DICTIONARY:
 		for k in data["settings"].keys():
-			settings[k] = data["settings"][k]
+			if DEFAULT_SETTINGS.has(k):
+				settings[k] = _normalize_setting(String(k), data["settings"][k])
+	_normalize_settings()
 	if data.has("meta") and typeof(data["meta"]) == TYPE_DICTIONARY:
 		for k in data["meta"].keys():
 			meta[k] = data["meta"][k]
@@ -136,7 +149,11 @@ func migrate_payload_for_test(data: Dictionary) -> Dictionary:
 	}
 	if data.has("settings") and typeof(data["settings"]) == TYPE_DICTIONARY:
 		for key in data["settings"].keys():
-			result["settings"][key] = data["settings"][key]
+			if DEFAULT_SETTINGS.has(key):
+				result["settings"][key] = _normalize_setting(
+					String(key),
+					data["settings"][key]
+				)
 	if data.has("meta") and typeof(data["meta"]) == TYPE_DICTIONARY:
 		for key in data["meta"].keys():
 			result["meta"][key] = data["meta"][key]
@@ -147,3 +164,31 @@ func migrate_payload_for_test(data: Dictionary) -> Dictionary:
 			and not (result["pending_run"] as Dictionary).is_empty()
 		)
 	return result
+
+
+func _normalize_settings() -> void:
+	for key_variant in DEFAULT_SETTINGS.keys():
+		var key: String = String(key_variant)
+		settings[key] = _normalize_setting(
+			key,
+			settings.get(key, DEFAULT_SETTINGS[key])
+		)
+
+
+func _normalize_setting(key: String, value: Variant) -> Variant:
+	match key:
+		"master_volume":
+			return clampf(float(value), 0.0, 1.0)
+		"text_scale":
+			var requested: float = clampf(float(value), 1.0, 1.3)
+			var options: Array[float] = [1.0, 1.15, 1.3]
+			var nearest: float = options[0]
+			for option in options:
+				if absf(option - requested) < absf(nearest - requested):
+					nearest = option
+			return nearest
+		"screen_shake", "reduced_motion", "reduced_flashes", \
+		"high_contrast", "short_holds", "tutorial_seen":
+			return bool(value)
+		_:
+			return DEFAULT_SETTINGS.get(key, value)

@@ -6,9 +6,22 @@ A fortress-train survival strategy game through a world without sunlight, built 
 
 ![The Lantern Line gameplay](assets/screenshots/gameplay.png)
 
-## v0.4 - September 21, 2026
+## v0.5 - September 21, 2026
 
-The v0.4 release focuses on active decisions, readable fast-forward play, and a finale that cannot be won—or accidentally made unwinnable—through passive damage:
+The v0.5 release locks the core mechanics and focuses on onboarding, presentation, and accessibility:
+
+- Learn the game through a four-page, keyboard-friendly **Conductor's Guide** before the first run.
+- Reopen the guide at any time with **H**, including from route and station screens.
+- Open persistent **Accessibility & Presentation** options with **Escape** or the HUD button.
+- Scale interface text to 100%, 115%, or 130%; large text automatically uses roomier responsive layouts.
+- Enable a high-contrast theme with brighter borders, stronger focus rings, and on-screen enemy role/lens labels.
+- Independently disable screen shake, reduce ambient motion, and reduce full-screen flash intensity.
+- Shorten the hold-to-detach confirmation from 0.85 to 0.45 seconds.
+- Navigate major overlays with Tab, Enter, Escape, and visible keyboard focus.
+- Read notifications and critical warnings inside opaque, bordered panels rather than floating text.
+- Scroll large-text options and ending ledgers without losing fixed close controls.
+
+The complete v0.4 gameplay foundation remains intact:
 
 - Aim the locomotive headlight into world-space rail junctions to choose routes.
 - Discover 24 deterministic events, including three gated two-part story trails.
@@ -47,6 +60,8 @@ Open `project.godot` in Godot 4.7.2 or run an exported build.
 | HUD priority buttons | Set an exact priority level from 0-3. |
 | **Space** | Pause or resume. |
 | **T** | Cycle 1x / 1.5x / 2x speed. |
+| **H** | Open or close the Conductor's Guide. |
+| **Escape** | Open or close Accessibility & Presentation options. |
 | **Hold X** | Detach the rear car after the confirmation meter fills. |
 | **Up / Right / Down** | Immediately commit the upper / middle / lower route. |
 
@@ -88,6 +103,12 @@ Crew bonuses apply only while that person is fit, assigned to a compatible survi
 Regular enemy pressure is capped at a readable field size. At accelerated travel speeds, a dense field, a newly introduced Shadow Ward, or critical train damage temporarily slows the simulation to 0.7x so the player can respond. The selected speed remains visible beside the effective automatic pace.
 
 Longshadow phases protect one Focus and Salvo opportunity while locked. Focus is held instead of consumed when the wrong lens is selected, the target is not centered, or a transition is still forming. A failed Charge restores another response opportunity, but its locomotive and resource damage still lands.
+
+### Accessibility and presentation
+
+Settings save immediately and remain available from both the title and active run. Every resource, route category, danger forecast, power state, critical condition, and ability cooldown has a text cue rather than relying on color alone. High Contrast adds enemy labels such as `REAR / HEARTH [2]`, while the standard silhouettes remain distinct.
+
+Reduced Motion freezes decorative parallax, smoke, sparks, boss bobbing, and detached-car drift. Reduced Flashes preserves hit markers and warning text while limiting full-screen overlays. Both options can be combined with disabled screen shake.
 
 ### Saves
 
@@ -157,7 +178,7 @@ $env:LANTERN_PROBE = "1"
 & "C:\Users\bradleywo\Tools\Godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe" --headless --path .
 ```
 
-The deterministic suite covers save migration, malformed-save rejection, priority clamping, brownout recovery, station previews, tab persistence and undo, field actions, route uniqueness and chain effects, threat-pressure limits, Shadow Wards, crew loss and evacuation, Focus geometry, manual salvos, hold-to-detach, protected boss responses and resume, three complete strategy archetypes, and a six-seed balance sweep. The reference campaigns finish in approximately 12-14 simulated minutes.
+The deterministic suite covers settings normalization, accessibility panels, large-text theming, reduced flashes, short hold actions, save migration, malformed-save rejection, priority clamping, brownout recovery, station previews, tab persistence and undo, field actions, route uniqueness and chain effects, threat-pressure limits, Shadow Wards, crew loss and evacuation, Focus geometry, manual salvos, protected boss responses and resume, three complete strategy archetypes, and a six-seed balance sweep. The reference campaigns finish in approximately 12-14 simulated minutes.
 
 Godot may print `ObjectDB` or `CanvasItem` cleanup warnings while the headless test process exits; these are engine teardown warnings and do not change a successful exit code.
 

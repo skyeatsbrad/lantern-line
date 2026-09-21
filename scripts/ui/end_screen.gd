@@ -24,34 +24,44 @@ func show_end(victory: bool, run_state: RunState) -> void:
 	bg.anchor_bottom = 1.0
 	add_child(bg)
 
+	var viewport_size := get_viewport_rect().size
+	var frame_width := minf(680.0, viewport_size.x - 28.0)
+	var frame_height := minf(660.0, viewport_size.y - 28.0)
+	var frame := PanelContainer.new()
+	frame.anchor_left = 0.5
+	frame.anchor_right = 0.5
+	frame.anchor_top = 0.5
+	frame.anchor_bottom = 0.5
+	frame.offset_left = -frame_width * 0.5
+	frame.offset_right = frame_width * 0.5
+	frame.offset_top = -frame_height * 0.5
+	frame.offset_bottom = frame_height * 0.5
+	add_child(frame)
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	frame.add_child(scroll)
 	var v: VBoxContainer = VBoxContainer.new()
-	v.anchor_left = 0.5
-	v.anchor_right = 0.5
-	v.anchor_top = 0.5
-	v.anchor_bottom = 0.5
-	v.offset_left = -280
-	v.offset_right = 280
-	v.offset_top = -240
-	v.offset_bottom = 240
+	v.custom_minimum_size = Vector2(frame_width - 36.0, 0.0)
 	v.add_theme_constant_override("separation", 12)
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
-	add_child(v)
+	scroll.add_child(v)
 
 	var title: Label = Label.new()
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 40)
+	title.add_theme_font_size_override("font_size", UITheme.font_size(40))
 	if victory:
 		title.text = "DAWN BEACON REACHED"
-		title.add_theme_color_override("font_color", Color(1.0, 0.9, 0.5))
+		title.add_theme_color_override("font_color", UITheme.accent_color())
 	else:
 		title.text = "THE LINE ENDS HERE"
-		title.add_theme_color_override("font_color", Color(0.95, 0.35, 0.35))
+		title.add_theme_color_override("font_color", UITheme.danger_color())
 	v.add_child(title)
 
 	var body: Label = Label.new()
 	body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	body.custom_minimum_size = Vector2(500, 100)
+	body.custom_minimum_size = Vector2(frame_width - 54.0, 100)
+	body.add_theme_font_size_override("font_size", UITheme.font_size(15))
 	body.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
 	if victory:
 		body.text = "The pale sky opens. Warm light finds the rails. The surviving cars roll into the beacon and stop, breathing steam like grateful animals."
@@ -73,7 +83,8 @@ func show_end(victory: bool, run_state: RunState) -> void:
 	var ledger := Label.new()
 	ledger.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	ledger.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	ledger.custom_minimum_size = Vector2(540, 150)
+	ledger.custom_minimum_size = Vector2(frame_width - 54.0, 150)
+	ledger.add_theme_font_size_override("font_size", UITheme.font_size(14))
 	ledger.text = _build_ledger(run_state)
 	ledger.add_theme_color_override("font_color", Color(0.82, 0.78, 0.68))
 	v.add_child(ledger)
@@ -85,6 +96,7 @@ func show_end(victory: bool, run_state: RunState) -> void:
 		AudioManager.play("click")
 		emit_signal("closed"))
 	v.add_child(btn)
+	btn.grab_focus()
 
 	if victory:
 		AudioManager.play("victory")

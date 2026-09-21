@@ -51,6 +51,13 @@ func present(
 	AudioManager.play("reveal")
 
 
+func rebuild() -> void:
+	if not _active:
+		return
+	_input_guard_time = 0.1
+	_build()
+
+
 func _build() -> void:
 	theme = UITheme.build()
 	for child in get_children():
@@ -60,17 +67,30 @@ func _build() -> void:
 	anchor_bottom = 1.0
 	mouse_filter = Control.MOUSE_FILTER_PASS
 	var viewport_size: Vector2 = get_viewport_rect().size
-	_compact_layout = viewport_size.x < 1100.0 or viewport_size.y < 620.0
+	_compact_layout = (
+		viewport_size.x < 1100.0
+		or viewport_size.y < 620.0
+		or UITheme.text_scale() > 1.15
+	)
+	var text_scale: float = UITheme.text_scale()
+	var half_width := minf(
+		430.0 * text_scale,
+		viewport_size.x * (0.46 if _compact_layout else 0.4)
+	)
+	var half_height := minf(
+		210.0 * text_scale,
+		viewport_size.y * 0.46
+	)
 
 	var frame := PanelContainer.new()
 	frame.anchor_left = 1.0
 	frame.anchor_right = 1.0
 	frame.anchor_top = 0.5
 	frame.anchor_bottom = 0.5
-	frame.offset_left = -350.0 if _compact_layout else -410.0
+	frame.offset_left = -half_width
 	frame.offset_right = -12.0 if _compact_layout else -24.0
-	frame.offset_top = -152.0 if _compact_layout else -170.0
-	frame.offset_bottom = 152.0 if _compact_layout else 170.0
+	frame.offset_top = -half_height
+	frame.offset_bottom = half_height
 	add_child(frame)
 
 	var root := VBoxContainer.new()
@@ -80,15 +100,18 @@ func _build() -> void:
 	var heading := Label.new()
 	heading.text = "ROUTE PROJECTION - %s LENS" % _lens_key.to_upper()
 	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	heading.add_theme_font_size_override("font_size", 17 if _compact_layout else 19)
-	heading.add_theme_color_override("font_color", Color(1.0, 0.86, 0.62))
+	heading.add_theme_font_size_override(
+		"font_size",
+		UITheme.font_size(17 if _compact_layout else 19)
+	)
+	heading.add_theme_color_override("font_color", UITheme.accent_color())
 	root.add_child(heading)
 
 	var instruction := Label.new()
 	instruction.text = (
-		"Aim vertically, inspect the forecast, then commit."
+		"Aim vertically, inspect the forecast, then commit. Tab and Enter also work."
 		if _compact_layout
-		else "%s\nAim vertically across the junction, then commit the lit rail." % String(
+		else "%s\nAim across the junction, or use Tab and Enter, then commit the lit rail." % String(
 			_lens_data.get(
 				"description",
 				"The selected lens changes which signatures are easiest to find."
@@ -97,8 +120,8 @@ func _build() -> void:
 	)
 	instruction.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	instruction.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	instruction.add_theme_font_size_override("font_size", 12)
-	instruction.add_theme_color_override("font_color", Color(0.72, 0.74, 0.8))
+	instruction.add_theme_font_size_override("font_size", UITheme.font_size(12))
+	instruction.add_theme_color_override("font_color", UITheme.muted_text_color())
 	root.add_child(instruction)
 
 	var bands := HBoxContainer.new()
@@ -117,13 +140,16 @@ func _build() -> void:
 
 	_position_label = Label.new()
 	_position_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_position_label.add_theme_font_size_override("font_size", 13)
+	_position_label.add_theme_font_size_override("font_size", UITheme.font_size(13))
 	root.add_child(_position_label)
 
 	_title_label = Label.new()
 	_title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_title_label.add_theme_font_size_override("font_size", 18 if _compact_layout else 21)
-	_title_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.7))
+	_title_label.add_theme_font_size_override(
+		"font_size",
+		UITheme.font_size(18 if _compact_layout else 21)
+	)
+	_title_label.add_theme_color_override("font_color", UITheme.accent_color())
 	root.add_child(_title_label)
 
 	_description_label = Label.new()
@@ -176,6 +202,8 @@ func _process(delta: float) -> void:
 	_input_guard_time = maxf(0.0, _input_guard_time - delta)
 	if _input_guard_time <= 0.0 and is_instance_valid(_input_blocker):
 		_input_blocker.queue_free()
+		if is_instance_valid(_commit_button):
+			_commit_button.grab_focus()
 
 
 func replace_choices(choices: Array, selected_index: int = 1) -> void:
@@ -228,9 +256,9 @@ func _refresh_selection() -> void:
 	_outcome_label.text = _format_outcome(event)
 	_outcome_label.add_theme_color_override(
 		"font_color",
-		Color(0.95, 0.55, 0.42)
+		UITheme.danger_color()
 		if int(event.get("danger", 0)) >= 2
-		else Color(0.62, 0.9, 0.62)
+		else UITheme.success_color()
 	)
 
 
@@ -277,11 +305,11 @@ func _starts_story_trail(event: Dictionary) -> bool:
 func _category_color(category: String) -> Color:
 	match category:
 		"living":
-			return Color(0.55, 0.85, 0.5)
+			return Color(0.55, 1.0, 0.55) if UITheme.high_contrast() else Color(0.55, 0.85, 0.5)
 		"machinery":
-			return Color(0.7, 0.85, 1.0)
+			return Color(0.65, 0.9, 1.0) if UITheme.high_contrast() else Color(0.7, 0.85, 1.0)
 		"danger":
-			return Color(0.9, 0.4, 0.35)
+			return UITheme.danger_color()
 		_:
 			return Color(0.9, 0.9, 0.9)
 

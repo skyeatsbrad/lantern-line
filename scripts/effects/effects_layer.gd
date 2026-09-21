@@ -59,6 +59,9 @@ func set_dawn_progress(v: float) -> void:
 
 
 func request_flash(color: Color, duration: float) -> void:
+	if bool(GameManager.get_setting("reduced_flashes", false)):
+		color.a *= 0.28
+		duration = minf(duration, 0.18)
 	_flash_color = color
 	_flash_duration = maxf(0.01, duration)
 	_flash_time = _flash_duration
@@ -77,6 +80,10 @@ func shake_offset() -> Vector2:
 
 
 func _process(delta: float) -> void:
+	_reduced_motion = bool(GameManager.get_setting("reduced_motion", false))
+	_screen_shake_enabled = bool(GameManager.get_setting("screen_shake", true))
+	if _reduced_motion or not _screen_shake_enabled:
+		_shake = 0.0
 	if _shake > 0.0:
 		_shake_offset = Vector2(_rng.randf_range(-1, 1), _rng.randf_range(-1, 1)) * _shake
 		_shake = maxf(0.0, _shake - delta * 40.0)

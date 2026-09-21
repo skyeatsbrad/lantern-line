@@ -165,6 +165,8 @@ func _draw_car(car: Dictionary, pos: Vector2, is_rear: bool) -> void:
 	draw_rect(Rect2(pos.x, pos.y - CAR_HEIGHT, CAR_WIDTH, 5), Color(0.30, 0.24, 0.18))
 	if float(_damage_flashes.get(car_id, 0.0)) > 0.0:
 		var flash_alpha: float = clampf(float(_damage_flashes[car_id]) * 2.0, 0.0, 0.8)
+		if bool(GameManager.get_setting("reduced_flashes", false)):
+			flash_alpha = minf(flash_alpha, 0.24)
 		draw_rect(
 			Rect2(pos.x - 3.0, pos.y - CAR_HEIGHT - 3.0, CAR_WIDTH + 6.0, CAR_HEIGHT + 10.0),
 			Color(1.0, 0.28, 0.16, flash_alpha),
@@ -172,7 +174,11 @@ func _draw_car(car: Dictionary, pos: Vector2, is_rear: bool) -> void:
 			4.0
 		)
 	if hp_ratio > 0.0 and hp_ratio <= 0.3:
-		var warning_alpha: float = 0.55 + sin(_time * 8.0) * 0.35
+		var warning_alpha: float = (
+			0.82
+			if bool(GameManager.get_setting("reduced_flashes", false))
+			else 0.55 + sin(_time * 8.0) * 0.35
+		)
 		draw_rect(
 			Rect2(pos.x - 2.0, pos.y - CAR_HEIGHT - 2.0, CAR_WIDTH + 4.0, CAR_HEIGHT + 8.0),
 			Color(1.0, 0.2, 0.12, warning_alpha),

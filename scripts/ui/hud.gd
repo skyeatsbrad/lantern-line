@@ -11,6 +11,8 @@ signal request_speed()
 signal request_focus()
 signal request_defense_salvo()
 signal request_field_action(action: String)
+signal request_settings()
+signal request_guide()
 signal detach_hold_changed(active: bool)
 
 var _run_state: RunState
@@ -26,12 +28,12 @@ var _compact_layout: bool = false
 var _bars: Dictionary = {}
 var _prio_buttons: Dictionary = {}
 @onready var _notification_label: Label
+@onready var _notification_panel: PanelContainer
 @onready var _hint_label: Label
 @onready var _loco_bar: ProgressBar
 @onready var _focus_button: Button
 @onready var _focus_label: Label
 @onready var _salvo_button: Button
-@onready var _salvo_label: Label
 @onready var _patch_button: Button
 @onready var _overcharge_button: Button
 @onready var _flare_button: Button
@@ -42,6 +44,7 @@ var _prio_buttons: Dictionary = {}
 @onready var _power_status_label: Label
 @onready var _crew_status_label: Label
 @onready var _critical_label: Label
+@onready var _critical_panel: PanelContainer
 var _critical_timer: float = 0.0
 
 
@@ -56,19 +59,40 @@ func setup(run_state: RunState, lens_config: Dictionary) -> void:
 	set_process(true)
 
 
+func rebuild() -> void:
+	if _run_state == null:
+		return
+	_build_ui()
+	_refresh()
+
+
 func _build_ui() -> void:
 	theme = UITheme.build()
+	for child in get_children():
+		remove_child(child)
+		child.queue_free()
+	_bars.clear()
+	_prio_buttons.clear()
 	anchor_right = 1.0
 	anchor_bottom = 1.0
 	mouse_filter = Control.MOUSE_FILTER_PASS
 
-	var text_scale: float = float(GameManager.get_setting("text_scale", 1.0))
-	var base_font_size: int = int(14 * text_scale)
+	var text_scale: float = UITheme.text_scale()
+	var base_font_size: int = UITheme.font_size(14)
 	var viewport_size: Vector2 = get_viewport_rect().size
-	_compact_layout = viewport_size.x < 1100.0 or viewport_size.y < 620.0
+	_compact_layout = (
+		viewport_size.x < 1100.0
+		or viewport_size.y < 620.0
+		or text_scale > 1.15
+	)
 	if _compact_layout:
-		base_font_size = maxi(13, mini(base_font_size, 14))
-	var bottom_height: float = 164.0 if _compact_layout else 190.0
+		base_font_size = UITheme.font_size(13)
+	var scale_growth: float = maxf(0.0, text_scale - 1.0)
+	var bottom_height: float = (
+		164.0 + scale_growth * 105.0
+		if _compact_layout
+		else 190.0 + scale_growth * 90.0
+	)
 
 	# Top-left: distance and time
 	var top: PanelContainer = PanelContainer.new()
@@ -77,7 +101,11 @@ func _build_ui() -> void:
 	top.offset_left = 12
 	top.offset_top = 12
 	top.offset_right = 250 if _compact_layout else 320
-	top.offset_bottom = 78 if _compact_layout else 84
+	top.offset_bottom = (
+		78.0 + scale_growth * 48.0
+		if _compact_layout
+		else 84.0 + scale_growth * 44.0
+	)
 	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(top)
 	var top_vbox: VBoxContainer = VBoxContainer.new()
@@ -101,7 +129,11 @@ func _build_ui() -> void:
 	right.offset_left = -318 if _compact_layout else -310
 	right.offset_top = 12
 	right.offset_right = -12
-	right.offset_bottom = 180 if _compact_layout else 226
+	right.offset_bottom = (
+		180.0 + scale_growth * 120.0
+		if _compact_layout
+		else 226.0 + scale_growth * 96.0
+	)
 	right.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(right)
 	var rvbox: VBoxContainer = VBoxContainer.new()
@@ -128,7 +160,9 @@ func _build_ui() -> void:
 	rvbox.add_child(field_row)
 	_patch_button = Button.new()
 	_patch_button.text = (
-		"Patch -%d" % RunState.FIELD_PATCH_COST
+		"Patch %d" % RunState.FIELD_PATCH_COST
+		if _compact_layout
+		else "Patch -%d" % RunState.FIELD_PATCH_COST
 	)
 	_patch_button.tooltip_text = "After Waypost Five: repair the most damaged section by 22 integrity."
 	_patch_button.pressed.connect(
@@ -137,17 +171,21 @@ func _build_ui() -> void:
 	field_row.add_child(_patch_button)
 	_overcharge_button = Button.new()
 	_overcharge_button.text = (
-		"Boost -%d" % RunState.FIELD_OVERCHARGE_COST
+		"Boost %d" % RunState.FIELD_OVERCHARGE_COST
 		if _compact_layout
 		else "Overcharge -%d" % RunState.FIELD_OVERCHARGE_COST
 	)
-	_overcharge_button.tooltip_text = "After Waypost Five: convert scrap into +4 power and +3 lumen."
+	_overcharge_button.tooltip_text = "After Waypost Five: gain +4 power, +3 lumen, and a 12-second systems boost."
 	_overcharge_button.pressed.connect(
 		func() -> void: emit_signal("request_field_action", "overcharge")
 	)
 	field_row.add_child(_overcharge_button)
 	_flare_button = Button.new()
-	_flare_button.text = "Flare -%d" % RunState.FIELD_FLARE_COST
+	_flare_button.text = (
+		"Flare %d" % RunState.FIELD_FLARE_COST
+		if _compact_layout
+		else "Flare -%d" % RunState.FIELD_FLARE_COST
+	)
 	_flare_button.tooltip_text = "Burn a signal flare for wider, longer, stronger light."
 	_flare_button.pressed.connect(
 		func() -> void: emit_signal("request_field_action", "flare")
@@ -161,7 +199,11 @@ func _build_ui() -> void:
 	mid.offset_left = -145 if _compact_layout else -210
 	mid.offset_right = 145 if _compact_layout else 210
 	mid.offset_top = 12
-	mid.offset_bottom = 122 if _compact_layout else 132
+	mid.offset_bottom = (
+		122.0 + scale_growth * 72.0
+		if _compact_layout
+		else 132.0 + scale_growth * 64.0
+	)
 	add_child(mid)
 	var mid_v: VBoxContainer = VBoxContainer.new()
 	mid.add_child(mid_v)
@@ -231,7 +273,7 @@ func _build_ui() -> void:
 	# Bottom-center: priorities (Q/W/E/R)
 	var prio: PanelContainer = PanelContainer.new()
 	prio.anchor_left = 0.23 if _compact_layout else 0.26
-	prio.anchor_right = 0.68 if _compact_layout else 0.76
+	prio.anchor_right = 0.68 if _compact_layout else 0.73
 	prio.anchor_top = 1.0
 	prio.anchor_bottom = 1.0
 	prio.offset_left = 4
@@ -277,7 +319,7 @@ func _build_ui() -> void:
 
 	# Bottom-right: pause / speed / detach
 	var ctrl: PanelContainer = PanelContainer.new()
-	ctrl.anchor_left = 0.68 if _compact_layout else 0.76
+	ctrl.anchor_left = 0.68 if _compact_layout else 0.73
 	ctrl.anchor_right = 1.0
 	ctrl.anchor_top = 1.0
 	ctrl.anchor_bottom = 1.0
@@ -304,6 +346,19 @@ func _build_ui() -> void:
 	speed_btn.text = "Speed" if _compact_layout else "Speed (T)"
 	speed_btn.pressed.connect(func() -> void: emit_signal("request_speed"))
 	row.add_child(speed_btn)
+	var utility_row := HBoxContainer.new()
+	utility_row.add_theme_constant_override("separation", 6)
+	ctrl_v.add_child(utility_row)
+	var guide_btn := Button.new()
+	guide_btn.text = "Guide (H)" if not _compact_layout else "Guide"
+	guide_btn.tooltip_text = "Open the Conductor's Guide. The run pauses while it is open."
+	guide_btn.pressed.connect(func() -> void: emit_signal("request_guide"))
+	utility_row.add_child(guide_btn)
+	var settings_btn := Button.new()
+	settings_btn.text = "Options (Esc)" if not _compact_layout else "Options"
+	settings_btn.tooltip_text = "Open accessibility and presentation settings."
+	settings_btn.pressed.connect(func() -> void: emit_signal("request_settings"))
+	utility_row.add_child(settings_btn)
 	var ability_row := HBoxContainer.new()
 	ability_row.add_theme_constant_override("separation", 6)
 	ctrl_v.add_child(ability_row)
@@ -323,11 +378,6 @@ func _build_ui() -> void:
 	_focus_label.add_theme_font_size_override("font_size", base_font_size - 2)
 	_focus_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	ability_status.add_child(_focus_label)
-	_salvo_label = Label.new()
-	_salvo_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_salvo_label.add_theme_font_size_override("font_size", base_font_size - 2)
-	_salvo_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	ability_status.add_child(_salvo_label)
 	_detach_button = Button.new()
 	_detach_button.text = "Hold to detach rear (X)"
 	_detach_button.button_down.connect(func() -> void: emit_signal("detach_hold_changed", true))
@@ -347,29 +397,45 @@ func _build_ui() -> void:
 	ctrl_v.add_child(_hint_label)
 
 	# Center notification
+	_notification_panel = PanelContainer.new()
+	_notification_panel.anchor_left = 0.5
+	_notification_panel.anchor_right = 0.5
+	_notification_panel.anchor_top = 0.18
+	_notification_panel.anchor_bottom = 0.18
+	_notification_panel.offset_left = -310
+	_notification_panel.offset_right = 310
+	_notification_panel.offset_top = -8
+	_notification_panel.offset_bottom = 48
+	_notification_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_notification_panel.visible = false
+	add_child(_notification_panel)
 	_notification_label = Label.new()
-	_notification_label.anchor_left = 0.5
-	_notification_label.anchor_right = 0.5
-	_notification_label.anchor_top = 0.2
-	_notification_label.anchor_bottom = 0.2
-	_notification_label.offset_left = -240
-	_notification_label.offset_right = 240
 	_notification_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_notification_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_notification_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_notification_label.add_theme_font_size_override("font_size", base_font_size + 6)
-	_notification_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.6))
-	add_child(_notification_label)
+	_notification_label.add_theme_color_override("font_color", UITheme.accent_color())
+	_notification_panel.add_child(_notification_label)
 
+	_critical_panel = PanelContainer.new()
+	_critical_panel.anchor_left = 0.5
+	_critical_panel.anchor_right = 0.5
+	_critical_panel.anchor_top = 0.29
+	_critical_panel.anchor_bottom = 0.29
+	_critical_panel.offset_left = -360
+	_critical_panel.offset_right = 360
+	_critical_panel.offset_top = -8
+	_critical_panel.offset_bottom = 50
+	_critical_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_critical_panel.visible = false
+	add_child(_critical_panel)
 	_critical_label = Label.new()
-	_critical_label.anchor_left = 0.5
-	_critical_label.anchor_right = 0.5
-	_critical_label.anchor_top = 0.31
-	_critical_label.anchor_bottom = 0.31
-	_critical_label.offset_left = -310
-	_critical_label.offset_right = 310
 	_critical_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_critical_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_critical_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_critical_label.add_theme_font_size_override("font_size", base_font_size + 5)
-	_critical_label.add_theme_color_override("font_color", Color(1.0, 0.36, 0.24))
-	add_child(_critical_label)
+	_critical_label.add_theme_color_override("font_color", UITheme.danger_color())
+	_critical_panel.add_child(_critical_label)
 
 
 func _make_bar(parent: Node, label: String, col: Color, font_size: int) -> Dictionary:
@@ -430,27 +496,30 @@ func _process(delta: float) -> void:
 		]
 	)
 	var focus_cost: float = _run_state.stats().focus_cost
+	var focus_status: String
 	if _run_state.focus_active_time > 0.0:
-		_focus_label.text = "F %.1fs ACTIVE" % _run_state.focus_active_time
+		focus_status = "F %.1fs ACTIVE" % _run_state.focus_active_time
 	elif _run_state.focus_cooldown > 0.0:
-		_focus_label.text = "F %.1fs" % _run_state.focus_cooldown
+		focus_status = "F %.1fs" % _run_state.focus_cooldown
 	elif _run_state.lumen < focus_cost:
-		_focus_label.text = "F needs %.0fL" % focus_cost
+		focus_status = "F needs %.0fL" % focus_cost
 	else:
-		_focus_label.text = "F ready %.0fL" % focus_cost
+		focus_status = "F ready %.0fL" % focus_cost
 	_focus_button.disabled = (
 		_run_state.focus_active_time > 0.0
 		or _run_state.focus_cooldown > 0.0
 		or _run_state.lumen < focus_cost
 	)
+	var salvo_status: String
 	if _run_state.defense_salvo_cooldown > 0.0:
-		_salvo_label.text = "C %.1fs" % _run_state.defense_salvo_cooldown
+		salvo_status = "C %.1fs" % _run_state.defense_salvo_cooldown
 	elif _run_state.stats().defense_mounts.is_empty():
-		_salvo_label.text = "C needs Defense"
+		salvo_status = "C needs Defense"
 	elif _run_state.power < RunState.DEFENSE_SALVO_POWER_COST:
-		_salvo_label.text = "C needs %.0fP" % RunState.DEFENSE_SALVO_POWER_COST
+		salvo_status = "C needs %.0fP" % RunState.DEFENSE_SALVO_POWER_COST
 	else:
-		_salvo_label.text = "C ready %.0fP" % RunState.DEFENSE_SALVO_POWER_COST
+		salvo_status = "C ready %.0fP" % RunState.DEFENSE_SALVO_POWER_COST
+	_focus_label.text = "%s  |  %s" % [focus_status, salvo_status]
 	_salvo_button.disabled = (
 		_run_state.defense_salvo_cooldown > 0.0
 		or _run_state.stats().defense_mounts.is_empty()
@@ -464,9 +533,11 @@ func _process(delta: float) -> void:
 	_notification_timer = maxf(0.0, _notification_timer - delta)
 	if _notification_timer <= 0.0:
 		_notification_label.text = ""
+		_notification_panel.visible = false
 	_critical_timer = maxf(0.0, _critical_timer - delta)
 	if _critical_timer <= 0.0:
 		_critical_label.text = ""
+		_critical_panel.visible = false
 
 
 func _refresh() -> void:
@@ -496,9 +567,9 @@ func _refresh() -> void:
 	_power_status_label.text = _power_status(stats)
 	_power_status_label.add_theme_color_override(
 		"font_color",
-		Color(0.95, 0.48, 0.38)
+		UITheme.danger_color()
 		if _run_state.brownout_active or stats.requested_power_net < 0.0
-		else Color(0.55, 0.9, 0.58)
+		else UITheme.success_color()
 	)
 	_patch_button.disabled = not _run_state.field_patch_available()
 	_overcharge_button.disabled = (
@@ -512,11 +583,13 @@ func _refresh() -> void:
 func flash(msg: String, duration: float = 2.0) -> void:
 	_notification_label.text = msg
 	_notification_timer = duration
+	_notification_panel.visible = true
 
 
 func show_critical(msg: String, duration: float = 4.0) -> void:
 	_critical_label.text = msg
 	_critical_timer = maxf(_critical_timer, duration)
+	_critical_panel.visible = true
 
 
 func set_detach_hold(progress: float, preview: String = "") -> void:

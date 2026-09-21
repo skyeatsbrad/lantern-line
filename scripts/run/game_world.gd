@@ -19,6 +19,7 @@ const DATA_CREW: String = "res://data/crew.json"
 const DATA_ROUTES: String = "res://data/route_events.json"
 const REVEAL_INTERVAL: float = 52.0
 const DETACH_HOLD_SECONDS: float = 0.85
+const ACCESSIBLE_DETACH_HOLD_SECONDS: float = 0.45
 const VICTORY_REVEAL_SECONDS: float = 4.5
 
 var run_state: RunState
@@ -35,6 +36,8 @@ var _hud: HUD
 var _route_choice: RouteChoice
 var _station_panel: StationPanel
 var _end_screen: EndScreen
+var _settings_panel: SettingsPanel
+var _guide_panel: GuidePanel
 
 var _view_size: Vector2 = Vector2(1280, 720)
 var _mode: RunMode = RunMode.TRAVEL
@@ -51,6 +54,8 @@ var _detach_hold_active: bool = false
 var _detach_hold_time: float = 0.0
 var _light_profile: LightProfile
 var _locomotive_critical_notified: bool = false
+var _overlay_open: bool = false
+var _overlay_was_paused: bool = false
 
 # Compatibility read-only properties for the v0.1 probes.
 var _reveal_open: bool:
@@ -158,6 +163,18 @@ func bootstrap(run_seed: int, resume: Dictionary) -> void:
 	_end_screen.anchor_bottom = 1.0
 	ui_layer.add_child(_end_screen)
 
+	_settings_panel = SettingsPanel.new()
+	_settings_panel.visible = false
+	_settings_panel.anchor_right = 1.0
+	_settings_panel.anchor_bottom = 1.0
+	ui_layer.add_child(_settings_panel)
+
+	_guide_panel = GuidePanel.new()
+	_guide_panel.visible = false
+	_guide_panel.anchor_right = 1.0
+	_guide_panel.anchor_bottom = 1.0
+	ui_layer.add_child(_guide_panel)
+
 	_wire_signals()
 	_reveal_timer = maxf(0.0, float(world_resume.get("reveal_timer", REVEAL_INTERVAL)))
 	if run_state.boss_triggered and not run_state.boss_defeated:
@@ -195,6 +212,8 @@ func _wire_signals() -> void:
 	_hud.request_focus.connect(_on_focus)
 	_hud.request_defense_salvo.connect(_on_defense_salvo)
 	_hud.request_field_action.connect(_on_field_action)
+	_hud.request_settings.connect(_open_settings)
+	_hud.request_guide.connect(_open_guide)
 	_hud.detach_hold_changed.connect(_on_detach_hold_changed)
 
 	_route_choice.chosen.connect(_on_route_chosen)
@@ -205,6 +224,9 @@ func _wire_signals() -> void:
 	_station_panel.closed.connect(_on_station_closed)
 
 	_end_screen.closed.connect(_on_end_closed)
+	_settings_panel.closed.connect(_on_settings_closed)
+	_settings_panel.guide_requested.connect(_on_settings_guide_requested)
+	_guide_panel.closed.connect(_on_guide_closed)
 	_enemy_director.enemy_killed.connect(_on_enemy_killed)
 	_enemy_director.threat_announced.connect(_on_threat_announced)
 	_enemy_director.defense_fired.connect(_on_defense_fired)
@@ -582,8 +604,9 @@ func _process_detach_hold(delta: float) -> void:
 			if bool(preview_data.get("crew_protected", false))
 			else " (LOSE %s)" % ", ".join(PackedStringArray(crew_names))
 		)
-	_hud.set_detach_hold(_detach_hold_time / DETACH_HOLD_SECONDS, preview)
-	if _detach_hold_time >= DETACH_HOLD_SECONDS:
+	var required_hold: float = _detach_hold_seconds()
+	_hud.set_detach_hold(_detach_hold_time / required_hold, preview)
+	if _detach_hold_time >= required_hold:
 		_detach_hold_active = false
 		_detach_hold_time = 0.0
 		_hud.set_detach_hold(0.0)
@@ -603,6 +626,67 @@ func _on_speed() -> void:
 	run_state.toggle_speed()
 	AudioManager.play("click")
 	_hud.flash("Travel speed: %sx" % str(run_state.speed_scale), 1.2)
+
+
+func _detach_hold_seconds() -> float:
+	return (
+		ACCESSIBLE_DETACH_HOLD_SECONDS
+		if bool(GameManager.get_setting("short_holds", false))
+		else DETACH_HOLD_SECONDS
+	)
+
+
+func _open_settings() -> void:
+	if not _begin_overlay():
+		return
+	_settings_panel.present()
+
+
+func _open_guide() -> void:
+	if not _begin_overlay():
+		return
+	_guide_panel.present("Return to Run")
+
+
+func _begin_overlay() -> bool:
+	if (
+		_overlay_open
+		or _mode == RunMode.ENDING
+		or _mode == RunMode.ENDED
+	):
+		return false
+	_on_detach_hold_changed(false)
+	_overlay_was_paused = run_state.paused
+	run_state.paused = true
+	_overlay_open = true
+	AudioManager.play("click")
+	return true
+
+
+func _on_settings_closed() -> void:
+	_close_overlay()
+
+
+func _on_settings_guide_requested() -> void:
+	if not _overlay_open:
+		return
+	_guide_panel.present("Return to Run")
+
+
+func _on_guide_closed() -> void:
+	_close_overlay()
+
+
+func _close_overlay() -> void:
+	if not _overlay_open:
+		return
+	_overlay_open = false
+	run_state.paused = _overlay_was_paused
+	_hud.rebuild()
+	if _mode == RunMode.ROUTE_REVEAL:
+		_route_choice.rebuild()
+	elif _mode == RunMode.STATION:
+		_station_panel.rebuild()
 
 
 func _on_detach() -> void:
@@ -773,8 +857,18 @@ func _input(event: InputEvent) -> void:
 		AudioManager.notify_user_gesture()
 	if event is InputEventKey and (event as InputEventKey).echo:
 		return
+	if _overlay_open:
+		return
 	if event.is_action_released("detach_car"):
 		_on_detach_hold_changed(false)
+	if event.is_action_pressed("ui_cancel"):
+		_open_settings()
+		get_viewport().set_input_as_handled()
+		return
+	if event.is_action_pressed("open_guide"):
+		_open_guide()
+		get_viewport().set_input_as_handled()
+		return
 	if not _gameplay_controls_enabled():
 		return
 	var priority_delta: int = -1 if (
@@ -854,7 +948,10 @@ func _set_mode(next_mode: RunMode) -> void:
 
 
 func _gameplay_controls_enabled() -> bool:
-	return _mode == RunMode.TRAVEL or _mode == RunMode.BOSS
+	return (
+		(_mode == RunMode.TRAVEL or _mode == RunMode.BOSS)
+		and not _overlay_open
+	)
 
 
 func _save_checkpoint() -> void:

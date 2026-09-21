@@ -505,6 +505,8 @@ func _draw() -> void:
 				_draw_boarder(e)
 			"Drainer":
 				_draw_drainer(e)
+		if UITheme.high_contrast():
+			_draw_accessibility_label(e)
 		if e.warded:
 			_draw_ward(e)
 		_draw_attack_warning(e)
@@ -513,7 +515,7 @@ func _draw() -> void:
 
 func _draw_ward(e: Enemy) -> void:
 	var ratio: float = clampf(e.ward_hp / maxf(1.0, e.ward_max_hp), 0.0, 1.0)
-	var pulse: float = 1.0 + sin(_elapsed * 5.0) * 0.08
+	var pulse: float = 1.0 if _reduced_motion else 1.0 + sin(_elapsed * 5.0) * 0.08
 	draw_arc(
 		e.position,
 		25.0 * pulse,
@@ -559,7 +561,7 @@ func _draw_boarder(e: Enemy) -> void:
 
 func _draw_drainer(e: Enemy) -> void:
 	var p: Vector2 = e.position
-	var t: float = _elapsed * 4.0
+	var t: float = 0.0 if _reduced_motion else _elapsed * 4.0
 	var r: float = 6.0 + sin(t) * 1.5
 	draw_circle(p, r, e.color)
 	draw_circle(p, r * 1.6, Color(e.color.r, e.color.g, e.color.b, 0.2))
@@ -570,6 +572,30 @@ func _draw_drainer(e: Enemy) -> void:
 	if e.position.distance_to(e.target) < 190.0:
 		draw_line(p, e.target, Color(e.color.r, e.color.g, e.color.b, 0.6), 2.5)
 		draw_circle(e.target, 8.0 + sin(t) * 2.0, Color(e.color.r, e.color.g, e.color.b, 0.35))
+
+
+func _draw_accessibility_label(e: Enemy) -> void:
+	var text: String = {
+		"Pursuer": "REAR / HEARTH [2]",
+		"Boarder": "ROOF / STANDARD [1]",
+		"Drainer": "AIR / PALE [3]"
+	}.get(e.kind, "THREAT")
+	var label_center := Vector2(
+		clampf(e.position.x, 61.0, _view_size.x - 61.0),
+		maxf(e.position.y, 72.0)
+	)
+	var rect := Rect2(label_center + Vector2(-59.0, -69.0), Vector2(118.0, 16.0))
+	draw_rect(rect, Color(0.0, 0.0, 0.0, 0.9))
+	draw_rect(rect, Color(1.0, 0.84, 0.34, 1.0), false, 1.0)
+	draw_string(
+		ThemeDB.fallback_font,
+		label_center + Vector2(-57.0, -57.0),
+		text,
+		HORIZONTAL_ALIGNMENT_CENTER,
+		114.0,
+		10,
+		Color(1.0, 1.0, 1.0)
+	)
 
 
 func _draw_attack_warning(e: Enemy) -> void:
@@ -607,8 +633,11 @@ func _draw_hp(e: Enemy) -> void:
 	var ratio: float = clampf(e.hp / e.max_hp, 0.0, 1.0)
 	var w: float = 20.0
 	var pos: Vector2 = e.position + Vector2(-w * 0.5, -22)
-	draw_rect(Rect2(pos, Vector2(w, 3)), Color(0.1, 0.1, 0.1))
-	draw_rect(Rect2(pos, Vector2(w * ratio, 3)), Color(0.9, 0.3, 0.25))
+	draw_rect(Rect2(pos, Vector2(w, 3)), Color(0.02, 0.02, 0.02))
+	draw_rect(
+		Rect2(pos, Vector2(w * ratio, 3)),
+		Color(1.0, 0.34, 0.2) if UITheme.high_contrast() else Color(0.9, 0.3, 0.25)
+	)
 
 
 func _announce_threat(kind: String) -> void:

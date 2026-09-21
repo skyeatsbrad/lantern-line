@@ -459,9 +459,14 @@ func _apply_phase_speed() -> void:
 
 
 func _boss_position() -> Vector2:
+	var bob: float = (
+		0.0
+		if bool(GameManager.get_setting("reduced_motion", false))
+		else sin(_elapsed * 0.8) * 24.0
+	)
 	return Vector2(
 		minf(_view_size.x * 0.68, _train_pos.x + 380.0),
-		_train_pos.y - 38.0 + sin(_elapsed * 0.8) * 24.0
+		_train_pos.y - 38.0 + bob
 	)
 
 
@@ -489,13 +494,15 @@ func _draw() -> void:
 	if not is_active():
 		return
 	var boss := _boss_position()
-	var pulse := 1.0 + sin(_elapsed * 3.0) * 0.08
+	var reduced_motion := bool(GameManager.get_setting("reduced_motion", false))
+	var visual_time := 0.0 if reduced_motion else _elapsed
+	var pulse := 1.0 if reduced_motion else 1.0 + sin(_elapsed * 3.0) * 0.08
 	var shadow := Color(0.28, 0.06, 0.24, 0.92)
 	draw_circle(boss, 50.0 * pulse, Color(0.08, 0.03, 0.1, 0.88))
 	draw_circle(boss, 34.0 * pulse, shadow)
 	for index in range(6):
-		var angle := _elapsed * 0.35 + float(index) * TAU / 6.0
-		var end := boss + Vector2(cos(angle), sin(angle)) * (62.0 + 8.0 * sin(_elapsed + index))
+		var angle := visual_time * 0.35 + float(index) * TAU / 6.0
+		var end := boss + Vector2(cos(angle), sin(angle)) * (62.0 + 8.0 * sin(visual_time + index))
 		draw_line(boss, end, Color(0.45, 0.12, 0.38, 0.55), 5.0)
 	if _transition_timer > 0.0:
 		var transition_ratio: float = 1.0 - _transition_timer / maxf(0.01, TRANSITION_DURATION)
