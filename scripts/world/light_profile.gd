@@ -42,10 +42,20 @@ static func build(
 	result.damage_multiplier = float(lens.get("beam_damage_multiplier", 1.0))
 	if result.focused:
 		result.range_px *= 1.16
-		result.spread_radians = 0.17
+		result.spread_radians = 0.22
 		result.damage_multiplier *= 4.0
 	else:
 		result.spread_radians = 0.7227342478
+		var speed_assist: float = clampf((run_state.speed_scale - 1.0) / 1.0, 0.0, 1.0)
+		result.spread_radians *= lerpf(1.0, 1.14, speed_assist)
+	if run_state.field_overcharge_time > 0.0:
+		result.range_px *= 1.1
+		result.damage_multiplier *= 1.2
+	if run_state.field_flare_time > 0.0:
+		result.range_px *= 1.35
+		result.damage_multiplier *= 1.25
+		if not result.focused:
+			result.spread_radians *= 1.3
 	return result
 
 

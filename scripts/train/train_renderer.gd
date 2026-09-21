@@ -15,6 +15,7 @@ var _time: float = 0.0
 var _wheel_angle: float = 0.0
 var _smoke: Array[Dictionary] = []
 var _sparks: Array[Dictionary] = []
+var _damage_flashes: Dictionary = {}
 var _reduced_motion: bool = false
 var _pos: Vector2 = Vector2(320, 460)
 
@@ -40,11 +41,38 @@ func car_screen_center(index: int) -> Vector2:
 	)
 
 
+func car_screen_center_by_id(car_id: String) -> Vector2:
+	for index in range(_run_state.cars.size()):
+		if String(_run_state.cars[index].get("id", "")) == car_id:
+			return car_screen_center(index)
+	return _pos
+
+
+func flash_car(car_id: String, duration: float = 0.5) -> void:
+	if car_id.is_empty():
+		return
+	_damage_flashes[car_id] = maxf(
+		float(_damage_flashes.get(car_id, 0.0)),
+		duration
+	)
+
+
 func _process(delta: float) -> void:
 	if _run_state == null:
 		return
 	_reduced_motion = bool(GameManager.get_setting("reduced_motion", false))
-	var scaled: float = delta * (0.0 if _run_state.is_simulation_paused() else _run_state.speed_scale)
+	var scaled: float = (
+		0.0
+		if _run_state.is_simulation_paused()
+		else delta * _run_state.effective_speed_scale()
+	)
+	for car_id_variant in _damage_flashes.keys():
+		var car_id: String = String(car_id_variant)
+		var remaining: float = maxf(0.0, float(_damage_flashes[car_id]) - delta)
+		if remaining <= 0.0:
+			_damage_flashes.erase(car_id)
+		else:
+			_damage_flashes[car_id] = remaining
 	_time += scaled
 	var speed: float = _run_state.current_speed()
 	_wheel_angle += scaled * speed * 0.05
@@ -126,6 +154,7 @@ func _draw_locomotive() -> void:
 
 func _draw_car(car: Dictionary, pos: Vector2, is_rear: bool) -> void:
 	var type_key: String = String(car["type"])
+	var car_id: String = String(car.get("id", ""))
 	var hp_ratio: float = float(car["hp"]) / float(car["max_hp"])
 	var body_col: Color = _car_color(type_key)
 	if hp_ratio < 0.3:
@@ -134,6 +163,31 @@ func _draw_car(car: Dictionary, pos: Vector2, is_rear: bool) -> void:
 	draw_rect(Rect2(pos.x, pos.y - CAR_HEIGHT, CAR_WIDTH, CAR_HEIGHT * 0.75), body_col)
 	# roof
 	draw_rect(Rect2(pos.x, pos.y - CAR_HEIGHT, CAR_WIDTH, 5), Color(0.30, 0.24, 0.18))
+	if float(_damage_flashes.get(car_id, 0.0)) > 0.0:
+		var flash_alpha: float = clampf(float(_damage_flashes[car_id]) * 2.0, 0.0, 0.8)
+		draw_rect(
+			Rect2(pos.x - 3.0, pos.y - CAR_HEIGHT - 3.0, CAR_WIDTH + 6.0, CAR_HEIGHT + 10.0),
+			Color(1.0, 0.28, 0.16, flash_alpha),
+			false,
+			4.0
+		)
+	if hp_ratio > 0.0 and hp_ratio <= 0.3:
+		var warning_alpha: float = 0.55 + sin(_time * 8.0) * 0.35
+		draw_rect(
+			Rect2(pos.x - 2.0, pos.y - CAR_HEIGHT - 2.0, CAR_WIDTH + 4.0, CAR_HEIGHT + 8.0),
+			Color(1.0, 0.2, 0.12, warning_alpha),
+			false,
+			3.0
+		)
+		draw_string(
+			ThemeDB.fallback_font,
+			Vector2(pos.x + 17.0, pos.y - CAR_HEIGHT - 13.0),
+			"CRITICAL",
+			HORIZONTAL_ALIGNMENT_LEFT,
+			64.0,
+			10,
+			Color(1.0, 0.58, 0.28)
+		)
 	# type icon (glyph)
 	_draw_car_glyph(pos, type_key)
 	_draw_crew_posts(car, pos)

@@ -11,6 +11,8 @@ signal locomotive_damaged(hp: float)
 signal supplies_zero_started()
 signal supplies_zero_ended()
 signal car_destroyed(display_name: String, evacuated_names: Array)
+signal car_damaged(car_id: String, display_name: String, hp: float, max_hp: float, index: int)
+signal car_critical(car_id: String, display_name: String, index: int)
 signal crew_changed()
 
 const JOURNEY_TARGET: float = 16000.0
@@ -28,6 +30,12 @@ const BROWNOUT_ENTER_POWER: float = 1.0
 const BROWNOUT_RECOVER_POWER: float = 3.0
 const FIELD_PATCH_COST: int = 6
 const FIELD_OVERCHARGE_COST: int = 5
+const FIELD_FLARE_COST: int = 8
+const ROUTE_REROLL_COST: int = 6
+const FIELD_OVERCHARGE_DURATION: float = 12.0
+const FIELD_FLARE_DURATION: float = 10.0
+const CRITICAL_SLOW_DURATION: float = 4.5
+const CRITICAL_SLOW_SCALE: float = 0.7
 const DEFENSE_SALVO_POWER_COST: float = 2.0
 const DEFENSE_SALVO_COOLDOWN: float = 12.0
 
@@ -55,6 +63,9 @@ var run_history: Dictionary = {
 	"telemetry": {
 		"focus_uses": 0,
 		"defense_salvos": 0,
+		"route_rerolls": 0,
+		"wards_broken": 0,
+		"boss_active_responses": 0,
 		"min_power": 6.0,
 		"brownout_time": 0.0,
 		"boss_phase_times": {}
@@ -101,8 +112,11 @@ var brownout_active: bool = false
 # ----- Speed control -----
 var paused: bool = false
 var simulation_enabled: bool = true
-var speed_scale: float = 1.0  # 1x or 2x
+var speed_scale: float = 1.0  # 1x, 1.5x, or 2x
+var critical_slow_time: float = 0.0
 var detach_boost_time: float = 0.0
+var field_overcharge_time: float = 0.0
+var field_flare_time: float = 0.0
 var external_speed_multiplier: float = 1.0
 var distance_cap: float = JOURNEY_TARGET
 var resume_grace_time: float = 0.0
@@ -152,7 +166,9 @@ func _new_car(type_key: String, order: int) -> Dictionary:
 		"hp": max_hp,
 		"order": order,
 		"boarders": 0,
-		"upgrade": ""
+		"upgrade": "",
+		"destroyed_notified": false,
+		"critical_notified": false
 	}
 
 
@@ -160,7 +176,9 @@ func _new_car(type_key: String, order: int) -> Dictionary:
 func tick(delta: float) -> void:
 	if is_simulation_paused() or victory or defeat:
 		return
-	var scaled: float = delta * speed_scale
+	var scaled: float = delta * effective_speed_scale()
+	if critical_slow_time > 0.0:
+		critical_slow_time = maxf(0.0, critical_slow_time - delta)
 	_update_brownout_state()
 	refresh_stats()
 	travel_time += scaled
@@ -177,6 +195,10 @@ func tick(delta: float) -> void:
 		defense_salvo_cooldown = maxf(0.0, defense_salvo_cooldown - scaled)
 	if detach_boost_time > 0.0:
 		detach_boost_time = maxf(0.0, detach_boost_time - scaled)
+	if field_overcharge_time > 0.0:
+		field_overcharge_time = maxf(0.0, field_overcharge_time - scaled)
+	if field_flare_time > 0.0:
+		field_flare_time = maxf(0.0, field_flare_time - scaled)
 	var supply_rate: float = 0.07 + 0.012 * float(alive_crew_count())
 	supplies = clampf(
 		supplies
@@ -337,6 +359,23 @@ func is_simulation_paused() -> bool:
 	return paused or not simulation_enabled
 
 
+func effective_speed_scale() -> float:
+	if critical_slow_time > 0.0:
+		return minf(speed_scale, CRITICAL_SLOW_SCALE)
+	return speed_scale
+
+
+func combat_speed_scale() -> float:
+	var effective_scale: float = effective_speed_scale()
+	if effective_scale <= 1.0:
+		return effective_scale
+	return 1.15 if speed_scale < 1.75 else 1.2
+
+
+func trigger_critical_slow(duration: float = CRITICAL_SLOW_DURATION) -> void:
+	critical_slow_time = maxf(critical_slow_time, duration)
+
+
 func _repair_tick(delta: float) -> void:
 	var rate: float = stats().repair_rate
 	if rate <= 0.0:
@@ -348,6 +387,12 @@ func _repair_tick(delta: float) -> void:
 			car["hp"] = minf(car["max_hp"], car["hp"] + rate * 0.4 * delta)
 			if float(car["hp"]) > 0.0:
 				car["destroyed_notified"] = false
+			if (
+				float(car["hp"])
+				/ maxf(1.0, float(car.get("max_hp", 1.0)))
+				> 0.45
+			):
+				car["critical_notified"] = false
 
 
 # --- Actions ---
@@ -427,10 +472,12 @@ func toggle_pause() -> void:
 
 
 func toggle_speed() -> void:
-	if speed_scale >= 2.0:
-		speed_scale = 1.0
-	else:
+	if speed_scale < 1.25:
+		speed_scale = 1.5
+	elif speed_scale < 1.75:
 		speed_scale = 2.0
+	else:
+		speed_scale = 1.0
 
 
 func damage_locomotive(amount: float) -> void:
@@ -444,10 +491,12 @@ func damage_rear_car(amount: float) -> Dictionary:
 	if cars.is_empty():
 		damage_locomotive(amount)
 		return {}
-	var rear: Dictionary = cars[cars.size() - 1]
+	var rear_index: int = cars.size() - 1
+	var rear: Dictionary = cars[rear_index]
 	rear["hp"] = maxf(0.0, float(rear["hp"]) - amount * stats().rear_damage_multiplier)
+	_notify_car_damage(rear_index)
 	if rear["hp"] <= 0.0:
-		return _remove_destroyed_car(cars.size() - 1)
+		return _remove_destroyed_car(rear_index)
 	return {}
 
 
@@ -460,6 +509,7 @@ func damage_random_car(amount: float) -> Dictionary:
 	damage_roll_index += 1
 	var idx: int = rng.randi_range(0, cars.size() - 1)
 	cars[idx]["hp"] = maxf(0.0, cars[idx]["hp"] - amount)
+	_notify_car_damage(idx)
 	if (
 		float(cars[idx].get("hp", 0.0)) <= 0.0
 		and not bool(cars[idx].get("destroyed_notified", false))
@@ -474,12 +524,31 @@ func damage_car_at(index: int, amount: float) -> Dictionary:
 		return {}
 	var target_index: int = clampi(index, 0, cars.size() - 1)
 	cars[target_index]["hp"] = maxf(0.0, float(cars[target_index]["hp"]) - amount)
+	_notify_car_damage(target_index)
 	if (
 		float(cars[target_index].get("hp", 0.0)) <= 0.0
 		and not bool(cars[target_index].get("destroyed_notified", false))
 	):
 		return _disable_destroyed_car(target_index)
 	return {}
+
+
+func _notify_car_damage(index: int) -> void:
+	if index < 0 or index >= cars.size():
+		return
+	var car: Dictionary = cars[index]
+	var hp: float = float(car.get("hp", 0.0))
+	var max_hp: float = maxf(1.0, float(car.get("max_hp", 1.0)))
+	var car_id: String = String(car.get("id", ""))
+	var display_name: String = String(car.get("display", car.get("type", "Car")))
+	emit_signal("car_damaged", car_id, display_name, hp, max_hp, index)
+	var ratio: float = hp / max_hp
+	if hp > 0.0 and ratio <= 0.3 and not bool(car.get("critical_notified", false)):
+		car["critical_notified"] = true
+		trigger_critical_slow()
+		emit_signal("car_critical", car_id, display_name, index)
+	elif ratio > 0.45:
+		car["critical_notified"] = false
 
 
 func detach_rear_car() -> Dictionary:
@@ -595,6 +664,8 @@ func repair_train(amount: float) -> void:
 		car["hp"] = minf(float(car.get("max_hp", 0.0)), float(car.get("hp", 0.0)) + amount)
 		if float(car["hp"]) > 0.0:
 			car["destroyed_notified"] = false
+		if float(car["hp"]) / maxf(1.0, float(car.get("max_hp", 1.0))) > 0.45:
+			car["critical_notified"] = false
 
 
 func field_patch_available() -> bool:
@@ -636,6 +707,12 @@ func purchase_field_patch() -> Dictionary:
 			float(target_car.get("hp", 0.0)) + 22.0
 		)
 		target_car["destroyed_notified"] = false
+		if (
+			float(target_car["hp"])
+			/ maxf(1.0, float(target_car.get("max_hp", 1.0)))
+			> 0.45
+		):
+			target_car["critical_notified"] = false
 		target_name = String(target_car.get("display", target_car.get("type", "Car")))
 	(run_history["field_actions"] as Array).append("patch")
 	refresh_stats()
@@ -649,17 +726,67 @@ func purchase_emergency_overcharge() -> Dictionary:
 		return _result(false, "Field actions unlock after Waypost Five.")
 	if scrap < FIELD_OVERCHARGE_COST:
 		return _result(false, "Emergency overcharge needs %d scrap." % FIELD_OVERCHARGE_COST)
-	if power >= 11.5 and lumen >= LUMEN_MAX - 1.0:
-		return _result(false, "Power and lumen reserves are already full.")
 	scrap -= FIELD_OVERCHARGE_COST
 	power = minf(12.0, power + 4.0)
 	lumen = minf(LUMEN_MAX, lumen + 3.0)
+	field_overcharge_time = maxf(field_overcharge_time, FIELD_OVERCHARGE_DURATION)
 	(run_history["field_actions"] as Array).append("overcharge")
 	_update_brownout_state()
 	refresh_stats()
 	emit_signal("resources_changed")
 	emit_signal("power_changed")
-	return _result(true, "Emergency overcharge: power +4, lumen +3.")
+	return _result(
+		true,
+		"Emergency overcharge: reserves restored and systems boosted for %.0fs."
+		% FIELD_OVERCHARGE_DURATION
+	)
+
+
+func field_flare_available() -> bool:
+	return station_completed and scrap >= FIELD_FLARE_COST and field_flare_time <= 0.0
+
+
+func purchase_signal_flare() -> Dictionary:
+	if not station_completed:
+		return _result(false, "Field actions unlock after Waypost Five.")
+	if scrap < FIELD_FLARE_COST:
+		return _result(false, "Signal flare needs %d scrap." % FIELD_FLARE_COST)
+	if field_flare_time > 0.0:
+		return _result(false, "A signal flare is already burning for %.1fs." % field_flare_time)
+	scrap -= FIELD_FLARE_COST
+	field_flare_time = FIELD_FLARE_DURATION
+	lumen = minf(LUMEN_MAX, lumen + 2.0)
+	(run_history["field_actions"] as Array).append("flare")
+	emit_signal("resources_changed")
+	return _result(
+		true,
+		"Signal flare: wider, longer, stronger light for %.0fs." % FIELD_FLARE_DURATION
+	)
+
+
+func purchase_route_reroll() -> Dictionary:
+	if not station_completed:
+		return _result(false, "Route rerolls unlock after Waypost Five.")
+	if scrap < ROUTE_REROLL_COST:
+		return _result(false, "Route reroll needs %d scrap." % ROUTE_REROLL_COST)
+	scrap -= ROUTE_REROLL_COST
+	(run_history["field_actions"] as Array).append("route_reroll")
+	var telemetry: Dictionary = _telemetry()
+	telemetry["route_rerolls"] = int(telemetry.get("route_rerolls", 0)) + 1
+	emit_signal("resources_changed")
+	return _result(true, "The signal crew projects three new routes.")
+
+
+func record_ward_break() -> void:
+	var telemetry: Dictionary = _telemetry()
+	telemetry["wards_broken"] = int(telemetry.get("wards_broken", 0)) + 1
+
+
+func record_boss_active_response() -> void:
+	var telemetry: Dictionary = _telemetry()
+	telemetry["boss_active_responses"] = int(
+		telemetry.get("boss_active_responses", 0)
+	) + 1
 
 
 func car_purchase_cost(type_key: String) -> int:
@@ -830,6 +957,7 @@ func purchase_repair() -> Dictionary:
 		var car: Dictionary = car_variant
 		car["hp"] = car["max_hp"]
 		car["destroyed_notified"] = false
+		car["critical_notified"] = false
 	emit_signal("resources_changed")
 	return _result(true, "The line is fully repaired.")
 
@@ -936,6 +1064,9 @@ func to_dict() -> Dictionary:
 		"focus_cooldown": focus_cooldown,
 		"defense_salvo_cooldown": defense_salvo_cooldown,
 		"brownout_active": brownout_active,
+		"critical_slow_time": critical_slow_time,
+		"field_overcharge_time": field_overcharge_time,
+		"field_flare_time": field_flare_time,
 		"locomotive_hp": locomotive_hp,
 		"supplies_zero_time": _supplies_zero_time,
 		"damage_roll_index": damage_roll_index,
@@ -972,10 +1103,14 @@ func apply_dict(d: Dictionary) -> void:
 	focus_cooldown = maxf(0.0, float(d.get("focus_cooldown", 0.0)))
 	defense_salvo_cooldown = maxf(0.0, float(d.get("defense_salvo_cooldown", 0.0)))
 	brownout_active = bool(d.get("brownout_active", power <= BROWNOUT_ENTER_POWER))
+	critical_slow_time = maxf(0.0, float(d.get("critical_slow_time", 0.0)))
+	field_overcharge_time = maxf(0.0, float(d.get("field_overcharge_time", 0.0)))
+	field_flare_time = maxf(0.0, float(d.get("field_flare_time", 0.0)))
 	locomotive_hp = float(d.get("locomotive_hp", locomotive_max_hp))
 	_supplies_zero_time = maxf(0.0, float(d.get("supplies_zero_time", 0.0)))
 	damage_roll_index = maxi(0, int(d.get("damage_roll_index", 0)))
-	speed_scale = 2.0 if float(d.get("speed_scale", 1.0)) >= 2.0 else 1.0
+	var saved_speed: float = float(d.get("speed_scale", 1.0))
+	speed_scale = 2.0 if saved_speed >= 1.75 else (1.5 if saved_speed >= 1.25 else 1.0)
 	detach_boost_time = maxf(0.0, float(d.get("detach_boost_time", 0.0)))
 	if d.has("cars"):
 		cars = (d["cars"] as Array).duplicate(true)
@@ -1127,6 +1262,11 @@ func _normalize_cars() -> void:
 			bool(car.get("destroyed_notified", false))
 			and float(car.get("hp", 0.0)) <= 0.0
 		)
+		car["critical_notified"] = (
+			bool(car.get("critical_notified", false))
+			and float(car.get("hp", 0.0)) > 0.0
+			and float(car.get("hp", 0.0)) / maxf(1.0, float(car["max_hp"])) <= 0.45
+		)
 		var upgrade_key: String = String(car.get("upgrade", ""))
 		if not (cfg.get("upgrades", {}) as Dictionary).has(upgrade_key):
 			upgrade_key = ""
@@ -1177,6 +1317,9 @@ func _normalize_history() -> void:
 	var defaults: Dictionary = {
 		"focus_uses": 0,
 		"defense_salvos": 0,
+		"route_rerolls": 0,
+		"wards_broken": 0,
+		"boss_active_responses": 0,
 		"min_power": power,
 		"brownout_time": 0.0,
 		"boss_phase_times": {}

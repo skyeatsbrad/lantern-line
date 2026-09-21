@@ -9,6 +9,7 @@ const MAX_HITS: int = 24
 var _shake: float = 0.0
 var _shake_offset: Vector2 = Vector2.ZERO
 var _hits: Array = []
+var _tracers: Array = []
 var _detached_cars: Array = []
 var _dawn_progress: float = 0.0
 var _flash_color: Color = Color.TRANSPARENT
@@ -35,6 +36,22 @@ func add_hit(pos: Vector2, color: Color = Color(1.0, 0.85, 0.4)) -> void:
 	if _hits.size() >= MAX_HITS:
 		_hits.pop_front()
 	_hits.append({"pos": pos, "age": 0.0, "life": 0.35, "color": color, "size": 12.0 + _rng.randf() * 6.0})
+
+
+func add_tracer(
+	start: Vector2,
+	end: Vector2,
+	color: Color = Color(1.0, 0.65, 0.25)
+) -> void:
+	if _tracers.size() >= MAX_HITS:
+		_tracers.pop_front()
+	_tracers.append({
+		"start": start,
+		"end": end,
+		"age": 0.0,
+		"life": 0.28,
+		"color": color
+	})
 
 
 func set_dawn_progress(v: float) -> void:
@@ -68,6 +85,11 @@ func _process(delta: float) -> void:
 	for h in _hits:
 		h["age"] = float(h["age"]) + delta
 	_hits = _hits.filter(func(h: Dictionary) -> bool: return h["age"] < h["life"])
+	for tracer in _tracers:
+		tracer["age"] = float(tracer["age"]) + delta
+	_tracers = _tracers.filter(
+		func(tracer: Dictionary) -> bool: return tracer["age"] < tracer["life"]
+	)
 	for detached in _detached_cars:
 		detached["age"] = float(detached["age"]) + delta
 		if not _reduced_motion:
@@ -80,6 +102,26 @@ func _process(delta: float) -> void:
 
 
 func _draw() -> void:
+	for tracer in _tracers:
+		var tracer_ratio: float = 1.0 - float(tracer["age"]) / float(tracer["life"])
+		var tracer_color: Color = tracer["color"]
+		var start: Vector2 = tracer["start"]
+		var end: Vector2 = tracer["end"]
+		draw_line(
+			start,
+			end,
+			Color(tracer_color.r, tracer_color.g, tracer_color.b, tracer_ratio),
+			2.0 + tracer_ratio * 3.0
+		)
+		draw_arc(
+			end,
+			8.0 + (1.0 - tracer_ratio) * 12.0,
+			0.0,
+			TAU,
+			20,
+			Color(tracer_color.r, tracer_color.g, tracer_color.b, tracer_ratio),
+			2.0
+		)
 	for h in _hits:
 		var a: float = 1.0 - float(h["age"]) / float(h["life"])
 		var c: Color = h["color"]

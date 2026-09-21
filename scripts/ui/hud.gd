@@ -34,11 +34,15 @@ var _prio_buttons: Dictionary = {}
 @onready var _salvo_label: Label
 @onready var _patch_button: Button
 @onready var _overcharge_button: Button
+@onready var _flare_button: Button
 @onready var _detach_button: Button
 @onready var _detach_progress: ProgressBar
 @onready var _boss_label: Label
 @onready var _consist_label: Label
 @onready var _power_status_label: Label
+@onready var _crew_status_label: Label
+@onready var _critical_label: Label
+var _critical_timer: float = 0.0
 
 
 func setup(run_state: RunState, lens_config: Dictionary) -> void:
@@ -63,8 +67,8 @@ func _build_ui() -> void:
 	var viewport_size: Vector2 = get_viewport_rect().size
 	_compact_layout = viewport_size.x < 1100.0 or viewport_size.y < 620.0
 	if _compact_layout:
-		base_font_size = mini(base_font_size, 12)
-	var bottom_height: float = 204.0 if _compact_layout else 190.0
+		base_font_size = maxi(13, mini(base_font_size, 14))
+	var bottom_height: float = 164.0 if _compact_layout else 190.0
 
 	# Top-left: distance and time
 	var top: PanelContainer = PanelContainer.new()
@@ -72,8 +76,8 @@ func _build_ui() -> void:
 	top.anchor_top = 0.0
 	top.offset_left = 12
 	top.offset_top = 12
-	top.offset_right = 280 if _compact_layout else 320
-	top.offset_bottom = 84
+	top.offset_right = 250 if _compact_layout else 320
+	top.offset_bottom = 78 if _compact_layout else 84
 	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(top)
 	var top_vbox: VBoxContainer = VBoxContainer.new()
@@ -94,19 +98,27 @@ func _build_ui() -> void:
 	var right: PanelContainer = PanelContainer.new()
 	right.anchor_left = 1.0
 	right.anchor_right = 1.0
-	right.offset_left = -250 if _compact_layout else -310
+	right.offset_left = -318 if _compact_layout else -310
 	right.offset_top = 12
 	right.offset_right = -12
-	right.offset_bottom = 226
+	right.offset_bottom = 180 if _compact_layout else 226
 	right.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(right)
 	var rvbox: VBoxContainer = VBoxContainer.new()
 	right.add_child(rvbox)
 	rvbox.add_theme_constant_override("separation", 4)
-	_bars["power"] = _make_bar(rvbox, "Power", Color(0.95, 0.85, 0.3), base_font_size)
-	_bars["scrap"] = _make_bar(rvbox, "Scrap", Color(0.7, 0.6, 0.5), base_font_size)
-	_bars["supplies"] = _make_bar(rvbox, "Supplies", Color(0.55, 0.85, 0.5), base_font_size)
-	_bars["lumen"] = _make_bar(rvbox, "Lumen", Color(1.0, 0.86, 0.62), base_font_size)
+	var resource_parent: Node = rvbox
+	if _compact_layout:
+		var resource_grid := GridContainer.new()
+		resource_grid.columns = 2
+		resource_grid.add_theme_constant_override("h_separation", 6)
+		resource_grid.add_theme_constant_override("v_separation", 2)
+		rvbox.add_child(resource_grid)
+		resource_parent = resource_grid
+	_bars["power"] = _make_bar(resource_parent, "Power", Color(0.95, 0.85, 0.3), base_font_size)
+	_bars["scrap"] = _make_bar(resource_parent, "Scrap", Color(0.7, 0.6, 0.5), base_font_size)
+	_bars["supplies"] = _make_bar(resource_parent, "Supplies", Color(0.55, 0.85, 0.5), base_font_size)
+	_bars["lumen"] = _make_bar(resource_parent, "Lumen", Color(1.0, 0.86, 0.62), base_font_size)
 	_power_status_label = Label.new()
 	_power_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_power_status_label.add_theme_font_size_override("font_size", base_font_size - 2)
@@ -115,28 +127,41 @@ func _build_ui() -> void:
 	field_row.add_theme_constant_override("separation", 5)
 	rvbox.add_child(field_row)
 	_patch_button = Button.new()
-	_patch_button.text = "Patch -%d" % RunState.FIELD_PATCH_COST
+	_patch_button.text = (
+		"Patch -%d" % RunState.FIELD_PATCH_COST
+	)
 	_patch_button.tooltip_text = "After Waypost Five: repair the most damaged section by 22 integrity."
 	_patch_button.pressed.connect(
 		func() -> void: emit_signal("request_field_action", "patch")
 	)
 	field_row.add_child(_patch_button)
 	_overcharge_button = Button.new()
-	_overcharge_button.text = "Overcharge -%d" % RunState.FIELD_OVERCHARGE_COST
+	_overcharge_button.text = (
+		"Boost -%d" % RunState.FIELD_OVERCHARGE_COST
+		if _compact_layout
+		else "Overcharge -%d" % RunState.FIELD_OVERCHARGE_COST
+	)
 	_overcharge_button.tooltip_text = "After Waypost Five: convert scrap into +4 power and +3 lumen."
 	_overcharge_button.pressed.connect(
 		func() -> void: emit_signal("request_field_action", "overcharge")
 	)
 	field_row.add_child(_overcharge_button)
+	_flare_button = Button.new()
+	_flare_button.text = "Flare -%d" % RunState.FIELD_FLARE_COST
+	_flare_button.tooltip_text = "Burn a signal flare for wider, longer, stronger light."
+	_flare_button.pressed.connect(
+		func() -> void: emit_signal("request_field_action", "flare")
+	)
+	field_row.add_child(_flare_button)
 
 	# Locomotive HP visible top center under title
 	var mid: PanelContainer = PanelContainer.new()
 	mid.anchor_left = 0.5
 	mid.anchor_right = 0.5
-	mid.offset_left = -165 if _compact_layout else -210
-	mid.offset_right = 165 if _compact_layout else 210
+	mid.offset_left = -145 if _compact_layout else -210
+	mid.offset_right = 145 if _compact_layout else 210
 	mid.offset_top = 12
-	mid.offset_bottom = 132
+	mid.offset_bottom = 122 if _compact_layout else 132
 	add_child(mid)
 	var mid_v: VBoxContainer = VBoxContainer.new()
 	mid.add_child(mid_v)
@@ -165,10 +190,15 @@ func _build_ui() -> void:
 	_consist_label.add_theme_font_size_override("font_size", base_font_size - 2)
 	_consist_label.add_theme_color_override("font_color", Color(0.76, 0.78, 0.84))
 	mid_v.add_child(_consist_label)
+	_crew_status_label = Label.new()
+	_crew_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_crew_status_label.add_theme_font_size_override("font_size", base_font_size - 2)
+	_crew_status_label.add_theme_color_override("font_color", Color(0.9, 0.72, 0.42))
+	mid_v.add_child(_crew_status_label)
 
 	# Bottom-left: lens breaker panel
 	var lens_panel: PanelContainer = PanelContainer.new()
-	lens_panel.anchor_right = 0.26
+	lens_panel.anchor_right = 0.23 if _compact_layout else 0.26
 	lens_panel.anchor_top = 1.0
 	lens_panel.anchor_bottom = 1.0
 	lens_panel.offset_top = -bottom_height
@@ -188,8 +218,8 @@ func _build_ui() -> void:
 	lens_v.add_child(lens_row)
 	for lens_key in _lens_config.keys():
 		var b: Button = Button.new()
-		b.text = "%s" % [String(lens_key)]
-		b.custom_minimum_size = Vector2(65 if _compact_layout else 90, 30)
+		b.text = String(lens_key).left(3) if _compact_layout else String(lens_key)
+		b.custom_minimum_size = Vector2(52 if _compact_layout else 90, 34 if _compact_layout else 30)
 		var lk: String = String(lens_key)
 		b.pressed.connect(func() -> void: emit_signal("request_lens", lk))
 		lens_row.add_child(b)
@@ -200,8 +230,8 @@ func _build_ui() -> void:
 
 	# Bottom-center: priorities (Q/W/E/R)
 	var prio: PanelContainer = PanelContainer.new()
-	prio.anchor_left = 0.26
-	prio.anchor_right = 0.76
+	prio.anchor_left = 0.23 if _compact_layout else 0.26
+	prio.anchor_right = 0.68 if _compact_layout else 0.76
 	prio.anchor_top = 1.0
 	prio.anchor_bottom = 1.0
 	prio.offset_left = 4
@@ -235,7 +265,7 @@ func _build_ui() -> void:
 		for level in range(4):
 			var level_button := Button.new()
 			level_button.text = str(level)
-			level_button.custom_minimum_size = Vector2(25 if _compact_layout else 30, 28)
+			level_button.custom_minimum_size = Vector2(22 if _compact_layout else 30, 30)
 			var role_key: String = role
 			var requested_level: int = level
 			level_button.pressed.connect(
@@ -247,7 +277,7 @@ func _build_ui() -> void:
 
 	# Bottom-right: pause / speed / detach
 	var ctrl: PanelContainer = PanelContainer.new()
-	ctrl.anchor_left = 0.76
+	ctrl.anchor_left = 0.68 if _compact_layout else 0.76
 	ctrl.anchor_right = 1.0
 	ctrl.anchor_top = 1.0
 	ctrl.anchor_bottom = 1.0
@@ -259,7 +289,8 @@ func _build_ui() -> void:
 	var ctrl_v: VBoxContainer = VBoxContainer.new()
 	ctrl.add_child(ctrl_v)
 	var ctrl_title: Label = Label.new()
-	ctrl_title.text = "CONTROL"
+	ctrl_title.text = "CONTROL" if not _compact_layout else "DRIVE / RESPONSE"
+	ctrl_title.visible = not _compact_layout
 	ctrl_title.add_theme_font_size_override("font_size", base_font_size)
 	ctrl_v.add_child(ctrl_title)
 	var row: HBoxContainer = HBoxContainer.new()
@@ -312,6 +343,7 @@ func _build_ui() -> void:
 	_hint_label = Label.new()
 	_hint_label.add_theme_font_size_override("font_size", base_font_size - 2)
 	_hint_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.75))
+	_hint_label.visible = not _compact_layout
 	ctrl_v.add_child(_hint_label)
 
 	# Center notification
@@ -327,6 +359,18 @@ func _build_ui() -> void:
 	_notification_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.6))
 	add_child(_notification_label)
 
+	_critical_label = Label.new()
+	_critical_label.anchor_left = 0.5
+	_critical_label.anchor_right = 0.5
+	_critical_label.anchor_top = 0.31
+	_critical_label.anchor_bottom = 0.31
+	_critical_label.offset_left = -310
+	_critical_label.offset_right = 310
+	_critical_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_critical_label.add_theme_font_size_override("font_size", base_font_size + 5)
+	_critical_label.add_theme_color_override("font_color", Color(1.0, 0.36, 0.24))
+	add_child(_critical_label)
+
 
 func _make_bar(parent: Node, label: String, col: Color, font_size: int) -> Dictionary:
 	var row: HBoxContainer = HBoxContainer.new()
@@ -334,7 +378,15 @@ func _make_bar(parent: Node, label: String, col: Color, font_size: int) -> Dicti
 	row.add_theme_constant_override("separation", 6)
 	var lbl: Label = Label.new()
 	lbl.text = label
-	lbl.custom_minimum_size = Vector2(70, 16)
+	lbl.text = (
+		{"Power": "Pwr", "Scrap": "Scr", "Supplies": "Sup", "Lumen": "Lum"}.get(
+			label,
+			label
+		)
+		if _compact_layout
+		else label
+	)
+	lbl.custom_minimum_size = Vector2(32 if _compact_layout else 70, 16)
 	lbl.add_theme_font_size_override("font_size", font_size)
 	row.add_child(lbl)
 	var bar: ProgressBar = ProgressBar.new()
@@ -342,11 +394,11 @@ func _make_bar(parent: Node, label: String, col: Color, font_size: int) -> Dicti
 	bar.max_value = 100
 	bar.value = 0
 	bar.show_percentage = false
-	bar.custom_minimum_size = Vector2(94 if _compact_layout else 120, 12)
+	bar.custom_minimum_size = Vector2(48 if _compact_layout else 120, 12)
 	bar.modulate = col
 	row.add_child(bar)
 	var val: Label = Label.new()
-	val.custom_minimum_size = Vector2(46, 16)
+	val.custom_minimum_size = Vector2(62 if _compact_layout else 46, 16)
 	val.add_theme_font_size_override("font_size", font_size)
 	row.add_child(val)
 	return {"bar": bar, "value": val}
@@ -359,13 +411,24 @@ func _process(delta: float) -> void:
 	_dist_label.text = "Distance: %d / %d m" % [int(_run_state.distance), int(RunState.JOURNEY_TARGET)]
 	var m: int = int(_run_state.travel_time) / 60
 	var s: int = int(_run_state.travel_time) % 60
-	_time_label.text = "Time: %02d:%02d   %sx  %s" % [m, s, str(_run_state.speed_scale), ("[PAUSED]" if _run_state.paused else "")]
+	var speed_text: String = str(_run_state.speed_scale).trim_suffix(".0")
+	var effective_speed: float = _run_state.effective_speed_scale()
+	var pace_status: String = ""
+	if _run_state.paused:
+		pace_status = "[PAUSED]"
+	elif effective_speed < _run_state.speed_scale:
+		pace_status = ">%sx AUTO" % str(effective_speed).trim_suffix(".0")
+	_time_label.text = "Time: %02d:%02d   %sx %s" % [m, s, speed_text, pace_status]
 	var lens: Dictionary = _lens_config.get(_run_state.current_lens, {})
-	_lens_label.text = "%s (%.1fs)\n%s" % [
-		_run_state.current_lens,
-		_run_state.lens_cooldown,
-		String(lens.get("description", ""))
-	]
+	_lens_label.text = (
+		"%s  %.1fs" % [_run_state.current_lens, _run_state.lens_cooldown]
+		if _compact_layout
+		else "%s (%.1fs)\n%s" % [
+			_run_state.current_lens,
+			_run_state.lens_cooldown,
+			String(lens.get("description", ""))
+		]
+	)
 	var focus_cost: float = _run_state.stats().focus_cost
 	if _run_state.focus_active_time > 0.0:
 		_focus_label.text = "F %.1fs ACTIVE" % _run_state.focus_active_time
@@ -396,11 +459,14 @@ func _process(delta: float) -> void:
 	_hint_label.text = (
 		"Mouse aim | F focus | C salvo | hold X"
 		if _compact_layout
-		else "Aim: mouse   F focus   C salvo   V patch   B overcharge   hold X"
-	) + "   [%s]" % ("2x" if _run_state.speed_scale >= 2.0 else "1x")
+		else "Aim: mouse   F focus   C salvo   V patch   B overcharge   G flare   hold X"
+	) + "   [%sx]" % speed_text
 	_notification_timer = maxf(0.0, _notification_timer - delta)
 	if _notification_timer <= 0.0:
 		_notification_label.text = ""
+	_critical_timer = maxf(0.0, _critical_timer - delta)
+	if _critical_timer <= 0.0:
+		_critical_label.text = ""
 
 
 func _refresh() -> void:
@@ -426,6 +492,7 @@ func _refresh() -> void:
 	# locomotive
 	_loco_bar.value = _run_state.locomotive_hp / _run_state.locomotive_max_hp * 100.0
 	_consist_label.text = _consist_status()
+	_crew_status_label.text = _active_crew_status()
 	_power_status_label.text = _power_status(stats)
 	_power_status_label.add_theme_color_override(
 		"font_color",
@@ -438,13 +505,18 @@ func _refresh() -> void:
 		not _run_state.station_completed
 		or
 		_run_state.scrap < RunState.FIELD_OVERCHARGE_COST
-		or (_run_state.power >= 11.5 and _run_state.lumen >= RunState.LUMEN_MAX - 1.0)
 	)
+	_flare_button.disabled = not _run_state.field_flare_available()
 
 
 func flash(msg: String, duration: float = 2.0) -> void:
 	_notification_label.text = msg
 	_notification_timer = duration
+
+
+func show_critical(msg: String, duration: float = 4.0) -> void:
+	_critical_label.text = msg
+	_critical_timer = maxf(_critical_timer, duration)
 
 
 func set_detach_hold(progress: float, preview: String = "") -> void:
@@ -490,6 +562,30 @@ func _consist_status() -> String:
 		}.get(state, state.to_upper())
 		parts.append("%s %d %s" % [short_name, int(car.get("hp", 0)), state_code])
 	return "CONSIST  " + (" | ".join(parts) if not parts.is_empty() else "LOCOMOTIVE ONLY")
+
+
+func _active_crew_status() -> String:
+	var active: Array[String] = []
+	for member_variant in _run_state.crew:
+		var member: Dictionary = member_variant
+		if not _run_state.is_crew_active(member):
+			continue
+		match String(member.get("id", "")):
+			"mara":
+				active.append("Mara: speed")
+			"ilo":
+				active.append("Ilo: gunnery")
+			"sable":
+				active.append("Sable: rations")
+			"orrin":
+				active.append("Orrin: repairs")
+	if active.is_empty():
+		return "CREW BONUSES: none active"
+	if _compact_layout:
+		return "CREW  " + " | ".join(active.map(func(value: String) -> String:
+			return value.get_slice(":", 0)
+		))
+	return "CREW BONUSES  " + " | ".join(active)
 
 
 func _power_status(stats: TrainStats) -> String:

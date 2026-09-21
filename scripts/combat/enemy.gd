@@ -21,6 +21,9 @@ var role: String = "ground"  # ground, roof, air
 var value: int = 1
 var boarder_car_index: int = -1
 var attack_warning_time: float = 0.65
+var warded: bool = false
+var ward_hp: float = 0.0
+var ward_max_hp: float = 0.0
 
 
 func init_from_config(kind_key: String, cfg: Dictionary) -> void:
@@ -43,3 +46,6 @@ func init_from_config(kind_key: String, cfg: Dictionary) -> void:
 	boarder_car_index = -1
 	attack_warning_time = 0.65
 	attack_timer = attack_interval
+	warded = false
+	ward_hp = 0.0
+	ward_max_hp = 0.0

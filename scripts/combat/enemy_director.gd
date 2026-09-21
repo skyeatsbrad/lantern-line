@@ -7,8 +7,15 @@ extends Node2D
 
 signal enemy_killed(kind: String, value: int)
 signal threat_announced(kind: String, guidance: String)
+signal defense_fired(target_position: Vector2, source_car_id: String, crewed: bool)
+signal active_response(position: Vector2, message: String)
+signal enemy_attack_landed(position: Vector2, kind: String)
+signal pressure_brake_changed(active: bool)
 
 const POOL_SIZE: int = 40
+const MAX_ACTIVE_DESKTOP: int = 12
+const MAX_ACTIVE_COMPACT: int = 10
+const WARD_SAFE_PRESSURE: int = 6
 
 var _run_state: RunState
 var _pool: Array = []
@@ -21,6 +28,10 @@ var _train_pos: Vector2 = Vector2(320, 460)
 var _light_profile: LightProfile = LightProfile.new()
 var _reduced_motion: bool = false
 var _announced_threats: Dictionary = {}
+var _defense_fx_timer: float = 0.0
+var _announced_ward: bool = false
+var _ward_pending: bool = false
+var _pressure_brake_active: bool = false
 
 
 func setup(run_state: RunState, view_size: Vector2) -> void:
@@ -43,6 +54,14 @@ func active_count() -> int:
 	return _active.size()
 
 
+func pressure_limit() -> int:
+	return MAX_ACTIVE_COMPACT if _view_size.x < 1100.0 else MAX_ACTIVE_DESKTOP
+
+
+func pressure_brake_threshold() -> int:
+	return maxi(4, pressure_limit() - 2)
+
+
 func has_salvo_target() -> bool:
 	for enemy_variant in _active:
 		var enemy: Enemy = enemy_variant
@@ -51,25 +70,87 @@ func has_salvo_target() -> bool:
 	return false
 
 
+func has_warded_target() -> bool:
+	for enemy_variant in _active:
+		var enemy: Enemy = enemy_variant
+		if enemy.alive and enemy.warded:
+			return true
+	return false
+
+
+func has_warded_target_in_response_range() -> bool:
+	var response_range: float = maxf(
+		380.0,
+		_light_profile.range_px * 1.12 if _light_profile != null else 430.0
+	)
+	for enemy_variant in _active:
+		var enemy: Enemy = enemy_variant
+		if (
+			enemy.alive
+			and enemy.warded
+			and enemy.position.x > _train_pos.x + 20.0
+			and enemy.position.distance_to(_train_pos) < response_range
+		):
+			return true
+	return false
+
+
+func nearest_warded_position(response_range_only: bool = false) -> Vector2:
+	var best_position: Vector2 = _train_pos + Vector2(400.0, -40.0)
+	var best_distance: float = INF
+	var response_range: float = maxf(
+		380.0,
+		_light_profile.range_px * 1.12 if _light_profile != null else 430.0
+	)
+	for enemy_variant in _active:
+		var enemy: Enemy = enemy_variant
+		if not enemy.alive or not enemy.warded:
+			continue
+		if (
+			response_range_only
+			and (
+				enemy.position.x <= _train_pos.x + 20.0
+				or enemy.position.distance_to(_train_pos) >= response_range
+			)
+		):
+			continue
+		var distance_squared: float = enemy.position.distance_squared_to(_train_pos)
+		if distance_squared < best_distance:
+			best_distance = distance_squared
+			best_position = enemy.position
+	return best_position
+
+
 func spawn_threat_waves(wave_count: int = 1) -> void:
 	for index in range(maxi(0, wave_count)):
-		_spawn_wave()
+		if not _spawn_wave():
+			break
 
 
 func _process(delta: float) -> void:
 	if _run_state == null:
 		return
 	_reduced_motion = bool(GameManager.get_setting("reduced_motion", false))
-	var scaled: float = delta * (0.0 if _run_state.is_simulation_paused() else _run_state.speed_scale)
+	_update_pressure_brake()
+	var scaled: float = (
+		0.0
+		if _run_state.is_simulation_paused()
+		else delta * _run_state.combat_speed_scale()
+	)
+	_defense_fx_timer = maxf(0.0, _defense_fx_timer - delta)
 	_elapsed += scaled
 	# Spawn logic scales with distance
 	if not _run_state.boss_triggered:
 		if _run_state.resume_grace_time <= 0.0:
 			_spawn_cooldown -= scaled
 		if _spawn_cooldown <= 0.0 and _run_state.resume_grace_time <= 0.0:
-			_spawn_wave()
+			var spawned: bool = (
+				_spawn_wave()
+				if _active.size() < pressure_brake_threshold()
+				else false
+			)
 			var difficulty: float = clampf(_run_state.distance / RunState.JOURNEY_TARGET, 0.0, 1.0)
-			_spawn_cooldown = lerp(4.5, 1.7, difficulty)
+			_spawn_cooldown = lerp(4.5, 1.7, difficulty) if spawned else 0.65
 	# Update active
 	for e in _active:
 		_update_enemy(e, scaled)
@@ -85,19 +166,39 @@ func _process(delta: float) -> void:
 	queue_redraw()
 
 
-func _spawn_wave() -> void:
+func _update_pressure_brake() -> void:
+	if _run_state.is_simulation_paused():
+		return
+	var should_brake: bool = (
+		_run_state.speed_scale > 1.0
+		and _active.size() >= pressure_brake_threshold()
+	)
+	if should_brake:
+		_run_state.trigger_critical_slow(0.8)
+	if should_brake != _pressure_brake_active:
+		_pressure_brake_active = should_brake
+		emit_signal("pressure_brake_changed", should_brake)
+
+
+func _spawn_wave() -> bool:
+	var active_before: int = _active.size()
+	var available_slots: int = pressure_limit() - active_before
+	if available_slots <= 0:
+		return false
 	_wave_index += 1
 	var wave_rng := RandomNumberGenerator.new()
 	wave_rng.seed = _run_state.run_seed ^ (_wave_index * 0xC0FFEE)
 	var difficulty: float = clampf(_run_state.distance / RunState.JOURNEY_TARGET, 0.0, 1.0)
-	var count: int = 1 + int(difficulty * 2.0)
+	var count: int = mini(1 + int(difficulty * 2.0), available_slots)
+	if difficulty >= 0.6 and _wave_index % 20 == 0:
+		_ward_pending = true
 	var kinds: Array[String] = ["Pursuer", "Boarder", "Drainer"]
 	var kind_offset := posmod(_run_state.run_seed, kinds.size())
 	for i in range(count):
 		var kind: String = kinds[posmod(_wave_index - 1 + i + kind_offset, kinds.size())]
 		var e: Enemy = _acquire()
 		if e == null:
-			return
+			return i > 0
 		var cfg: Dictionary = _run_state.enemy_config.get(kind, {})
 		e.init_from_config(kind, cfg)
 		_announce_threat(kind)
@@ -105,6 +206,19 @@ func _spawn_wave() -> void:
 		e.hp = e.hp * (1.0 + difficulty * 0.6)
 		e.max_hp = e.hp
 		e.damage = e.damage * (1.0 + difficulty * 0.4)
+		if _ward_pending and active_before <= WARD_SAFE_PRESSURE and i == 0:
+			_ward_pending = false
+			e.warded = true
+			e.ward_max_hp = 12.0 + difficulty * 16.0
+			e.ward_hp = e.ward_max_hp
+			e.speed *= 0.65
+			if not _announced_ward:
+				_announced_ward = true
+				emit_signal(
+					"threat_announced",
+					"Ward",
+					"SHADOW WARD - auto-slow engaged. Use Focus or a Defense Salvo."
+				)
 		# spawn to the right of view; drainers can spawn higher/lower
 		match kind:
 			"Boarder":
@@ -120,6 +234,7 @@ func _spawn_wave() -> void:
 				e.position = Vector2(_view_size.x + 40, _train_pos.y + 2)
 				e.target = _rear_target()
 				e.role = "ground"
+	return true
 
 
 func _rear_target() -> Vector2:
@@ -176,12 +291,24 @@ func _update_enemy(e: Enemy, delta: float) -> void:
 			e.attack_timer = e.attack_interval
 	if _light_profile != null and _light_profile.contains(e.position):
 		var base_damage: float = 10.0 if e.kind == "Drainer" else 3.0
-		e.hp -= (
-			base_damage
-			* delta
-			* _run_state.effective_priority("light")
-			* _light_profile.damage_multiplier
-		)
+		if e.warded:
+			if _light_profile.focused:
+				e.ward_hp -= (
+					18.0
+					* delta
+					* _run_state.effective_priority("light")
+					* _light_profile.damage_multiplier
+				)
+				if e.ward_hp <= 0.0:
+					_break_ward(e, "Focus shattered a shadow ward.")
+		else:
+			e.hp -= (
+				base_damage
+				* delta
+				* _run_state.effective_priority("light")
+				* _light_profile.damage_multiplier
+				* _lens_damage_multiplier(e.kind)
+			)
 	if e.hp <= 0.0:
 		_kill_enemy(e)
 
@@ -207,13 +334,22 @@ func _apply_defense_fire(delta: float) -> void:
 				candidates = available
 		for index in range(mini(target_count, candidates.size())):
 			var target: Enemy = candidates[index]
-			if not target.alive:
+			if not target.alive or target.warded:
 				continue
 			target.hp -= (
 				float(mount.get("damage", 0.0))
 				* _run_state.effective_priority("defense")
 				* delta
 			)
+			if _defense_fx_timer <= 0.0:
+				var source_car_id: String = String(mount.get("car_id", ""))
+				emit_signal(
+					"defense_fired",
+					target.position,
+					source_car_id,
+					not _run_state.active_crew_for_car(source_car_id).is_empty()
+				)
+				_defense_fx_timer = 0.32
 			if target.hp <= 0.0:
 				_kill_enemy(target)
 
@@ -251,6 +387,8 @@ func fire_manual_salvo(stats: TrainStats) -> Dictionary:
 			var target: Enemy = candidates[index]
 			if not target.alive:
 				continue
+			if target.warded:
+				_break_ward(target, "Defense Salvo broke a shadow ward.")
 			var damage: float = float(mount.get("damage", 0.0)) * 4.0
 			if String(mount.get("mode", "")) == "cannon":
 				damage *= 1.25
@@ -265,6 +403,30 @@ func fire_manual_salvo(stats: TrainStats) -> Dictionary:
 		"damage": total_damage,
 		"kills": kills
 	}
+
+
+func _break_ward(enemy: Enemy, message: String) -> void:
+	if not enemy.warded:
+		return
+	enemy.warded = false
+	enemy.ward_hp = 0.0
+	enemy.hp = 0.0
+	if _run_state.focus_active_time > 0.0:
+		_run_state.focus_active_time = 0.0
+	_run_state.lumen = minf(RunState.LUMEN_MAX, _run_state.lumen + 2.0)
+	_run_state.record_ward_break()
+	_run_state.emit_signal("resources_changed")
+	emit_signal("active_response", enemy.position, message)
+
+
+func _lens_damage_multiplier(kind: String) -> float:
+	match _run_state.current_lens:
+		"Hearth":
+			return 1.5 if kind == "Pursuer" else (0.82 if kind == "Drainer" else 1.0)
+		"Pale":
+			return 1.55 if kind == "Drainer" else (0.88 if kind == "Pursuer" else 1.0)
+		_:
+			return 1.45 if kind == "Boarder" else 1.0
 
 
 func _apply_attack(e: Enemy) -> void:
@@ -286,6 +448,9 @@ func _apply_attack(e: Enemy) -> void:
 		"Drainer":
 			_run_state.lumen = maxf(0.0, _run_state.lumen - e.damage * 0.3)
 			AudioManager.play("impact")
+	emit_signal("enemy_attack_landed", e.position, e.kind)
+
+
 func on_detach(nearby_purge: float) -> void:
 	# destroy/delay any ground enemies close to the rear
 	var rear: Vector2 = _rear_target()
@@ -303,7 +468,9 @@ func on_detach(nearby_purge: float) -> void:
 func checkpoint_state() -> Dictionary:
 	return {
 		"spawn_cooldown": _spawn_cooldown,
-		"wave_index": _wave_index
+		"wave_index": _wave_index,
+		"ward_pending": _ward_pending,
+		"announced_ward": _announced_ward
 	}
 
 
@@ -313,12 +480,17 @@ func apply_checkpoint_state(state: Dictionary) -> void:
 	_active.clear()
 	_spawn_cooldown = maxf(0.1, float(state.get("spawn_cooldown", 3.0)))
 	_wave_index = maxi(0, int(state.get("wave_index", 0)))
+	_ward_pending = bool(state.get("ward_pending", false))
+	_announced_ward = bool(state.get("announced_ward", false))
 
 
 func clear_regular_enemies() -> void:
 	for enemy_variant in _active:
 		_release(enemy_variant)
 	_active.clear()
+	if _pressure_brake_active:
+		_pressure_brake_active = false
+		emit_signal("pressure_brake_changed", false)
 	queue_redraw()
 
 
@@ -333,8 +505,33 @@ func _draw() -> void:
 				_draw_boarder(e)
 			"Drainer":
 				_draw_drainer(e)
+		if e.warded:
+			_draw_ward(e)
 		_draw_attack_warning(e)
 		_draw_hp(e)
+
+
+func _draw_ward(e: Enemy) -> void:
+	var ratio: float = clampf(e.ward_hp / maxf(1.0, e.ward_max_hp), 0.0, 1.0)
+	var pulse: float = 1.0 + sin(_elapsed * 5.0) * 0.08
+	draw_arc(
+		e.position,
+		25.0 * pulse,
+		0.0,
+		TAU,
+		28,
+		Color(0.72, 0.48, 1.0, 0.45 + ratio * 0.4),
+		3.0
+	)
+	draw_string(
+		ThemeDB.fallback_font,
+		e.position + Vector2(-25.0, -39.0),
+		"FOCUS / SALVO",
+		HORIZONTAL_ALIGNMENT_CENTER,
+		52.0,
+		9,
+		Color(0.92, 0.8, 1.0)
+	)
 
 
 func _draw_pursuer(e: Enemy) -> void:
@@ -421,11 +618,11 @@ func _announce_threat(kind: String) -> void:
 	var guidance: String
 	match kind:
 		"Pursuer":
-			guidance = "RAIL PURSUER - sweep the beam behind the train."
+			guidance = "RAIL PURSUER - sweep behind the train; Hearth burns it fastest."
 		"Boarder":
-			guidance = "ROOF BOARDER - track it as it crosses the consist."
+			guidance = "ROOF BOARDER - track the roof; Standard light exposes it fastest."
 		"Drainer":
-			guidance = "LUMEN DRAINER - break the tether before it drinks the lamp."
+			guidance = "LUMEN DRAINER - break the tether; Pale light sears it fastest."
 		_:
 			guidance = "THREAT APPROACHING"
 	emit_signal("threat_announced", kind, guidance)

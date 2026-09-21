@@ -241,6 +241,13 @@ func _test_derived_stats_and_light() -> void:
 	var normal: LightProfile = LightProfile.build(rs, rs.stats(), Vector2.RIGHT, origin)
 	_expect(normal.contains(origin + Vector2(normal.range_px * 0.8, 0.0)), "light profile missed centerline")
 	_expect(not normal.contains(origin + Vector2(0.0, normal.range_px * 0.8)), "light profile included outside point")
+	rs.speed_scale = 2.0
+	var fast_scan: LightProfile = LightProfile.build(rs, rs.stats(), Vector2.RIGHT, origin)
+	_expect(
+		fast_scan.spread_radians > normal.spread_radians,
+		"fast travel did not widen the stabilized scan beam"
+	)
+	rs.speed_scale = 1.0
 	rs.focus_active_time = 1.0
 	var focused: LightProfile = LightProfile.build(rs, rs.stats(), Vector2.RIGHT, origin)
 	_expect(focused.range_px > normal.range_px, "Focus did not extend headlight range")
@@ -318,8 +325,13 @@ func _test_station_undo(host: Node) -> void:
 	panel.present(rs)
 	var before_count: int = rs.cars.size()
 	var before_scrap: float = rs.scrap
+	panel._tabs.current_tab = 2
 	panel.call("_try_add", "Defense")
 	_expect(rs.cars.size() == before_count + 1, "station purchase did not apply before undo")
+	_expect(
+		panel._selected_tab == 2 and panel._tabs.current_tab == 2,
+		"station transaction reset the selected tab"
+	)
 	panel.call("_undo_last")
 	_expect(rs.cars.size() == before_count, "station undo did not restore the consist")
 	_expect(is_equal_approx(rs.scrap, before_scrap), "station undo did not refund scrap")
@@ -338,21 +350,39 @@ func _test_field_actions() -> void:
 	var rs := RunState.new()
 	rs.setup(31339, _mk_configs())
 	rs.station_completed = true
-	rs.scrap = 20.0
+	rs.scrap = 30.0
 	rs.locomotive_hp = 70.0
 	var patch_result: Dictionary = rs.purchase_field_patch()
 	_expect(bool(patch_result.get("ok", false)), "field patch transaction failed")
 	_expect(is_equal_approx(rs.locomotive_hp, 92.0), "field patch restored the wrong amount")
-	_expect(is_equal_approx(rs.scrap, 14.0), "field patch charged the wrong scrap cost")
+	_expect(is_equal_approx(rs.scrap, 24.0), "field patch charged the wrong scrap cost")
 	rs.power = 2.0
 	rs.lumen = 4.0
 	var overcharge_result: Dictionary = rs.purchase_emergency_overcharge()
 	_expect(bool(overcharge_result.get("ok", false)), "emergency overcharge transaction failed")
 	_expect(is_equal_approx(rs.power, 6.0), "emergency overcharge restored the wrong power")
 	_expect(is_equal_approx(rs.lumen, 7.0), "emergency overcharge restored the wrong lumen")
+	_expect(rs.field_overcharge_time > 0.0, "emergency overcharge did not start its proactive boost")
+	var flare_result: Dictionary = rs.purchase_signal_flare()
+	_expect(bool(flare_result.get("ok", false)), "signal flare transaction failed")
+	_expect(rs.field_flare_time > 0.0, "signal flare did not start its light boost")
+	var reroll_result: Dictionary = rs.purchase_route_reroll()
+	_expect(bool(reroll_result.get("ok", false)), "route reroll transaction failed")
 	_expect(
-		(rs.run_history.get("field_actions", []) as Array).size() == 2,
+		(rs.run_history.get("field_actions", []) as Array).size() == 4,
 		"field actions were not recorded"
+	)
+	rs.speed_scale = 1.0
+	rs.toggle_speed()
+	_expect(is_equal_approx(rs.speed_scale, 1.5), "speed toggle skipped 1.5x")
+	_expect(is_equal_approx(rs.combat_speed_scale(), 1.15), "1.5x combat pacing changed")
+	rs.toggle_speed()
+	_expect(is_equal_approx(rs.speed_scale, 2.0), "speed toggle skipped 2x")
+	_expect(is_equal_approx(rs.combat_speed_scale(), 1.2), "2x combat cap did not engage")
+	rs.trigger_critical_slow()
+	_expect(
+		is_equal_approx(rs.effective_speed_scale(), RunState.CRITICAL_SLOW_SCALE),
+		"critical auto-slow did not engage"
 	)
 
 
@@ -459,6 +489,21 @@ func _test_enemy_flow() -> void:
 			killed = true
 	if not killed:
 		_fail("enemy did not die after hp<=0")
+	ed.clear_regular_enemies()
+	rs.distance = RunState.JOURNEY_TARGET * 0.75
+	ed.spawn_threat_waves(30)
+	_expect(
+		ed.active_count() <= ed.pressure_limit(),
+		"enemy pressure exceeded the readable active-threat limit"
+	)
+	rs.speed_scale = 2.0
+	ed._process(0.1)
+	_expect(
+		rs.critical_slow_time > 0.0
+		and is_equal_approx(rs.effective_speed_scale(), RunState.CRITICAL_SLOW_SCALE),
+		"high enemy pressure did not engage the threat brake"
+	)
+	ed.free()
 
 
 func _test_defense_salvo() -> void:
@@ -641,22 +686,90 @@ func _test_boss_phase_pacing() -> void:
 	var rs := RunState.new()
 	rs.setup(993, _mk_configs())
 	rs.set_priority("light", 3)
+	_expect(rs.add_car("Defense"), "could not prepare boss response reserve test")
+	rs.set_priority("defense", 1)
 	var encounter := LongshadowEncounter.new()
 	encounter.setup(rs, Vector2(1280, 720), Vector2(360, 500))
+	rs.focus_cooldown = 99.0
+	rs.defense_salvo_cooldown = 99.0
 	encounter.start()
+	_expect(
+		rs.focus_cooldown <= 0.0 and rs.defense_salvo_cooldown <= 0.0,
+		"Longshadow phase did not ready its active responses"
+	)
 	var profile := LightProfile.new()
-	profile.origin = Vector2.ZERO
-	profile.direction = Vector2.RIGHT
+	profile.origin = Vector2(434.0, 476.0)
+	profile.direction = (
+		encounter.current_target_position() - profile.origin
+	).normalized()
 	profile.range_px = 5000.0
 	profile.spread_radians = PI
 	profile.damage_multiplier = 100.0
 	encounter.advance(3.1, profile, rs.stats())
-	for index in range(15):
+	rs.lumen = rs.stats().focus_cost
+	rs.power = RunState.DEFENSE_SALVO_POWER_COST
+	encounter.call("_perform_phase_attack")
+	_expect(
+		rs.lumen >= rs.stats().focus_cost
+		and rs.power >= RunState.DEFENSE_SALVO_POWER_COST,
+		"Veil attack consumed the protected active-response reserve"
+	)
+	_expect(
+		encounter.focus_block_reason(profile).contains("Pale"),
+		"Longshadow allowed Focus with the wrong phase lens"
+	)
+	for index in range(20):
 		encounter.advance(1.0, profile, rs.stats())
-	_expect(encounter.phase_name() == "VEIL", "Longshadow Veil ended before its minimum duration")
-	encounter.advance(1.1, profile, rs.stats())
+	_expect(
+		encounter.phase_name() == "VEIL",
+		"Longshadow advanced without an active response"
+	)
+	profile.focused = true
+	rs.current_lens = "Pale"
+	_expect(
+		encounter.focus_block_reason(profile).is_empty(),
+		"Longshadow blocked an aligned Focus response"
+	)
+	rs.focus_active_time = 100.0
+	encounter.advance(1.0, profile, rs.stats())
 	_expect(encounter.phase_name() == "TETHER", "Longshadow Veil did not advance after its duration")
 	encounter.free()
+
+	var charge := LongshadowEncounter.new()
+	charge.setup(rs, Vector2(1280, 720), Vector2(360, 500))
+	charge.start({
+		"phase": LongshadowEncounter.Phase.CHARGE,
+		"phase_max_health": 132.0,
+		"health": 132.0,
+		"attack_timer": 4.0,
+		"charge_timer": 0.1,
+		"charge_stagger": 0.0,
+		"target_band": 1,
+		"target_switch_timer": 4.0,
+		"elapsed": 0.0,
+		"phase_elapsed": 4.0,
+		"transition_timer": 0.0,
+		"phase_unlocked": false,
+		"response_progress": 0.0,
+		"charge_warning_issued": true
+	})
+	rs.lumen = 0.0
+	rs.power = 0.0
+	rs.focus_cooldown = 20.0
+	rs.defense_salvo_cooldown = 20.0
+	var miss := LightProfile.new()
+	miss.origin = Vector2.ZERO
+	miss.direction = Vector2.LEFT
+	miss.range_px = 10.0
+	charge.advance(0.2, miss, rs.stats())
+	_expect(
+		rs.lumen >= rs.stats().focus_cost
+		and rs.power >= RunState.DEFENSE_SALVO_POWER_COST
+		and rs.focus_cooldown <= 0.0
+		and rs.defense_salvo_cooldown <= 0.0,
+		"failed Charge did not restore a response opportunity"
+	)
+	charge.free()
 
 
 func _test_campaign_flow(host: Node) -> void:
@@ -681,13 +794,33 @@ func _test_campaign_flow(host: Node) -> void:
 	var boss_tactics_set: bool = false
 	var iterations: int = 0
 	while not bool(world.get("_ended")) and iterations < 5000:
+		var regular_target: Vector2 = (
+			director.nearest_warded_position(true)
+			if director.has_warded_target_in_response_range()
+			else Vector2(1200.0, 500.0)
+		)
 		controller.aim_towards(
 			encounter.current_target_position()
 			if encounter.is_active()
-			else Vector2(1200.0, 500.0)
+			else regular_target
 		)
-		if encounter.is_active() and rs.focus_cooldown <= 0.0:
+		if (
+			encounter.is_active()
+			and encounter.can_accept_active_response()
+			and rs.focus_cooldown <= 0.0
+		):
 			rs.request_focus()
+		elif director.has_warded_target_in_response_range() and rs.focus_cooldown <= 0.0:
+			rs.request_focus()
+		if (
+			rs.station_completed
+			and rs.scrap >= RunState.FIELD_OVERCHARGE_COST
+			and (
+				rs.power < 4.0
+				or rs.lumen < rs.stats().focus_cost
+			)
+		):
+			rs.purchase_emergency_overcharge()
 		world.call("_process", 0.25)
 		director.call("_process", 0.25)
 		if bool(world.get("_reveal_open")):
@@ -816,13 +949,33 @@ func _run_campaign_scenario(host: Node, seed_value: int, strategy: String) -> Di
 	var route_commits := 0
 	var iterations := 0
 	while not bool(world.get("_ended")) and iterations < 5200:
+		var regular_target: Vector2 = (
+			director.nearest_warded_position(true)
+			if director.has_warded_target_in_response_range()
+			else Vector2(1200.0, 500.0)
+		)
 		controller.aim_towards(
 			encounter.current_target_position()
 			if encounter.is_active()
-			else Vector2(1200.0, 500.0)
+			else regular_target
 		)
-		if encounter.is_active() and rs.focus_cooldown <= 0.0:
+		if (
+			encounter.is_active()
+			and encounter.can_accept_active_response()
+			and rs.focus_cooldown <= 0.0
+		):
 			rs.request_focus()
+		elif director.has_warded_target_in_response_range() and rs.focus_cooldown <= 0.0:
+			rs.request_focus()
+		if (
+			rs.station_completed
+			and rs.scrap >= RunState.FIELD_OVERCHARGE_COST
+			and (
+				rs.power < 4.0
+				or rs.lumen < rs.stats().focus_cost
+			)
+		):
+			rs.purchase_emergency_overcharge()
 		if (
 			(strategy == "gunline" or strategy == "adaptive")
 			and rs.defense_salvo_cooldown <= 0.0
@@ -859,7 +1012,16 @@ func _run_campaign_scenario(host: Node, seed_value: int, strategy: String) -> Di
 		"route_commits": route_commits,
 		"danger_committed": danger_committed,
 		"cars": rs.cars.size(),
-		"lost_crew": (rs.run_history.get("lost_crew", []) as Array).size()
+		"lost_crew": (rs.run_history.get("lost_crew", []) as Array).size(),
+		"lumen": rs.lumen,
+		"focus_uses": int((rs.run_history.get("telemetry", {}) as Dictionary).get("focus_uses", 0)),
+		"wards_broken": int((rs.run_history.get("telemetry", {}) as Dictionary).get("wards_broken", 0)),
+		"boss_active_responses": int(
+			(rs.run_history.get("telemetry", {}) as Dictionary).get(
+				"boss_active_responses",
+				0
+			)
+		)
 	}
 	world.free()
 	return result

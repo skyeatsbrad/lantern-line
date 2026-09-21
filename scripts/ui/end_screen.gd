@@ -131,12 +131,18 @@ func _build_ledger(run_state: RunState) -> String:
 		% [run_state.route_history.size(), intact_count, run_state.slot_capacity],
 		"Cars added: %d  |  Upgrades installed: %d  |  Field actions: %d"
 		% [purchased_count, upgrade_count, field_action_count],
-		"Lowest power: %.1f  |  Brownout time: %.1fs  |  Focus uses: %d  |  Salvos: %d"
+		"Lowest power: %.1f  |  Brownout: %.1fs  |  Scrap banked: %d"
 		% [
 			float(telemetry.get("min_power", run_state.power)),
 			float(telemetry.get("brownout_time", 0.0)),
+			int(run_state.scrap)
+		],
+		"Focus: %d  |  Salvos: %d  |  Wards broken: %d  |  Boss responses: %d"
+		% [
 			int(telemetry.get("focus_uses", 0)),
-			int(telemetry.get("defense_salvos", 0))
+			int(telemetry.get("defense_salvos", 0)),
+			int(telemetry.get("wards_broken", 0)),
+			int(telemetry.get("boss_active_responses", 0))
 		],
 		"Consist: %s" % (" > ".join(car_names) if not car_names.is_empty() else "Locomotive only"),
 		"Crew through: %s" % (", ".join(fit_names) if not fit_names.is_empty() else "None"),

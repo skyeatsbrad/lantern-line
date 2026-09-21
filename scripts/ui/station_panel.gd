@@ -12,6 +12,12 @@ var _compact_layout: bool = false
 var _content_width: float = 1010.0
 var _undo_stack: Array[Dictionary] = []
 var _departure_armed: bool = false
+var _tabs: TabContainer
+var _tab_scrolls: Dictionary = {}
+var _selected_tab: int = 0
+var _scroll_positions: Dictionary = {}
+var _input_guard_time: float = 0.0
+var _input_blocker: Control
 
 
 func present(run_state: RunState) -> void:
@@ -19,16 +25,22 @@ func present(run_state: RunState) -> void:
 	_message = "One stop. Make the consist count."
 	_undo_stack.clear()
 	_departure_armed = false
+	_selected_tab = 0
+	_scroll_positions.clear()
+	_input_guard_time = 0.22
 	_build()
 	visible = true
 	_open = true
+	set_process(true)
 	AudioManager.play("reveal")
 
 
 func _build() -> void:
+	_capture_view_state()
 	theme = UITheme.build()
 	for child in get_children():
 		child.queue_free()
+	_tab_scrolls.clear()
 	anchor_right = 1.0
 	anchor_bottom = 1.0
 
@@ -59,19 +71,24 @@ func _build() -> void:
 	root.add_theme_constant_override("separation", 8)
 	frame.add_child(root)
 	_build_header(root)
+	_build_train_summary(root)
 
-	var scroll := ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	root.add_child(scroll)
-	var body := VBoxContainer.new()
-	body.custom_minimum_size = Vector2(_content_width, 0.0)
-	body.add_theme_constant_override("separation", 10)
-	scroll.add_child(body)
-	_build_train_summary(body)
-	_build_crew(body)
-	_build_consist(body)
-	_build_market(body)
+	_tabs = TabContainer.new()
+	_tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	root.add_child(_tabs)
+
+	var build_body: VBoxContainer = _add_tab("BUILD")
+	_build_consist(build_body, false, true)
+	_build_market(build_body)
+
+	var crew_body: VBoxContainer = _add_tab("CREW")
+	_build_crew(crew_body)
+
+	var refit_body: VBoxContainer = _add_tab("REFITS")
+	_build_consist(refit_body, true, false)
+
+	_tabs.current_tab = clampi(_selected_tab, 0, maxi(0, _tabs.get_tab_count() - 1))
+	_tabs.tab_changed.connect(_on_tab_changed)
 
 	var leave_button := Button.new()
 	leave_button.text = (
@@ -82,13 +99,72 @@ func _build() -> void:
 	leave_button.custom_minimum_size = Vector2(0.0, 38.0)
 	leave_button.pressed.connect(_close)
 	root.add_child(leave_button)
+	if _input_guard_time > 0.0:
+		_add_input_blocker()
+	call_deferred("_restore_scroll_positions")
+
+
+func _add_tab(tab_name: String) -> VBoxContainer:
+	var scroll := ScrollContainer.new()
+	scroll.name = tab_name
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_tabs.add_child(scroll)
+	var body := VBoxContainer.new()
+	body.custom_minimum_size = Vector2(_content_width, 0.0)
+	body.add_theme_constant_override("separation", 10)
+	scroll.add_child(body)
+	_tab_scrolls[tab_name] = scroll
+	return body
+
+
+func _capture_view_state() -> void:
+	if is_instance_valid(_tabs):
+		_selected_tab = _tabs.current_tab
+	for tab_name_variant in _tab_scrolls.keys():
+		var tab_name: String = String(tab_name_variant)
+		var scroll: ScrollContainer = _tab_scrolls[tab_name]
+		if is_instance_valid(scroll):
+			_scroll_positions[tab_name] = scroll.scroll_vertical
+
+
+func _on_tab_changed(tab: int) -> void:
+	_selected_tab = tab
+
+
+func _restore_scroll_positions() -> void:
+	if not is_instance_valid(_tabs):
+		return
+	for tab_name_variant in _tab_scrolls.keys():
+		var tab_name: String = String(tab_name_variant)
+		var scroll: ScrollContainer = _tab_scrolls[tab_name]
+		scroll.scroll_vertical = int(_scroll_positions.get(tab_name, 0))
+
+
+func _add_input_blocker() -> void:
+	_input_blocker = ColorRect.new()
+	(_input_blocker as ColorRect).color = Color(0.0, 0.0, 0.0, 0.0)
+	_input_blocker.anchor_right = 1.0
+	_input_blocker.anchor_bottom = 1.0
+	_input_blocker.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(_input_blocker)
+
+
+func _process(delta: float) -> void:
+	if _input_guard_time <= 0.0:
+		return
+	if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+		return
+	_input_guard_time = maxf(0.0, _input_guard_time - delta)
+	if _input_guard_time <= 0.0 and is_instance_valid(_input_blocker):
+		_input_blocker.queue_free()
 
 
 func _build_header(parent: VBoxContainer) -> void:
 	var title := Label.new()
 	title.text = "WAYPOST FIVE - FINAL REFIT"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 24)
+	title.add_theme_font_size_override("font_size", 20 if _compact_layout else 24)
 	title.add_theme_color_override("font_color", Color(1.0, 0.86, 0.62))
 	parent.add_child(title)
 
@@ -166,16 +242,28 @@ func _build_train_summary(parent: VBoxContainer) -> void:
 	actions.add_child(undo_button)
 
 
-func _build_consist(parent: VBoxContainer) -> void:
-	_add_section_title(parent, "CONSIST - LOCOMOTIVE TO REAR")
+func _build_consist(
+	parent: VBoxContainer,
+	show_upgrades: bool = true,
+	show_reorder: bool = true
+) -> void:
+	_add_section_title(
+		parent,
+		"CONSIST - LOCOMOTIVE TO REAR"
+		if show_reorder
+		else "PERMANENT CAR REFITS"
+	)
 	for index in range(_run_state.cars.size()):
 		var car: Dictionary = _run_state.cars[index]
 		var cfg: Dictionary = _run_state.cars_config.get(String(car.get("type", "")), {})
 		var card := PanelContainer.new()
 		parent.add_child(card)
+		var content := VBoxContainer.new()
+		content.add_theme_constant_override("separation", 8)
+		card.add_child(content)
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 8)
-		card.add_child(row)
+		content.add_child(row)
 
 		var order := Label.new()
 		order.text = "%d" % (index + 1)
@@ -208,64 +296,86 @@ func _build_consist(parent: VBoxContainer) -> void:
 		description.add_theme_color_override("font_color", Color(0.72, 0.74, 0.8))
 		details.add_child(description)
 
-		var move_left := Button.new()
-		move_left.text = "<"
-		move_left.tooltip_text = "Move toward locomotive"
-		move_left.disabled = index == 0
-		var left_id := String(car.get("id", ""))
-		move_left.pressed.connect(func() -> void: _try_move(left_id, -1))
-		row.add_child(move_left)
+		if show_reorder:
+			var move_left := Button.new()
+			move_left.text = "<"
+			move_left.tooltip_text = "Move toward locomotive"
+			move_left.disabled = index == 0
+			var left_id := String(car.get("id", ""))
+			move_left.pressed.connect(func() -> void: _try_move(left_id, -1))
+			row.add_child(move_left)
 
-		var move_right := Button.new()
-		move_right.text = ">"
-		move_right.tooltip_text = "Move toward rear"
-		move_right.disabled = index == _run_state.cars.size() - 1
-		var right_id := String(car.get("id", ""))
-		move_right.pressed.connect(func() -> void: _try_move(right_id, 1))
-		row.add_child(move_right)
+			var move_right := Button.new()
+			move_right.text = ">"
+			move_right.tooltip_text = "Move toward rear"
+			move_right.disabled = index == _run_state.cars.size() - 1
+			var right_id := String(car.get("id", ""))
+			move_right.pressed.connect(func() -> void: _try_move(right_id, 1))
+			row.add_child(move_right)
 
-		_build_upgrade_controls(row, car, cfg)
+		if show_upgrades:
+			_build_upgrade_controls(content, car, cfg)
 
 
-func _build_upgrade_controls(parent: HBoxContainer, car: Dictionary, cfg: Dictionary) -> void:
+func _build_upgrade_controls(parent: Container, car: Dictionary, cfg: Dictionary) -> void:
 	var installed_key := String(car.get("upgrade", ""))
 	var upgrades: Dictionary = cfg.get("upgrades", {})
 	if not installed_key.is_empty():
 		var installed := Label.new()
-		installed.text = "REFIT: %s" % String(upgrades.get(installed_key, {}).get("display", installed_key))
-		installed.custom_minimum_size = Vector2(170.0, 0.0)
-		installed.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		installed.text = "REFIT INSTALLED: %s" % String(
+			upgrades.get(installed_key, {}).get("display", installed_key)
+		)
 		installed.add_theme_color_override("font_color", Color(0.55, 0.9, 0.58))
 		parent.add_child(installed)
 		return
-	var choices := VBoxContainer.new()
-	choices.custom_minimum_size = Vector2(240.0, 0.0)
+	var choices := GridContainer.new()
+	choices.columns = 1 if _compact_layout else 2
+	choices.add_theme_constant_override("h_separation", 8)
+	choices.add_theme_constant_override("v_separation", 8)
 	parent.add_child(choices)
 	for upgrade_key_variant in upgrades.keys():
 		var upgrade_key := String(upgrade_key_variant)
 		var upgrade: Dictionary = upgrades[upgrade_key]
 		var cost := int(upgrade.get("cost", 0))
+		var option_panel := PanelContainer.new()
+		option_panel.custom_minimum_size = Vector2(
+			_content_width - 24.0
+			if _compact_layout
+			else (_content_width - 32.0) * 0.5,
+			0.0
+		)
+		choices.add_child(option_panel)
+		var option := VBoxContainer.new()
+		option.add_theme_constant_override("separation", 4)
+		option_panel.add_child(option)
 		var button := Button.new()
 		button.text = "%s - %d" % [String(upgrade.get("display", upgrade_key)), cost]
 		button.disabled = _run_state.scrap < cost
 		var car_id := String(car.get("id", ""))
 		button.pressed.connect(func() -> void: _try_upgrade(car_id, upgrade_key))
-		choices.add_child(button)
+		option.add_child(button)
 		var description := Label.new()
 		description.text = "%s\n%s" % [
 			String(upgrade.get("description", "Permanent refit")),
 			_projection_delta(_run_state.preview_upgrade(car_id, upgrade_key))
 		]
 		description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		description.add_theme_font_size_override("font_size", 11)
+		description.add_theme_font_size_override(
+			"font_size",
+			13 if _compact_layout else 11
+		)
 		description.add_theme_color_override("font_color", Color(0.7, 0.72, 0.78))
-		choices.add_child(description)
+		option.add_child(description)
 
 
 func _build_market(parent: VBoxContainer) -> void:
 	_add_section_title(parent, "COUPLE A CAR")
 	var grid := GridContainer.new()
-	grid.columns = 2 if _compact_layout else 3
+	grid.columns = (
+		1
+		if _compact_layout and get_viewport_rect().size.x < 780.0
+		else (2 if _compact_layout else 3)
+	)
 	grid.add_theme_constant_override("h_separation", 8)
 	grid.add_theme_constant_override("v_separation", 6)
 	parent.add_child(grid)
@@ -296,7 +406,10 @@ func _build_market(parent: VBoxContainer) -> void:
 			_projection_delta(_run_state.preview_car_purchase(type_key))
 		]
 		description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		description.add_theme_font_size_override("font_size", 11)
+		description.add_theme_font_size_override(
+			"font_size",
+			13 if _compact_layout else 11
+		)
 		description.add_theme_color_override("font_color", Color(0.72, 0.74, 0.8))
 		content.add_child(description)
 

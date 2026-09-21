@@ -267,6 +267,8 @@ static func calculate(run_state: RunState) -> TrainStats:
 	for mount_variant in result.defense_mounts:
 		var mount: Dictionary = mount_variant
 		mount["damage"] = float(mount.get("damage", 0.0)) * defense_multiplier
+		if run_state.field_overcharge_time > 0.0:
+			mount["damage"] = float(mount["damage"]) * 1.2
 
 	result.repair_rate *= effective_repair
 	if bool(run_state.event_flags.get("buried_bell_answered", false)) and effective_repair > 0.0:
@@ -290,11 +292,13 @@ static func calculate(run_state: RunState) -> TrainStats:
 	var base_speed: float = 26.0 + 5.0 * result.effective_priority("engine")
 	var power_factor: float = lerpf(0.55, 1.0, clampf(run_state.power / 6.0, 0.0, 1.0))
 	var detach_factor: float = 1.35 if run_state.detach_boost_time > 0.0 else 1.0
+	var overcharge_factor: float = 1.1 if run_state.field_overcharge_time > 0.0 else 1.0
 	result.speed = (
 		base_speed
 		* speed_multiplier
 		* power_factor
 		* detach_factor
+		* overcharge_factor
 		* run_state.external_speed_multiplier
 		/ maxf(0.1, result.total_weight)
 	)

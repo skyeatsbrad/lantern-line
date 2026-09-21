@@ -42,6 +42,7 @@ var _reveal_timer: float = REVEAL_INTERVAL
 var _last_autosave: float = 0.0
 var _train_screen_pos: Vector2 = Vector2(360, 500)
 var _route_commit_pending: bool = false
+var _route_reroll_index: int = 0
 var _end_committed: bool = false
 var _end_screen_shown: bool = false
 var _ending_timer: float = 0.0
@@ -49,6 +50,7 @@ var _ending_victory: bool = false
 var _detach_hold_active: bool = false
 var _detach_hold_time: float = 0.0
 var _light_profile: LightProfile
+var _locomotive_critical_notified: bool = false
 
 # Compatibility read-only properties for the v0.1 probes.
 var _reveal_open: bool:
@@ -197,6 +199,7 @@ func _wire_signals() -> void:
 
 	_route_choice.chosen.connect(_on_route_chosen)
 	_route_choice.closed.connect(_on_reveal_closed)
+	_route_choice.reroll_requested.connect(_on_route_reroll)
 
 	_station_panel.state_changed.connect(_save_checkpoint)
 	_station_panel.closed.connect(_on_station_closed)
@@ -204,10 +207,17 @@ func _wire_signals() -> void:
 	_end_screen.closed.connect(_on_end_closed)
 	_enemy_director.enemy_killed.connect(_on_enemy_killed)
 	_enemy_director.threat_announced.connect(_on_threat_announced)
+	_enemy_director.defense_fired.connect(_on_defense_fired)
+	_enemy_director.active_response.connect(_on_active_response)
+	_enemy_director.enemy_attack_landed.connect(_on_enemy_attack_landed)
+	_enemy_director.pressure_brake_changed.connect(_on_pressure_brake_changed)
 	_longshadow.phase_changed.connect(_on_boss_phase_changed)
 	_longshadow.attack_landed.connect(_on_boss_attack)
 	_longshadow.defeated.connect(_on_boss_defeated)
 	run_state.car_destroyed.connect(_on_car_destroyed)
+	run_state.car_damaged.connect(_on_car_damaged)
+	run_state.car_critical.connect(_on_car_critical)
+	run_state.locomotive_damaged.connect(_on_locomotive_damaged)
 
 
 func _process(delta: float) -> void:
@@ -227,7 +237,7 @@ func _process(delta: float) -> void:
 
 	if _mode == RunMode.TRAVEL and not run_state.is_simulation_paused():
 		if not run_state.boss_triggered:
-			_reveal_timer -= delta * run_state.speed_scale
+			_reveal_timer -= delta * run_state.effective_speed_scale()
 
 	_update_presentational_state()
 	if _mode == RunMode.BOSS:
@@ -271,6 +281,10 @@ func _update_aim() -> void:
 
 
 func _update_presentational_state() -> void:
+	if (
+		run_state.locomotive_hp / maxf(1.0, run_state.locomotive_max_hp) > 0.45
+	):
+		_locomotive_critical_notified = false
 	var current_stats: TrainStats = run_state.stats()
 	_light_profile = LightProfile.build(
 		run_state,
@@ -315,13 +329,8 @@ func _open_reveal() -> void:
 		return
 	_save_checkpoint()
 	_route_commit_pending = false
-	var next_reveal_index: int = run_state.reveal_index + 1
-	var choices: Array = route_director.generate_choices(
-		next_reveal_index,
-		run_state.current_lens,
-		run_state.route_seen_ids,
-		run_state.event_flags
-	)
+	_route_reroll_index = 0
+	var choices: Array = _generate_route_choices()
 	run_state.record_offered_routes(choices)
 	_set_mode(RunMode.ROUTE_REVEAL)
 	var selected_index := _route_projection.index_for_cursor_y(get_viewport().get_mouse_position().y)
@@ -330,9 +339,24 @@ func _open_reveal() -> void:
 		choices,
 		run_state.current_lens,
 		_train_controller.current_band(),
-		run_state.lens_config.get(run_state.current_lens, {})
+		run_state.lens_config.get(run_state.current_lens, {}),
+		run_state.station_completed,
+		RunState.ROUTE_REROLL_COST,
+		int(run_state.scrap)
 	)
 	_route_choice.set_selected_index(selected_index)
+
+
+func _generate_route_choices() -> Array:
+	var deterministic_index: int = (
+		run_state.reveal_index + 1 + _route_reroll_index * 997
+	)
+	return route_director.generate_choices(
+		deterministic_index,
+		run_state.current_lens,
+		run_state.route_seen_ids,
+		run_state.event_flags
+	)
 
 
 func _open_station() -> void:
@@ -369,6 +393,31 @@ func _on_route_chosen(event: Dictionary) -> void:
 	_reveal_timer = REVEAL_INTERVAL
 	_route_commit_pending = true
 	_hud.flash("Route chosen: %s" % String(event.get("title", "?")))
+
+
+func _on_route_reroll() -> void:
+	if _mode != RunMode.ROUTE_REVEAL:
+		return
+	var result: Dictionary = run_state.purchase_route_reroll()
+	if not bool(result.get("ok", false)):
+		_hud.flash(String(result.get("message", "Route reroll unavailable.")), 2.0)
+		AudioManager.play("alarm")
+		return
+	_route_reroll_index += 1
+	var choices: Array = _generate_route_choices()
+	run_state.record_offered_routes(choices)
+	var selected_index: int = _route_projection.index_for_cursor_y(
+		get_viewport().get_mouse_position().y
+	)
+	_route_projection.present(choices, selected_index)
+	_route_choice.replace_choices(choices, selected_index)
+	_route_choice.set_reroll_state(
+		run_state.scrap >= RunState.ROUTE_REROLL_COST,
+		RunState.ROUTE_REROLL_COST,
+		int(run_state.scrap)
+	)
+	_hud.flash(String(result.get("message", "New routes projected.")), 2.0)
+	AudioManager.play("reveal")
 
 
 func _on_reveal_closed() -> void:
@@ -427,6 +476,12 @@ func _on_priority_level(role: String, level: int) -> void:
 func _on_focus() -> void:
 	if not _gameplay_controls_enabled():
 		return
+	if _longshadow.is_active():
+		var block_reason: String = _longshadow.focus_block_reason(_light_profile)
+		if not block_reason.is_empty():
+			_hud.flash(block_reason, 1.8)
+			AudioManager.play("alarm")
+			return
 	if run_state.request_focus():
 		AudioManager.play("reveal")
 		_hud.flash("FOCUS BEAM", 1.0)
@@ -439,6 +494,10 @@ func _on_defense_salvo() -> void:
 		return
 	if not _longshadow.is_active() and not _enemy_director.has_salvo_target():
 		_hud.flash("Defense salvo: no target in range.", 1.5)
+		AudioManager.play("alarm")
+		return
+	if _longshadow.is_active() and not _longshadow.can_accept_active_response():
+		_hud.flash("Defense salvo held - target lock is still forming.", 1.5)
 		AudioManager.play("alarm")
 		return
 	var salvo_stats: TrainStats = run_state.stats()
@@ -457,7 +516,13 @@ func _on_defense_salvo() -> void:
 		hit_positions = salvo_result.get("positions", [])
 		damage = float(salvo_result.get("damage", 0.0))
 	for position_variant in hit_positions:
-		_effects.add_hit(position_variant, Color(1.0, 0.58, 0.24))
+		var target_position: Vector2 = position_variant
+		_effects.add_tracer(
+			_train_screen_pos + Vector2(-20.0, -68.0),
+			target_position,
+			Color(1.0, 0.58, 0.24)
+		)
+		_effects.add_hit(target_position, Color(1.0, 0.58, 0.24))
 	_effects.request_shake(7.0)
 	_effects.request_flash(Color(1.0, 0.5, 0.2, 0.28), 0.22)
 	AudioManager.play("salvo")
@@ -473,6 +538,8 @@ func _on_field_action(action: String) -> void:
 			result = run_state.purchase_field_patch()
 		"overcharge":
 			result = run_state.purchase_emergency_overcharge()
+		"flare":
+			result = run_state.purchase_signal_flare()
 		_:
 			return
 	_hud.flash(String(result.get("message", "No change.")), 2.0)
@@ -481,7 +548,11 @@ func _on_field_action(action: String) -> void:
 		_effects.request_flash(
 			Color(0.36, 0.78, 0.48, 0.2)
 			if action == "patch"
-			else Color(1.0, 0.78, 0.3, 0.24),
+			else (
+				Color(0.72, 0.86, 1.0, 0.26)
+				if action == "flare"
+				else Color(1.0, 0.78, 0.3, 0.24)
+			),
 			0.35
 		)
 		_save_checkpoint()
@@ -531,6 +602,7 @@ func _on_speed() -> void:
 		return
 	run_state.toggle_speed()
 	AudioManager.play("click")
+	_hud.flash("Travel speed: %sx" % str(run_state.speed_scale), 1.2)
 
 
 func _on_detach() -> void:
@@ -572,11 +644,11 @@ func _on_boss_phase_changed(phase_name: String) -> void:
 	var instruction: String
 	match phase_name:
 		"VEIL":
-			instruction = "Hold the shadow inside the beam."
+			instruction = "Switch to Pale, then Focus to expose it."
 		"TETHER":
-			instruction = "Track the moving anchor."
+			instruction = "Track it with Hearth; Focus or Salvo severs the lock."
 		"CHARGE":
-			instruction = "Save Focus to interrupt each charge."
+			instruction = "Use Standard and interrupt with Focus or Salvo."
 		_:
 			instruction = "Keep the lantern trained."
 	_hud.flash("LONGSHADOW: %s - %s" % [phase_name, instruction], 3.2)
@@ -609,12 +681,90 @@ func _on_car_destroyed(display_name: String, evacuated_names: Array) -> void:
 		message += " | LOAD SHEDDING ACTIVE"
 	if not evacuated_names.is_empty():
 		message += " | Evacuated: %s" % ", ".join(PackedStringArray(evacuated_names))
-	_hud.flash(message, 2.5)
-	_effects.request_shake(6.0)
+	run_state.trigger_critical_slow(3.0)
+	_hud.flash(message, 3.5)
+	_hud.show_critical("CAR LOST - %s" % message, 6.0)
+	_effects.request_shake(9.0)
+	_effects.request_flash(Color(0.95, 0.18, 0.12, 0.34), 0.6)
 
 
-func _on_threat_announced(_kind: String, guidance: String) -> void:
-	_hud.flash(guidance, 2.5)
+func _on_car_damaged(
+	car_id: String,
+	_display_name: String,
+	_hp: float,
+	_max_hp: float,
+	index: int
+) -> void:
+	_train_renderer.flash_car(car_id)
+	_effects.add_hit(
+		_train_renderer.car_screen_center(index),
+		Color(1.0, 0.34, 0.18)
+	)
+
+
+func _on_car_critical(car_id: String, display_name: String, index: int) -> void:
+	run_state.trigger_critical_slow()
+	_train_renderer.flash_car(car_id, 1.2)
+	_hud.show_critical(
+		"%s CRITICAL - auto-slow engaged" % display_name.to_upper(),
+		4.5
+	)
+	_effects.add_hit(
+		_train_renderer.car_screen_center(index),
+		Color(1.0, 0.18, 0.12)
+	)
+	_effects.request_shake(7.0)
+	AudioManager.play("alarm")
+
+
+func _on_locomotive_damaged(hp: float) -> void:
+	var ratio: float = hp / maxf(1.0, run_state.locomotive_max_hp)
+	if ratio > 0.3 or _locomotive_critical_notified:
+		return
+	_locomotive_critical_notified = true
+	run_state.trigger_critical_slow(3.0)
+	_hud.show_critical("LOCOMOTIVE CRITICAL - protect the line", 5.0)
+	_effects.request_flash(Color(1.0, 0.16, 0.1, 0.32), 0.55)
+	_effects.request_shake(8.0)
+	AudioManager.play("alarm")
+
+
+func _on_defense_fired(
+	target_position: Vector2,
+	source_car_id: String,
+	crewed: bool
+) -> void:
+	var source: Vector2 = _train_renderer.car_screen_center_by_id(source_car_id)
+	var color: Color = Color(1.0, 0.84, 0.42) if crewed else Color(0.78, 0.68, 0.52)
+	_effects.add_tracer(source + Vector2(0.0, -28.0), target_position, color)
+
+
+func _on_active_response(position: Vector2, message: String) -> void:
+	_effects.add_hit(position, Color(0.82, 0.62, 1.0))
+	_effects.request_flash(Color(0.65, 0.42, 1.0, 0.18), 0.3)
+	_hud.flash(message, 2.2)
+	AudioManager.play("reveal")
+
+
+func _on_enemy_attack_landed(position: Vector2, _kind: String) -> void:
+	_effects.add_hit(position, Color(1.0, 0.22, 0.16))
+
+
+func _on_pressure_brake_changed(active: bool) -> void:
+	if active:
+		_hud.show_critical(
+			"THREAT BRAKE - combat held at %.1fx until the field clears"
+			% RunState.CRITICAL_SLOW_SCALE,
+			3.2
+		)
+
+
+func _on_threat_announced(kind: String, guidance: String) -> void:
+	if kind == "Ward":
+		run_state.trigger_critical_slow(5.0)
+		_hud.show_critical(guidance, 5.0)
+	else:
+		_hud.flash(guidance, 2.5)
 	AudioManager.play("alarm")
 
 
@@ -648,6 +798,8 @@ func _input(event: InputEvent) -> void:
 		_on_field_action("patch")
 	elif event.is_action_pressed("field_overcharge"):
 		_on_field_action("overcharge")
+	elif event.is_action_pressed("field_flare"):
+		_on_field_action("flare")
 	elif event.is_action_pressed("detach_car"):
 		_on_detach_hold_changed(true)
 	elif event.is_action_pressed("power_engine"):
