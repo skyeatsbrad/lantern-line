@@ -238,9 +238,9 @@ static func calculate(run_state: RunState) -> TrainStats:
 		result.supply_efficiency *= 0.85
 	var effective_repair: float = result.effective_priority("repair")
 	if has_workshop and float(role_fractions["repair"]) > 0.0:
-		result.repair_rate = maxf(result.repair_rate, 1.0) * 1.6 * workshop_repair_multiplier
+		result.repair_rate = 0.9 * workshop_repair_multiplier
 	else:
-		result.repair_rate = maxf(result.repair_rate, 1.0)
+		result.repair_rate = 0.0
 
 	var speed_multiplier: float = 1.0
 	var defense_multiplier: float = 1.0
@@ -272,7 +272,7 @@ static func calculate(run_state: RunState) -> TrainStats:
 
 	result.repair_rate *= effective_repair
 	if bool(run_state.event_flags.get("buried_bell_answered", false)) and effective_repair > 0.0:
-		result.repair_rate += 0.25 * effective_repair
+		result.repair_rate += 0.2 * effective_repair
 	if run_state.current_lens == "Hearth":
 		result.repair_rate *= 1.1
 		result.supply_generation *= 1.1

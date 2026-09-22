@@ -36,6 +36,7 @@ const PAGES: Array[Dictionary] = [
 ]
 
 var _page_index: int = 0
+var _page_indices: Array[int] = []
 var _open: bool = false
 var _completion_label: String = "Close Guide"
 var _counter_label: Label
@@ -46,9 +47,18 @@ var _back_button: Button
 var _next_button: Button
 
 
-func present(completion_label: String = "Close Guide") -> void:
+func present(
+	completion_label: String = "Close Guide",
+	quick_start: bool = false
+) -> void:
 	_completion_label = completion_label
 	_page_index = 0
+	_page_indices.clear()
+	if quick_start:
+		_page_indices.append(0)
+	else:
+		for index in range(PAGES.size()):
+			_page_indices.append(index)
 	_open = true
 	visible = true
 	_build()
@@ -149,15 +159,19 @@ func _build() -> void:
 
 
 func _refresh_page() -> void:
-	var page: Dictionary = PAGES[_page_index]
-	_counter_label.text = "PAGE %d OF %d" % [_page_index + 1, PAGES.size()]
+	var page: Dictionary = PAGES[_page_indices[_page_index]]
+	_counter_label.text = (
+		"QUICK START"
+		if _page_indices.size() == 1
+		else "PAGE %d OF %d" % [_page_index + 1, _page_indices.size()]
+	)
 	_title_label.text = String(page.get("title", ""))
 	_body_label.text = String(page.get("body", ""))
 	_controls_label.text = String(page.get("controls", ""))
 	_back_button.disabled = _page_index <= 0
 	_next_button.text = (
 		_completion_label
-		if _page_index == PAGES.size() - 1
+		if _page_index == _page_indices.size() - 1
 		else "Next"
 	)
 
@@ -176,7 +190,7 @@ func _previous_page() -> void:
 
 
 func _next_page() -> void:
-	if _page_index < PAGES.size() - 1:
+	if _page_index < _page_indices.size() - 1:
 		_page_index += 1
 		AudioManager.play("click")
 		_refresh_page()

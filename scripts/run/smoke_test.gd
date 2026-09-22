@@ -18,7 +18,9 @@ var _failures: Array = []
 func run(_host: Node) -> void:
 	print("[smoke] starting")
 	_test_data_load()
+	_test_v07_clarity_regressions()
 	_test_accessibility_settings(_host)
+	_test_contextual_onboarding(_host)
 	_test_presentation_foundation(_host)
 	await _test_responsive_ui(_host)
 	await _test_scene_transition(_host)
@@ -47,6 +49,7 @@ func run(_host: Node) -> void:
 	_test_boss_resume(_host)
 	_test_boss_phase_pacing()
 	_test_campaign_flow(_host)
+	_test_investment_pressure(_host)
 	_test_balance_archetypes(_host)
 	_test_seed_sweep(_host)
 	_test_finished_run_clears_checkpoint(_host)
@@ -141,6 +144,81 @@ func _test_data_load() -> void:
 	if (c["events"] as Array).size() < 20: _fail("route_events.json too few events")
 
 
+func _test_v07_clarity_regressions() -> void:
+	_expect(
+		_action_has_key("choose_upper", KEY_UP),
+		"upper route action is not bound to Up Arrow"
+	)
+	_expect(
+		_action_has_key("choose_middle", KEY_RIGHT),
+		"middle route action is not bound to Right Arrow"
+	)
+	_expect(
+		_action_has_key("choose_lower", KEY_DOWN),
+		"lower route action is not bound to Down Arrow"
+	)
+	var phone_scale: float = UITheme.automatic_text_scale_for_window(
+		Vector2(844.0, 390.0)
+	)
+	_expect(
+		phone_scale >= 1.7 and phone_scale <= UITheme.MAX_AUTOMATIC_TEXT_SCALE,
+		"844x390 automatic text scaling did not reach the readable range"
+	)
+	_expect(
+		is_equal_approx(
+			UITheme.automatic_text_scale_for_window(Vector2(1280.0, 720.0)),
+			1.0
+		),
+		"desktop windows received an unintended automatic text scale"
+	)
+
+	var rs := RunState.new()
+	rs.setup(707, _mk_configs())
+	_expect(rs.stats().repair_rate > 0.0, "powered Workshop did not provide repairs")
+	for car_variant in rs.cars:
+		var car: Dictionary = car_variant
+		if String(car.get("type", "")) == "Workshop":
+			car["hp"] = 0.0
+	rs.refresh_stats()
+	_expect(
+		is_zero_approx(rs.stats().repair_rate),
+		"continuous repair remained active without a usable Workshop"
+	)
+
+	var danger_premiums: Dictionary = {
+		"danger_hollow": {"scrap": 14.0},
+		"danger_shrike_nest": {"scrap": 16.0},
+		"danger_black_rain": {"scrap": 15.0},
+		"danger_crawler_bridge": {"scrap": 14.0},
+		"danger_false_dawn": {"scrap": 5.0, "lumen": 12.0}
+	}
+	var events: Array = _mk_configs()["events"]
+	for event_variant in events:
+		var event: Dictionary = event_variant
+		var event_id: String = String(event.get("id", ""))
+		if not danger_premiums.has(event_id):
+			continue
+		var rewards: Dictionary = event.get("rewards", {})
+		var expected: Dictionary = danger_premiums[event_id]
+		for resource_variant in expected.keys():
+			var resource: String = String(resource_variant)
+			_expect(
+				float(rewards.get(resource, 0.0)) >= float(expected[resource]),
+				"%s lost its explicit %s danger premium" % [
+					event_id,
+					resource
+				]
+			)
+
+
+func _action_has_key(action: StringName, keycode: Key) -> bool:
+	for event_variant in InputMap.action_get_events(action):
+		var event := event_variant as InputEventKey
+		if event != null and event.keycode == keycode:
+			return true
+	return false
+
+
 func _test_accessibility_settings(host: Node) -> void:
 	var saved_settings: Dictionary = GameManager.settings.duplicate(true)
 	GameManager.set_setting("text_scale", 1.27)
@@ -168,7 +246,21 @@ func _test_accessibility_settings(host: Node) -> void:
 
 	var guide := GuidePanel.new()
 	host.add_child(guide)
+	guide.present("Begin Run", true)
+	_expect(
+		(guide.get("_page_indices") as Array).size() == 1,
+		"quick start did not reduce the guide to one page"
+	)
+	guide.call("_next_page")
+	_expect(
+		not guide.visible and not guide.is_open(),
+		"quick start did not close after its only page"
+	)
 	guide.present("Close")
+	_expect(
+		(guide.get("_page_indices") as Array).size() == GuidePanel.PAGES.size(),
+		"full Conductor's Guide pages were not retained"
+	)
 	_expect(guide.visible and guide.is_open(), "Conductor's Guide did not open")
 	for page in range(GuidePanel.PAGES.size()):
 		guide.call("_next_page")
@@ -176,6 +268,50 @@ func _test_accessibility_settings(host: Node) -> void:
 	guide.free()
 
 	GameManager.settings = saved_settings
+	GameManager.emit_signal("settings_changed")
+	GameManager.call("_save")
+
+
+func _test_contextual_onboarding(host: Node) -> void:
+	var saved_settings: Dictionary = GameManager.settings.duplicate(true)
+	var saved_pending: Dictionary = GameManager.pending_run.duplicate(true)
+	var saved_has_pending: bool = GameManager.has_pending_run
+	var scene: PackedScene = load("res://scenes/game_world.tscn")
+	var world: Node = scene.instantiate()
+	host.add_child(world)
+	world.call("bootstrap", 708, {})
+	world.set("_contextual_tutorial_active", true)
+	world.call("_begin_contextual_tutorial")
+	var hud: HUD = world.get("_hud") as HUD
+	var rs: RunState = world.get("run_state") as RunState
+	_expect(
+		not hud.cinematic_visible(),
+		"contextual onboarding repeated the pre-run aiming lesson"
+	)
+	rs.distance = 360.0
+	world.call("_process_contextual_tutorial")
+	var notification_label: Label = hud.get("_notification_label") as Label
+	_expect(
+		notification_label != null
+		and notification_label.text.begins_with("PACE:"),
+		"contextual onboarding did not begin with the pace lesson"
+	)
+	world.set("_mode", 1)
+	world.set("_route_commit_pending", true)
+	world.call("_on_reveal_closed")
+	_expect(
+		hud.cinematic_visible()
+		and not bool(world.get("_contextual_tutorial_active")),
+		"contextual onboarding did not advance to power priorities"
+	)
+	_expect(
+		bool(GameManager.get_setting("contextual_tutorial_seen", false)),
+		"contextual onboarding completion was not persisted"
+	)
+	world.free()
+	GameManager.settings = saved_settings
+	GameManager.pending_run = saved_pending
+	GameManager.has_pending_run = saved_has_pending
 	GameManager.emit_signal("settings_changed")
 	GameManager.call("_save")
 
@@ -1377,24 +1513,7 @@ func _test_campaign_flow(host: Node) -> void:
 	var boss_tactics_set: bool = false
 	var iterations: int = 0
 	while not bool(world.get("_ended")) and iterations < 5000:
-		var regular_target: Vector2 = (
-			director.nearest_warded_position(true)
-			if director.has_warded_target_in_response_range()
-			else Vector2(1200.0, 500.0)
-		)
-		controller.aim_towards(
-			encounter.current_target_position()
-			if encounter.is_active()
-			else regular_target
-		)
-		if (
-			encounter.is_active()
-			and encounter.can_accept_active_response()
-			and rs.focus_cooldown <= 0.0
-		):
-			rs.request_focus()
-		elif director.has_warded_target_in_response_range() and rs.focus_cooldown <= 0.0:
-			rs.request_focus()
+		_attempt_campaign_focus(world, rs, director, encounter, controller)
 		if (
 			rs.station_completed
 			and rs.scrap >= RunState.FIELD_OVERCHARGE_COST
@@ -1472,7 +1591,7 @@ func _campaign_choice_index(choices: Array, rs: RunState) -> int:
 		score += scrap_value * (5.0 if rs.scrap < 10.0 and not rs.station_completed else 0.7)
 		score += float(rewards.get("power", 0.0)) * 0.5
 		score += float(rewards.get("lumen", 0.0)) * 0.25
-		score -= float(event.get("danger", 0)) * 1.5
+		score -= float(event.get("danger", 0)) * 8.0
 		if score > best_score:
 			best_score = score
 			best_index = index
@@ -1499,6 +1618,43 @@ func _test_balance_archetypes(host: Node) -> void:
 	GameManager.call("_save")
 
 
+func _test_investment_pressure(host: Node) -> void:
+	var saved_meta: Dictionary = GameManager.meta.duplicate(true)
+	var saved_pending: Dictionary = GameManager.pending_run.duplicate(true)
+	var saved_has_pending: bool = GameManager.has_pending_run
+	var no_refit := _run_campaign_scenario(
+		host,
+		20260918,
+		"safe",
+		false
+	)
+	print("[smoke] no-refit safe -> %s" % str(no_refit))
+	_expect(
+		not bool(no_refit.get("victory", false))
+		or float(no_refit.get("locomotive_hp", 120.0)) <= 75.0
+		or int(no_refit.get("cars", 3)) <= 1,
+		"safe-route campaign still won cleanly without a Waypost refit"
+	)
+	var reckless := _run_campaign_scenario(
+		host,
+		20260919,
+		"reckless",
+		true
+	)
+	print("[smoke] reckless danger -> %s" % str(reckless))
+	_expect(
+		not bool(reckless.get("victory", false))
+		or int(reckless.get("lost_crew", 0)) > 0
+		or int(reckless.get("cars", 3)) <= 2
+		or float(reckless.get("locomotive_hp", 120.0)) <= 100.0,
+		"reckless danger routing had no meaningful survival cost"
+	)
+	GameManager.meta = saved_meta
+	GameManager.pending_run = saved_pending
+	GameManager.has_pending_run = saved_has_pending
+	GameManager.call("_save")
+
+
 func _test_seed_sweep(host: Node) -> void:
 	var saved_meta: Dictionary = GameManager.meta.duplicate(true)
 	var saved_pending: Dictionary = GameManager.pending_run.duplicate(true)
@@ -1517,7 +1673,12 @@ func _test_seed_sweep(host: Node) -> void:
 	GameManager.call("_save")
 
 
-func _run_campaign_scenario(host: Node, seed_value: int, strategy: String) -> Dictionary:
+func _run_campaign_scenario(
+	host: Node,
+	seed_value: int,
+	strategy: String,
+	use_station: bool = true
+) -> Dictionary:
 	var scene: PackedScene = load("res://scenes/game_world.tscn")
 	var world: Node = scene.instantiate()
 	host.add_child(world)
@@ -1536,24 +1697,7 @@ func _run_campaign_scenario(host: Node, seed_value: int, strategy: String) -> Di
 	var route_commits := 0
 	var iterations := 0
 	while not bool(world.get("_ended")) and iterations < 5200:
-		var regular_target: Vector2 = (
-			director.nearest_warded_position(true)
-			if director.has_warded_target_in_response_range()
-			else Vector2(1200.0, 500.0)
-		)
-		controller.aim_towards(
-			encounter.current_target_position()
-			if encounter.is_active()
-			else regular_target
-		)
-		if (
-			encounter.is_active()
-			and encounter.can_accept_active_response()
-			and rs.focus_cooldown <= 0.0
-		):
-			rs.request_focus()
-		elif director.has_warded_target_in_response_range() and rs.focus_cooldown <= 0.0:
-			rs.request_focus()
+		_attempt_campaign_focus(world, rs, director, encounter, controller)
 		if (
 			rs.station_completed
 			and rs.scrap >= RunState.FIELD_OVERCHARGE_COST
@@ -1585,7 +1729,8 @@ func _run_campaign_scenario(host: Node, seed_value: int, strategy: String) -> Di
 			route_commits += 1
 			_commit_route_immediately(world, route_choice, choice_index)
 		if bool(world.get("_station_open")):
-			station_action = _apply_station_strategy(rs, strategy)
+			if use_station:
+				station_action = _apply_station_strategy(rs, strategy)
 			_close_station_immediately(world, station)
 		if rs.boss_triggered:
 			_apply_strategy_priorities(rs, strategy, true)
@@ -1612,6 +1757,47 @@ func _run_campaign_scenario(host: Node, seed_value: int, strategy: String) -> Di
 	}
 	world.free()
 	return result
+
+
+func _attempt_campaign_focus(
+	world: Node,
+	rs: RunState,
+	director: EnemyDirector,
+	encounter: LongshadowEncounter,
+	controller: TrainController
+) -> void:
+	var boss_active: bool = encounter.is_active()
+	if (
+		boss_active
+		and rs.current_lens != encounter.recommended_lens()
+		and rs.lens_cooldown <= 0.0
+	):
+		rs.request_lens(encounter.recommended_lens())
+	var target: Vector2 = (
+		encounter.current_target_position()
+		if boss_active
+		else (
+			director.nearest_warded_position(true)
+			if director.has_warded_target_in_response_range()
+			else Vector2(1200.0, 500.0)
+		)
+	)
+	controller.aim_towards(target)
+	var light_profile := LightProfile.build(
+		rs,
+		rs.stats(),
+		controller.light_direction,
+		world.call("_train_lamp_position")
+	)
+	world.set("_light_profile", light_profile)
+	director.set_light_profile(light_profile)
+	if rs.focus_cooldown > 0.0:
+		return
+	if boss_active:
+		if encounter.can_accept_active_response():
+			world.call("_on_focus")
+	elif director.has_warded_target_in_response_range():
+		world.call("_on_focus")
 
 
 func _commit_route_immediately(
@@ -1730,6 +1916,11 @@ func _strategy_choice_index(choices: Array, rs: RunState, strategy: String) -> i
 				score += power_gain * 2.0 + lumen_gain * 0.5
 				if not rs.station_completed and danger > 0.0:
 					score -= 100.0
+			"reckless":
+				score = danger * 100.0 + scrap * 2.0 + lumen_gain + power_gain
+			"safe":
+				score = supplies * 4.0 + scrap + lumen_gain + power_gain
+				score -= danger * 1000.0
 			_:
 				score = supplies * (5.0 if rs.supplies < 40.0 else 3.0)
 				score += scrap * (3.0 if not rs.station_completed else 0.6)

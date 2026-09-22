@@ -66,6 +66,8 @@ var _route_context: Dictionary = {
 	"event_id": "",
 	"danger": 0
 }
+var _contextual_tutorial_active: bool = false
+var _contextual_tutorial_stage: int = 0
 
 # Compatibility read-only properties for the v0.1 probes.
 var _reveal_open: bool:
@@ -102,6 +104,13 @@ func bootstrap(run_seed: int, resume: Dictionary) -> void:
 		RunSnapshot.world_state(normalized_resume)
 		if not normalized_resume.is_empty()
 		else {}
+	)
+	_contextual_tutorial_active = (
+		normalized_resume.is_empty()
+		and not bool(
+			GameManager.get_setting("contextual_tutorial_seen", false)
+		)
+		and not _automation_run()
 	)
 
 	run_state = RunState.new()
@@ -235,6 +244,8 @@ func bootstrap(run_seed: int, resume: Dictionary) -> void:
 		_set_mode(RunMode.TRAVEL)
 	set_process(true)
 	set_process_input(true)
+	if _contextual_tutorial_active:
+		call_deferred("_begin_contextual_tutorial")
 
 
 func _load_json(path: String) -> Dictionary:
@@ -323,6 +334,7 @@ func _process(delta: float) -> void:
 	)
 	run_state.tick(delta)
 	_process_detach_hold(delta)
+	_process_contextual_tutorial()
 
 	if _mode == RunMode.TRAVEL and not run_state.is_simulation_paused():
 		if not run_state.boss_triggered:
@@ -654,6 +666,16 @@ func _on_reveal_closed() -> void:
 	_set_mode(RunMode.TRAVEL)
 	if _route_commit_pending:
 		_save_checkpoint()
+		if _contextual_tutorial_active:
+			_hud.show_cinematic(
+				"KEEP THE LINE POWERED",
+				"POWER PRIORITIES",
+				"Q, W, E, and R raise Engine, Light, Defense, and Repair. "
+				+ "Hold Shift with a key to lower it; low priorities shed first.",
+				5.2
+			)
+			GameManager.set_setting("contextual_tutorial_seen", true)
+			_contextual_tutorial_active = false
 	_route_commit_pending = false
 
 
@@ -1036,8 +1058,13 @@ func _on_car_damaged(
 func _on_car_critical(car_id: String, display_name: String, index: int) -> void:
 	run_state.trigger_critical_slow()
 	_train_renderer.flash_car(car_id, 1.2)
+	var guidance: String = (
+		" - hold X to detach the rear if necessary"
+		if index == run_state.cars.size() - 1
+		else " - auto-slow engaged"
+	)
 	_hud.show_critical(
-		"%s CRITICAL - auto-slow engaged" % display_name.to_upper(),
+		"%s CRITICAL%s" % [display_name.to_upper(), guidance],
 		4.5
 	)
 	_effects.add_hit(
@@ -1114,6 +1141,43 @@ func _on_threat_announced(kind: String, guidance: String) -> void:
 			"threat_%s" % kind.to_lower(),
 			0.82
 		)
+
+
+func _begin_contextual_tutorial() -> void:
+	if not _contextual_tutorial_active or not is_instance_valid(_hud):
+		return
+	_contextual_tutorial_stage = 1
+
+
+func _process_contextual_tutorial() -> void:
+	if (
+		not _contextual_tutorial_active
+		or _contextual_tutorial_stage != 1
+		or run_state.distance < 360.0
+		or _hud.cinematic_visible()
+	):
+		return
+	_contextual_tutorial_stage = 2
+	_hud.flash(
+		"PACE: press T for 1x, 1.5x, or 2x. "
+		+ "Threat Brake slows crowded combat automatically.",
+		4.8
+	)
+
+
+func _automation_run() -> bool:
+	return (
+		OS.has_environment("LANTERN_SMOKE")
+		or OS.has_environment("LANTERN_PROBE")
+		or OS.has_environment("LANTERN_PROBE_DENSE_COMBAT")
+		or OS.has_environment("LANTERN_PROBE_AUDIO")
+		or not OS.get_environment("LANTERN_CAPTURE_GAMEPLAY").is_empty()
+		or not OS.get_environment("LANTERN_CAPTURE_TRAIN_SHOWCASE").is_empty()
+		or not OS.get_environment("LANTERN_CAPTURE_ROUTE_SHOWCASE").is_empty()
+		or not OS.get_environment("LANTERN_CAPTURE_COMBAT_SHOWCASE").is_empty()
+		or not OS.get_environment("LANTERN_CAPTURE_BOSS_SHOWCASE").is_empty()
+		or not OS.get_environment("LANTERN_CAPTURE_UI_SHOWCASE").is_empty()
+	)
 
 
 func _input(event: InputEvent) -> void:

@@ -21,7 +21,8 @@ const DEFAULT_SETTINGS: Dictionary = {
 	"high_contrast": false,
 	"short_holds": false,
 	"text_scale": 1.0,
-	"tutorial_seen": false
+	"tutorial_seen": false,
+	"contextual_tutorial_seen": false
 }
 
 var settings: Dictionary = DEFAULT_SETTINGS.duplicate(true)
@@ -193,7 +194,8 @@ func _normalize_setting(key: String, value: Variant) -> Variant:
 					nearest = option
 			return nearest
 		"screen_shake", "reduced_motion", "reduced_flashes", \
-		"high_contrast", "short_holds", "tutorial_seen":
+		"high_contrast", "short_holds", "tutorial_seen", \
+		"contextual_tutorial_seen":
 			return bool(value)
 		_:
 			return DEFAULT_SETTINGS.get(key, value)

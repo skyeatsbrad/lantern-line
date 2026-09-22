@@ -50,6 +50,8 @@ func _ready() -> void:
 		var probe: Node = load("res://scripts/run/runtime_probe.gd").new()
 		add_child(probe)
 		return
+	if not get_viewport().size_changed.is_connected(_on_title_viewport_changed):
+		get_viewport().size_changed.connect(_on_title_viewport_changed)
 	_build_title()
 	if not capture_path.is_empty():
 		var capture_watchdog := Timer.new()
@@ -124,31 +126,44 @@ func _build_title() -> void:
 	_title_layer.add_child(draw_layer)
 
 	var vbox: VBoxContainer = VBoxContainer.new()
+	var viewport_size: Vector2 = get_viewport_rect().size
+	var compact: bool = UITheme.compact_layout(viewport_size)
+	var half_width: float = minf(360.0, viewport_size.x * 0.46)
+	var half_height: float = minf(
+		310.0 if compact else 250.0,
+		viewport_size.y * 0.47
+	)
 	vbox.anchor_left = 0.5
 	vbox.anchor_top = 0.5
 	vbox.anchor_right = 0.5
 	vbox.anchor_bottom = 0.5
-	vbox.offset_left = -320
-	vbox.offset_top = -250
-	vbox.offset_right = 320
-	vbox.offset_bottom = 250
+	vbox.offset_left = -half_width
+	vbox.offset_top = -half_height
+	vbox.offset_right = half_width
+	vbox.offset_bottom = half_height
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_theme_constant_override("separation", 12)
+	vbox.add_theme_constant_override("separation", 7 if compact else 12)
 	_title_layer.add_child(vbox)
 
 	var title: Label = Label.new()
 	title.text = "THE LANTERN LINE"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_override("font", UITheme.display_font())
-	title.add_theme_font_size_override("font_size", UITheme.font_size(48))
+	title.add_theme_font_size_override(
+		"font_size",
+		UITheme.font_size(36 if compact else 48)
+	)
 	title.add_theme_color_override("font_color", UITheme.accent_color())
 	vbox.add_child(title)
 
 	var subtitle: Label = Label.new()
-	subtitle.text = "A fortress-train survival strategy game - v0.6"
+	subtitle.text = "A fortress-train survival strategy game - v0.7"
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	subtitle.add_theme_font_override("font", UITheme.bold_font())
-	subtitle.add_theme_font_size_override("font_size", UITheme.font_size(16))
+	subtitle.add_theme_font_size_override(
+		"font_size",
+		UITheme.font_size(13 if compact else 16)
+	)
 	subtitle.add_theme_color_override("font_color", UITheme.muted_text_color())
 	vbox.add_child(subtitle)
 
@@ -156,8 +171,11 @@ func _build_title() -> void:
 	brief.text = "Aim the headlight. Choose the route. Manage power, cars, and crew.\nDetach the rear car when the darkness demands sacrifice. Reach the Dawn Beacon."
 	brief.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	brief.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	brief.custom_minimum_size = Vector2(620, 60)
-	brief.add_theme_font_size_override("font_size", UITheme.font_size(14))
+	brief.custom_minimum_size = Vector2(half_width * 1.9, 46 if compact else 60)
+	brief.add_theme_font_size_override(
+		"font_size",
+		UITheme.font_size(12 if compact else 14)
+	)
 	brief.add_theme_color_override("font_color", UITheme.muted_text_color())
 	vbox.add_child(brief)
 
@@ -188,7 +206,11 @@ func _build_title() -> void:
 	options_hint.text = "Mouse aim  |  1/2/3 lens  |  F Focus  |  C Salvo  |  T pace  |  Space pause\nH Conductor's Guide  |  Escape Accessibility & Presentation"
 	options_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	options_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	options_hint.custom_minimum_size = Vector2(620, 40)
+	options_hint.custom_minimum_size = Vector2(half_width * 1.9, 34 if compact else 40)
+	options_hint.add_theme_font_size_override(
+		"font_size",
+		UITheme.font_size(10 if compact else 14)
+	)
 	options_hint.add_theme_color_override("font_color", UITheme.muted_text_color())
 	vbox.add_child(options_hint)
 
@@ -217,7 +239,7 @@ func _on_new_run() -> void:
 	var seed := Time.get_ticks_msec()
 	if not bool(GameManager.get_setting("tutorial_seen", false)):
 		_pending_new_run_seed = seed
-		_show_guide("Begin Run")
+		_show_guide("Begin Run", true)
 		return
 	_start_run(seed, {})
 
@@ -313,14 +335,17 @@ func _show_settings() -> void:
 	_settings_panel.present()
 
 
-func _show_guide(completion_label: String = "Close Guide") -> void:
+func _show_guide(
+	completion_label: String = "Close Guide",
+	quick_start: bool = false
+) -> void:
 	AudioManager.notify_user_gesture()
 	if is_instance_valid(_guide_panel):
 		_guide_panel.queue_free()
 	_guide_panel = GuidePanel.new()
 	add_child(_guide_panel)
 	_guide_panel.closed.connect(_on_guide_closed)
-	_guide_panel.present(completion_label)
+	_guide_panel.present(completion_label, quick_start)
 
 
 func _on_settings_closed() -> void:
@@ -375,6 +400,16 @@ func _rebuild_title() -> void:
 		_title_layer.queue_free()
 		_title_layer = null
 	_build_title()
+
+
+func _on_title_viewport_changed() -> void:
+	if (
+		_game_world == null
+		and not _scene_transitioning
+		and not is_instance_valid(_settings_panel)
+		and not is_instance_valid(_guide_panel)
+	):
+		_rebuild_title()
 
 
 func _close_title_overlays() -> void:

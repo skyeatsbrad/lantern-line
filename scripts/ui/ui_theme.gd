@@ -9,6 +9,11 @@ const BOLD_FONT: FontFile = preload(
 )
 const DISPLAY_FONT_SOURCE: FontFile = preload("res://assets/fonts/Bitter-Variable.ttf")
 const MODAL_EXIT_SECONDS := 0.26
+const COMPACT_WINDOW_WIDTH: float = 1100.0
+const COMPACT_WINDOW_HEIGHT: float = 620.0
+const COMPACT_SCALE_TARGET_HEIGHT: float = 680.0
+const COMPACT_SCALE_TARGET_WIDTH: float = 960.0
+const MAX_AUTOMATIC_TEXT_SCALE: float = 1.75
 
 static var _display_font: FontVariation
 
@@ -17,8 +22,39 @@ static func text_scale() -> float:
 	return clampf(float(GameManager.get_setting("text_scale", 1.0)), 1.0, 1.3)
 
 
+static func physical_window_size() -> Vector2:
+	if DisplayServer.get_name() == "headless":
+		return Vector2.ZERO
+	var window_size := Vector2(DisplayServer.window_get_size())
+	return window_size if window_size.x >= 100.0 and window_size.y >= 100.0 else Vector2.ZERO
+
+
+static func automatic_text_scale_for_window(window_size: Vector2) -> float:
+	if window_size.x < 100.0 or window_size.y < 100.0:
+		return 1.0
+	if (
+		window_size.x >= COMPACT_WINDOW_WIDTH
+		and window_size.y >= COMPACT_WINDOW_HEIGHT
+	):
+		return 1.0
+	var height_scale: float = COMPACT_SCALE_TARGET_HEIGHT / window_size.y
+	var width_scale: float = COMPACT_SCALE_TARGET_WIDTH / window_size.x
+	return clampf(
+		maxf(height_scale, width_scale),
+		1.0,
+		MAX_AUTOMATIC_TEXT_SCALE
+	)
+
+
+static func effective_text_scale() -> float:
+	return maxf(
+		text_scale(),
+		automatic_text_scale_for_window(physical_window_size())
+	)
+
+
 static func font_size(base_size: int) -> int:
-	return maxi(10, int(round(float(base_size) * text_scale())))
+	return maxi(10, int(round(float(base_size) * effective_text_scale())))
 
 
 static func high_contrast() -> bool:
@@ -26,15 +62,23 @@ static func high_contrast() -> bool:
 
 
 static func compact_layout(viewport_size: Vector2) -> bool:
+	var window_size := physical_window_size()
 	return (
-		viewport_size.x < 1100.0
-		or viewport_size.y < 620.0
-		or text_scale() > 1.15
+		viewport_size.x < COMPACT_WINDOW_WIDTH
+		or viewport_size.y < COMPACT_WINDOW_HEIGHT
+		or (
+			not window_size.is_zero_approx()
+			and (
+				window_size.x < COMPACT_WINDOW_WIDTH
+				or window_size.y < COMPACT_WINDOW_HEIGHT
+			)
+		)
+		or effective_text_scale() > 1.15
 	)
 
 
 static func gameplay_hud_height(viewport_size: Vector2) -> float:
-	var scale_growth: float = maxf(0.0, text_scale() - 1.0)
+	var scale_growth: float = maxf(0.0, effective_text_scale() - 1.0)
 	return (
 		164.0 + scale_growth * 105.0
 		if compact_layout(viewport_size)

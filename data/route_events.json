@@ -214,8 +214,8 @@
       "category": "danger",
       "title": "Hollow Cut",
       "description": "The rails vanish into a pale, chewing throat that drinks the edge of the beam.",
-      "summary": "Scrap +5, lumen -4, danger 3",
-      "rewards": {"scrap": 5, "lumen": -4},
+      "summary": "Scrap +14, lumen -4, danger 3",
+      "rewards": {"scrap": 14, "lumen": -4},
       "danger": 3
     },
     {
@@ -223,8 +223,8 @@
       "category": "danger",
       "title": "Shrike Nest",
       "description": "Metal feathers cover the ballast. Somebody is watching. Everyone is watching.",
-      "summary": "Scrap +7, danger 3",
-      "rewards": {"scrap": 7},
+      "summary": "Scrap +16, danger 3",
+      "rewards": {"scrap": 16},
       "danger": 3
     },
     {
@@ -232,8 +232,8 @@
       "category": "danger",
       "title": "Black Rain",
       "description": "Oily rain drums on the roofs while a derailed tender glints beside the track.",
-      "summary": "Scrap +9, supplies -6, danger 2",
-      "rewards": {"scrap": 9, "supplies": -6},
+      "summary": "Scrap +15, supplies -6, danger 2",
+      "rewards": {"scrap": 15, "supplies": -6},
       "danger": 2
     },
     {
@@ -241,8 +241,8 @@
       "category": "danger",
       "title": "Crawler Bridge",
       "description": "The bridge is intact. The things pretending to be rivets are not.",
-      "summary": "Scrap +9, rear car takes 8, danger 2",
-      "rewards": {"scrap": 9},
+      "summary": "Scrap +14, rear car takes 8, danger 2",
+      "rewards": {"scrap": 14},
       "effects": [
         {"op": "resource", "key": "scrap", "amount": 9},
         {"op": "damage_rear", "amount": 8}
@@ -254,8 +254,8 @@
       "category": "danger",
       "title": "False Dawn",
       "description": "A bright horizon pulls current from every wire before revealing rows of teeth.",
-      "summary": "Lumen +7, power -4, danger 2",
-      "rewards": {"lumen": 7, "power": -4},
+      "summary": "Scrap +5, lumen +12, power -4, danger 2",
+      "rewards": {"scrap": 5, "lumen": 12, "power": -4},
       "danger": 2
     }
   ]

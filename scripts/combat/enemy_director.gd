@@ -522,12 +522,23 @@ func _draw() -> void:
 				_draw_boarder(e)
 			"Drainer":
 				_draw_drainer(e)
-		if UITheme.high_contrast():
-			_draw_accessibility_label(e)
 		if e.warded:
 			_draw_ward(e)
 		_draw_attack_warning(e)
 		_draw_hp(e)
+	if UITheme.high_contrast():
+		var occupied_labels: Array[Rect2] = []
+		var labeled_enemies: Array = _active.duplicate()
+		labeled_enemies.sort_custom(
+			func(a: Enemy, b: Enemy) -> bool:
+				return a.position.x < b.position.x
+		)
+		for enemy_variant in labeled_enemies:
+			var enemy: Enemy = enemy_variant
+			if enemy.alive:
+				occupied_labels.append(
+					_draw_accessibility_label(enemy, occupied_labels)
+				)
 
 
 func _draw_ward(e: Enemy) -> void:
@@ -759,7 +770,10 @@ func _draw_drainer(e: Enemy) -> void:
 		)
 
 
-func _draw_accessibility_label(e: Enemy) -> void:
+func _draw_accessibility_label(
+	e: Enemy,
+	occupied_labels: Array[Rect2]
+) -> Rect2:
 	var text: String = {
 		"Pursuer": "REAR / HEARTH [2]",
 		"Boarder": "ROOF / STANDARD [1]",
@@ -776,6 +790,31 @@ func _draw_accessibility_label(e: Enemy) -> void:
 		label_center + Vector2(-rect_size.x * 0.5, label_offset_y),
 		rect_size
 	)
+	var safe_bottom: float = UITheme.gameplay_safe_bottom(_view_size)
+	rect.position.y = clampf(
+		rect.position.y,
+		8.0,
+		safe_bottom - rect.size.y - 8.0
+	)
+	var base_position: Vector2 = rect.position
+	for existing in occupied_labels:
+		if not rect.intersects(existing.grow(4.0)):
+			continue
+		rect.position.y = existing.position.y - rect.size.y - 5.0
+		if rect.position.y < 8.0:
+			rect.position.y = existing.end.y + 5.0
+	rect.position.y = clampf(
+		rect.position.y,
+		8.0,
+		safe_bottom - rect.size.y - 8.0
+	)
+	if not rect.position.is_equal_approx(base_position):
+		draw_line(
+			e.position + Vector2(0.0, -28.0),
+			Vector2(rect.get_center().x, rect.end.y),
+			PresentationPalette.with_alpha(&"brass", 0.72, true),
+			1.5
+		)
 	draw_rect(
 		rect,
 		PresentationPalette.with_alpha(&"night_void", 0.94, true)
@@ -795,6 +834,7 @@ func _draw_accessibility_label(e: Enemy) -> void:
 		font_size,
 		PresentationPalette.color(&"bone", true)
 	)
+	return rect
 
 
 func _draw_attack_warning(e: Enemy) -> void:

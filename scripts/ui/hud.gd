@@ -82,7 +82,7 @@ func _build_ui() -> void:
 	anchor_bottom = 1.0
 	mouse_filter = Control.MOUSE_FILTER_PASS
 
-	var text_scale: float = UITheme.text_scale()
+	var text_scale: float = UITheme.effective_text_scale()
 	var base_font_size: int = UITheme.font_size(14)
 	var viewport_size: Vector2 = get_viewport_rect().size
 	_compact_layout = UITheme.compact_layout(viewport_size)
@@ -135,7 +135,12 @@ func _build_ui() -> void:
 	var right: PanelContainer = PanelContainer.new()
 	right.anchor_left = 1.0
 	right.anchor_right = 1.0
-	right.offset_left = -318 if _compact_layout else -310
+	var resource_panel_width: float = (
+		360.0 + scale_growth * 180.0
+		if _compact_layout
+		else 310.0
+	)
+	right.offset_left = -resource_panel_width
 	right.offset_top = 12
 	right.offset_right = -12
 	right.offset_bottom = (
@@ -208,11 +213,7 @@ func _build_ui() -> void:
 	mid.offset_left = -145 if _compact_layout else -210
 	mid.offset_right = 145 if _compact_layout else 210
 	mid.offset_top = 12
-	mid.offset_bottom = (
-		122.0 + scale_growth * 72.0
-		if _compact_layout
-		else 132.0 + scale_growth * 64.0
-	)
+	mid.offset_bottom = mid_bottom
 	add_child(mid)
 	var mid_v: VBoxContainer = VBoxContainer.new()
 	mid.add_child(mid_v)
@@ -232,6 +233,7 @@ func _build_ui() -> void:
 	_boss_label = Label.new()
 	_boss_label.visible = false
 	_boss_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_boss_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_boss_label.add_theme_font_size_override("font_size", base_font_size - 1)
 	_boss_label.add_theme_color_override("font_color", Color(0.95, 0.55, 0.42))
 	mid_v.add_child(_boss_label)
@@ -713,7 +715,15 @@ func set_boss_status(text: String, ratio: float = -1.0) -> void:
 	if _boss_label == null:
 		return
 	_boss_label.visible = not text.is_empty()
-	_boss_label.text = text if ratio < 0.0 else "%s  %d%%" % [text, int(clampf(ratio, 0.0, 1.0) * 100.0)]
+	var display_text: String = text.replace(" - ", "\n") if _compact_layout else text
+	_boss_label.text = (
+		display_text
+		if ratio < 0.0
+		else "%s  %d%%" % [
+			display_text,
+			int(clampf(ratio, 0.0, 1.0) * 100.0)
+		]
+	)
 
 
 func _consist_status() -> String:

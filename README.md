@@ -6,6 +6,30 @@ A fortress-train survival strategy game through a world without sunlight, built 
 
 ![The Lantern Line gameplay](assets/screenshots/gameplay.png)
 
+## v0.7 - September 22, 2026
+
+The v0.7 release turns the presentation remaster into a clearer cross-device
+gameplay experience:
+
+- Corrected the documented route controls so **Up / Right / Down** commit the
+  upper, middle, and lower rails, with direct `InputMap` regression coverage.
+- Added physical-window-aware interface scaling, compact layout triggers, and
+  bounded title/HUD geometry for short browser windows such as **844 x 390**.
+- Replaced the four-page first-run instruction gate with a one-page quick
+  start, then teaches pace and power priorities during play. The complete
+  Conductor's Guide remains available at any time.
+- Added rear-car-specific detachment guidance only when that decision becomes
+  relevant.
+- Rebalanced continuous repair so it requires a usable powered Workshop and
+  no longer erases sustained damage without deliberate Repair investment.
+- Increased the explicit scrap and special-resource premiums on dangerous
+  routes, while preserving a real survival cost for reckless routing.
+- Moved High Contrast enemy labels into a final foreground pass, separates
+  colliding labels into readable rows, and adds leader lines when labels move.
+- Expanded deterministic validation with physical-window scaling, quick-start,
+  Workshop dependency, danger premiums, no-refit pressure, reckless routing,
+  and coordinator-level Longshadow Focus checks.
+
 ## v0.6 - September 22, 2026
 
 The v0.6 release completes a ground-up audiovisual and interface remaster while
@@ -198,10 +222,19 @@ $env:LANTERN_SMOKE = "1"
 & "C:\Users\bradleywo\Tools\Godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe" --headless --path .
 
 $env:LANTERN_PROBE = "1"
-& "C:\Users\bradleywo\Tools\Godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe" --headless --path .
+& "C:\Users\bradleywo\Tools\Godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe" --path .
 ```
 
-The deterministic suite covers settings normalization, accessibility panels, large-text theming, reduced flashes, short hold actions, save migration, malformed-save rejection, priority clamping, brownout recovery, station previews, tab persistence and undo, field actions, route uniqueness and chain effects, threat-pressure limits, Shadow Wards, crew loss and evacuation, Focus geometry, manual salvos, protected boss responses and resume, three complete strategy archetypes, and a six-seed balance sweep. The reference campaigns finish in approximately 12-14 simulated minutes.
+The deterministic suite covers settings normalization, accessibility panels,
+physical-window scaling, route-key mappings, quick-start and full-guide flows,
+large-text theming, reduced flashes, short hold actions, save migration,
+malformed-save rejection, priority clamping, brownout recovery, Workshop-bound
+repairs, station previews, tab persistence and undo, field actions, route
+premiums, route uniqueness and chain effects, threat-pressure limits, Shadow
+Wards, crew loss and evacuation, Focus geometry, manual salvos, protected boss
+responses through the real coordinator, no-refit and reckless campaigns, three
+complete strategy archetypes, and a six-seed balance sweep. The reference
+campaigns finish in approximately 12-14 simulated minutes.
 
 Godot may print `ObjectDB` or `CanvasItem` cleanup warnings while the headless test process exits; these are engine teardown warnings and do not change a successful exit code.
 

@@ -80,7 +80,7 @@ func _build() -> void:
 	add_child(_backdrop)
 	var viewport_size: Vector2 = get_viewport_rect().size
 	_compact_layout = UITheme.compact_layout(viewport_size)
-	var text_scale: float = UITheme.text_scale()
+	var text_scale: float = UITheme.effective_text_scale()
 	var half_width := minf(
 		430.0 * text_scale,
 		viewport_size.x * (0.46 if _compact_layout else 0.4)

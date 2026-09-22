@@ -423,7 +423,7 @@ func _draw_power_state(car: Dictionary, pos: Vector2) -> void:
 		"destroyed": "DEST"
 	}.get(state, state.to_upper())
 	var badge_font_size: int = UITheme.font_size(9)
-	var badge_width: float = 40.0 if UITheme.text_scale() > 1.0 else 31.0
+	var badge_width: float = 40.0 if UITheme.effective_text_scale() > 1.0 else 31.0
 	draw_rect(
 		Rect2(
 			pos.x + CAR_WIDTH - badge_width - 5.0,
@@ -690,7 +690,7 @@ func _draw_car_details(car: Dictionary, pos: Vector2) -> void:
 				)
 	if not upgrade.is_empty():
 		var upgrade_font_size: int = UITheme.font_size(9)
-		var upgrade_width: float = 23.0 if UITheme.text_scale() > 1.0 else 19.0
+		var upgrade_width: float = 23.0 if UITheme.effective_text_scale() > 1.0 else 19.0
 		draw_rect(
 			Rect2(
 				pos.x + 4.0,
