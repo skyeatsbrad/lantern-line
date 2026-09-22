@@ -132,6 +132,20 @@ Every generated Web file was mirrored byte-for-byte into `docs/`.
 `docs/index.pck` matches the release PCK hash and `docs/.nojekyll` remains
 present.
 
+## Publication verification
+
+- Release commit:
+  `61eb6a6884fff60e8634ddd7afb907662242b087`.
+- Local `main` and `origin/main` matched after the release push.
+- The public GitHub Pages `index.pck` downloaded as 3,806,376 bytes.
+- The public PCK SHA-256 matched the audited local package:
+  `2E83F0BEC4F1BBBBD9E8C99F3AD69ABC3E7277A585F707E4E3B43EEADB13D775`.
+- Public `index.html`, JavaScript, WebAssembly, and PCK assets returned HTTP
+  200 with the expected content types and release sizes.
+- A Chromium Playwright check reached the v0.6 title screen at 1280 x 720.
+- The HTML loading overlay was removed after engine startup.
+- The public boot produced no browser console errors or uncaught page errors.
+
 ## Non-blocking observation
 
 In the densest High Contrast capture, an adjacent Shadow Ward can partially
@@ -145,5 +159,4 @@ foreground layer.
 
 The complete v0.6 release meets the authored identity, gameplay, deterministic,
 accessibility, performance, browser, audio, package, and documentation
-requirements. The release is approved for publication. The final deployment
-check is to confirm that GitHub Pages serves the audited PCK hash above.
+requirements. The audited build is published and verified on GitHub Pages.
