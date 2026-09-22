@@ -6,6 +6,7 @@ config_version=5
 
 config/name="The Lantern Line"
 config/description="A fortress-train survival strategy game through a world without sunlight."
+config/version="0.6.0"
 run/main_scene="res://scenes/main.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 config/icon="res://icon.svg"
@@ -16,6 +17,10 @@ boot_splash/bg_color=Color(0.03, 0.04, 0.06, 1)
 
 GameManager="*res://scripts/autoload/game_manager.gd"
 AudioManager="*res://scripts/autoload/audio_manager.gd"
+
+[audio]
+
+default_bus_layout="res://default_bus_layout.tres"
 
 [display]
 

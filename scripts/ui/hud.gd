@@ -46,6 +46,11 @@ var _prio_buttons: Dictionary = {}
 @onready var _critical_label: Label
 @onready var _critical_panel: PanelContainer
 var _critical_timer: float = 0.0
+var _cinematic_panel: PanelContainer
+var _cinematic_kicker: Label
+var _cinematic_title: Label
+var _cinematic_body: Label
+var _cinematic_timer: float = 0.0
 
 
 func setup(run_state: RunState, lens_config: Dictionary) -> void:
@@ -80,19 +85,23 @@ func _build_ui() -> void:
 	var text_scale: float = UITheme.text_scale()
 	var base_font_size: int = UITheme.font_size(14)
 	var viewport_size: Vector2 = get_viewport_rect().size
-	_compact_layout = (
-		viewport_size.x < 1100.0
-		or viewport_size.y < 620.0
-		or text_scale > 1.15
-	)
+	_compact_layout = UITheme.compact_layout(viewport_size)
 	if _compact_layout:
 		base_font_size = UITheme.font_size(13)
 	var scale_growth: float = maxf(0.0, text_scale - 1.0)
-	var bottom_height: float = (
-		164.0 + scale_growth * 105.0
-		if _compact_layout
-		else 190.0 + scale_growth * 90.0
+	var bottom_height: float = UITheme.gameplay_hud_height(viewport_size)
+	var notification_center: float = 0.42 if _compact_layout else 0.5
+	var notification_width: float = minf(
+		460.0 if _compact_layout else 620.0,
+		viewport_size.x - 36.0
 	)
+	var mid_bottom: float = (
+		122.0 + scale_growth * 72.0
+		if _compact_layout
+		else 132.0 + scale_growth * 64.0
+	)
+	if _compact_layout and _run_state.cars.size() > 3:
+		mid_bottom += 24.0
 
 	# Top-left: distance and time
 	var top: PanelContainer = PanelContainer.new()
@@ -398,14 +407,12 @@ func _build_ui() -> void:
 
 	# Center notification
 	_notification_panel = PanelContainer.new()
-	_notification_panel.anchor_left = 0.5
-	_notification_panel.anchor_right = 0.5
-	_notification_panel.anchor_top = 0.18
-	_notification_panel.anchor_bottom = 0.18
-	_notification_panel.offset_left = -310
-	_notification_panel.offset_right = 310
-	_notification_panel.offset_top = -8
-	_notification_panel.offset_bottom = 48
+	_notification_panel.anchor_left = notification_center
+	_notification_panel.anchor_right = notification_center
+	_notification_panel.offset_left = -notification_width * 0.5
+	_notification_panel.offset_right = notification_width * 0.5
+	_notification_panel.offset_top = mid_bottom + 10.0
+	_notification_panel.offset_bottom = mid_bottom + 62.0
 	_notification_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_notification_panel.visible = false
 	add_child(_notification_panel)
@@ -418,14 +425,12 @@ func _build_ui() -> void:
 	_notification_panel.add_child(_notification_label)
 
 	_critical_panel = PanelContainer.new()
-	_critical_panel.anchor_left = 0.5
-	_critical_panel.anchor_right = 0.5
-	_critical_panel.anchor_top = 0.29
-	_critical_panel.anchor_bottom = 0.29
-	_critical_panel.offset_left = -360
-	_critical_panel.offset_right = 360
-	_critical_panel.offset_top = -8
-	_critical_panel.offset_bottom = 50
+	_critical_panel.anchor_left = notification_center
+	_critical_panel.anchor_right = notification_center
+	_critical_panel.offset_left = -notification_width * 0.5
+	_critical_panel.offset_right = notification_width * 0.5
+	_critical_panel.offset_top = mid_bottom + 70.0
+	_critical_panel.offset_bottom = mid_bottom + 126.0
 	_critical_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_critical_panel.visible = false
 	add_child(_critical_panel)
@@ -436,6 +441,68 @@ func _build_ui() -> void:
 	_critical_label.add_theme_font_size_override("font_size", base_font_size + 5)
 	_critical_label.add_theme_color_override("font_color", UITheme.danger_color())
 	_critical_panel.add_child(_critical_label)
+
+	_cinematic_panel = PanelContainer.new()
+	_cinematic_panel.anchor_left = 0.5
+	_cinematic_panel.anchor_right = 0.5
+	_cinematic_panel.anchor_top = 0.39 if _compact_layout else 0.37
+	_cinematic_panel.anchor_bottom = (
+		0.39 if _compact_layout else 0.37
+	)
+	var cinematic_width: float = minf(
+		620.0 if _compact_layout else 760.0,
+		viewport_size.x - 48.0
+	)
+	_cinematic_panel.offset_left = -cinematic_width * 0.5
+	_cinematic_panel.offset_right = cinematic_width * 0.5
+	_cinematic_panel.offset_top = -58.0
+	_cinematic_panel.offset_bottom = 72.0
+	_cinematic_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_cinematic_panel.visible = false
+	add_child(_cinematic_panel)
+	var cinematic_vbox := VBoxContainer.new()
+	cinematic_vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	cinematic_vbox.add_theme_constant_override("separation", 2)
+	_cinematic_panel.add_child(cinematic_vbox)
+	_cinematic_kicker = Label.new()
+	_cinematic_kicker.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_cinematic_kicker.add_theme_font_size_override(
+		"font_size",
+		UITheme.font_size(11)
+	)
+	_cinematic_kicker.add_theme_color_override(
+		"font_color",
+		UITheme.muted_text_color()
+	)
+	cinematic_vbox.add_child(_cinematic_kicker)
+	_cinematic_title = Label.new()
+	_cinematic_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_cinematic_title.add_theme_font_override("font", UITheme.display_font())
+	_cinematic_title.add_theme_font_size_override(
+		"font_size",
+		UITheme.font_size(27 if _compact_layout else 32)
+	)
+	_cinematic_title.add_theme_color_override(
+		"font_color",
+		UITheme.accent_color()
+	)
+	cinematic_vbox.add_child(_cinematic_title)
+	_cinematic_body = Label.new()
+	_cinematic_body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_cinematic_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_cinematic_body.custom_minimum_size = Vector2(
+		cinematic_width - 36.0,
+		0.0
+	)
+	_cinematic_body.add_theme_font_size_override(
+		"font_size",
+		UITheme.font_size(12)
+	)
+	_cinematic_body.add_theme_color_override(
+		"font_color",
+		PresentationPalette.color(&"bone", UITheme.high_contrast())
+	)
+	cinematic_vbox.add_child(_cinematic_body)
 
 
 func _make_bar(parent: Node, label: String, col: Color, font_size: int) -> Dictionary:
@@ -538,6 +605,17 @@ func _process(delta: float) -> void:
 	if _critical_timer <= 0.0:
 		_critical_label.text = ""
 		_critical_panel.visible = false
+	_cinematic_timer = maxf(0.0, _cinematic_timer - delta)
+	if _cinematic_panel.visible:
+		if _cinematic_timer <= 0.18:
+			_cinematic_panel.modulate.a = clampf(
+				_cinematic_timer / 0.18,
+				0.0,
+				1.0
+			)
+		if _cinematic_timer <= 0.0:
+			_cinematic_panel.visible = false
+			_cinematic_panel.modulate.a = 1.0
 
 
 func _refresh() -> void:
@@ -581,15 +659,43 @@ func _refresh() -> void:
 
 
 func flash(msg: String, duration: float = 2.0) -> void:
+	if _critical_timer > 0.0:
+		return
 	_notification_label.text = msg
 	_notification_timer = duration
 	_notification_panel.visible = true
 
 
 func show_critical(msg: String, duration: float = 4.0) -> void:
+	_notification_timer = 0.0
+	_notification_panel.visible = false
+	_cinematic_timer = 0.0
+	_cinematic_panel.visible = false
 	_critical_label.text = msg
 	_critical_timer = maxf(_critical_timer, duration)
 	_critical_panel.visible = true
+
+
+func show_cinematic(
+	kicker: String,
+	title: String,
+	body: String,
+	duration: float = 1.4
+) -> void:
+	if _critical_timer > 0.0:
+		return
+	_notification_timer = 0.0
+	_notification_panel.visible = false
+	_cinematic_kicker.text = kicker.to_upper()
+	_cinematic_title.text = title
+	_cinematic_body.text = body
+	_cinematic_timer = maxf(duration, 0.4)
+	_cinematic_panel.visible = true
+	UITheme.animate_panel_in(_cinematic_panel, null, Vector2.ZERO)
+
+
+func cinematic_visible() -> bool:
+	return is_instance_valid(_cinematic_panel) and _cinematic_panel.visible
 
 
 func set_detach_hold(progress: float, preview: String = "") -> void:
@@ -612,6 +718,7 @@ func set_boss_status(text: String, ratio: float = -1.0) -> void:
 
 func _consist_status() -> String:
 	var parts: Array[String] = []
+	var compact_parts: Array[String] = []
 	for car_variant in _run_state.cars:
 		var car: Dictionary = car_variant
 		var type_key: String = String(car.get("type", "Car"))
@@ -633,7 +740,28 @@ func _consist_status() -> String:
 			"destroyed": "DEST",
 			"passive": "PASS"
 		}.get(state, state.to_upper())
+		var compact_state_code: String = {
+			"active": "ON",
+			"throttled": "LOW",
+			"offline": "OFF",
+			"standby": "S",
+			"producing": "G",
+			"destroyed": "X",
+			"passive": "P"
+		}.get(state, state_code)
 		parts.append("%s %d %s" % [short_name, int(car.get("hp", 0)), state_code])
+		compact_parts.append(
+			"%s%d %s" % [
+				short_name,
+				int(car.get("hp", 0)),
+				compact_state_code
+			]
+		)
+	if _compact_layout and compact_parts.size() > 2:
+		return "CONSIST  %s\n%s" % [
+			" | ".join(compact_parts.slice(0, 2)),
+			" | ".join(compact_parts.slice(2))
+		]
 	return "CONSIST  " + (" | ".join(parts) if not parts.is_empty() else "LOCOMOTIVE ONLY")
 
 

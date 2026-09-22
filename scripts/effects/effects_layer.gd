@@ -5,6 +5,8 @@ extends Node2D
 ## Pooled screen shake, hit sparks, dawn glow overlay.
 
 const MAX_HITS: int = 24
+const MAX_TRACERS: int = 24
+const MAX_DETACHED_CARS: int = 4
 
 var _shake: float = 0.0
 var _shake_offset: Vector2 = Vector2.ZERO
@@ -16,12 +18,21 @@ var _flash_color: Color = Color.TRANSPARENT
 var _flash_time: float = 0.0
 var _flash_duration: float = 1.0
 var _reduced_motion: bool = false
+var _reduced_flashes: bool = false
 var _screen_shake_enabled: bool = true
 var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
+var _seeded: bool = false
 
 
 func _ready() -> void:
+	if not _seeded:
+		setup(0xEFFECC7)
 	set_process(true)
+
+
+func setup(seed_value: int) -> void:
+	_rng.seed = seed_value ^ 0xEFFECC7
+	_seeded = true
 
 
 func request_shake(amount: float) -> void:
@@ -32,10 +43,24 @@ func request_shake(amount: float) -> void:
 	_shake = clampf(_shake + amount, 0.0, 20.0)
 
 
-func add_hit(pos: Vector2, color: Color = Color(1.0, 0.85, 0.4)) -> void:
+func add_hit(
+	pos: Vector2,
+	color: Color = Color(1.0, 0.85, 0.4),
+	style: String = "spark"
+) -> void:
 	if _hits.size() >= MAX_HITS:
 		_hits.pop_front()
-	_hits.append({"pos": pos, "age": 0.0, "life": 0.35, "color": color, "size": 12.0 + _rng.randf() * 6.0})
+	var life: float = 0.46 if style == "shadow" or style == "ward" else 0.34
+	_hits.append({
+		"pos": pos,
+		"age": 0.0,
+		"life": life,
+		"color": color,
+		"size": 13.0 + _rng.randf() * 7.0,
+		"angle": _rng.randf_range(0.0, TAU),
+		"spokes": 5 + _rng.randi_range(0, 2),
+		"style": style
+	})
 
 
 func add_tracer(
@@ -43,7 +68,7 @@ func add_tracer(
 	end: Vector2,
 	color: Color = Color(1.0, 0.65, 0.25)
 ) -> void:
-	if _tracers.size() >= MAX_HITS:
+	if _tracers.size() >= MAX_TRACERS:
 		_tracers.pop_front()
 	_tracers.append({
 		"start": start,
@@ -68,6 +93,8 @@ func request_flash(color: Color, duration: float) -> void:
 
 
 func add_detached_car(pos: Vector2) -> void:
+	if _detached_cars.size() >= MAX_DETACHED_CARS:
+		_detached_cars.pop_front()
 	_detached_cars.append({
 		"pos": pos,
 		"age": 0.0,
@@ -81,6 +108,7 @@ func shake_offset() -> Vector2:
 
 func _process(delta: float) -> void:
 	_reduced_motion = bool(GameManager.get_setting("reduced_motion", false))
+	_reduced_flashes = bool(GameManager.get_setting("reduced_flashes", false))
 	_screen_shake_enabled = bool(GameManager.get_setting("screen_shake", true))
 	if _reduced_motion or not _screen_shake_enabled:
 		_shake = 0.0
@@ -114,11 +142,26 @@ func _draw() -> void:
 		var tracer_color: Color = tracer["color"]
 		var start: Vector2 = tracer["start"]
 		var end: Vector2 = tracer["end"]
+		var alpha_scale: float = 0.58 if _reduced_flashes else 1.0
 		draw_line(
 			start,
 			end,
-			Color(tracer_color.r, tracer_color.g, tracer_color.b, tracer_ratio),
+			Color(
+				tracer_color.r,
+				tracer_color.g,
+				tracer_color.b,
+				tracer_ratio * alpha_scale
+			),
 			2.0 + tracer_ratio * 3.0
+		)
+		draw_line(
+			start,
+			end,
+			PresentationPalette.with_alpha(
+				&"bone",
+				tracer_ratio * 0.48 * alpha_scale
+			),
+			1.0
 		)
 		draw_arc(
 			end,
@@ -126,13 +169,72 @@ func _draw() -> void:
 			0.0,
 			TAU,
 			20,
-			Color(tracer_color.r, tracer_color.g, tracer_color.b, tracer_ratio),
+			Color(
+				tracer_color.r,
+				tracer_color.g,
+				tracer_color.b,
+				tracer_ratio * alpha_scale
+			),
 			2.0
 		)
 	for h in _hits:
-		var a: float = 1.0 - float(h["age"]) / float(h["life"])
+		var progress: float = float(h["age"]) / float(h["life"])
+		var a: float = 1.0 - progress
 		var c: Color = h["color"]
-		draw_circle(h["pos"], h["size"] * a, Color(c.r, c.g, c.b, a))
+		var center: Vector2 = h["pos"]
+		var size: float = float(h["size"])
+		var angle: float = float(h["angle"])
+		var style: String = String(h["style"])
+		var alpha_scale: float = 0.55 if _reduced_flashes else 1.0
+		var expansion: float = 1.0 if _reduced_motion else 0.38 + progress * 0.92
+		var effect_color := Color(c.r, c.g, c.b, a * alpha_scale)
+		match style:
+			"ward":
+				for segment in range(3):
+					var start_angle: float = angle + float(segment) * 2.1
+					draw_arc(
+						center,
+						size * expansion,
+						start_angle,
+						start_angle + 1.25,
+						9,
+						effect_color,
+						2.5
+					)
+			"shadow":
+				for slash in range(3):
+					var slash_angle: float = angle + float(slash - 1) * 0.34
+					var direction := Vector2.from_angle(slash_angle)
+					var normal := direction.rotated(PI * 0.5)
+					var offset: Vector2 = normal * float(slash - 1) * 5.0
+					draw_line(
+						center + offset - direction * size * 0.8,
+						center + offset + direction * size * 0.8,
+						effect_color,
+						3.0
+					)
+			_:
+				draw_arc(
+					center,
+					size * expansion,
+					0.0,
+					TAU,
+					18,
+					effect_color,
+					2.0
+				)
+				var spokes: int = int(h["spokes"])
+				for spoke in range(spokes):
+					var spoke_angle: float = angle + float(spoke) * TAU / float(spokes)
+					var direction := Vector2.from_angle(spoke_angle)
+					var inner: float = size * (0.22 if _reduced_motion else progress * 0.38)
+					var outer: float = size * (0.72 + progress * 0.5)
+					draw_line(
+						center + direction * inner,
+						center + direction * outer,
+						effect_color,
+						1.7
+					)
 	for detached in _detached_cars:
 		var age_ratio: float = float(detached["age"]) / float(detached["life"])
 		var alpha: float = 1.0 - age_ratio
@@ -142,11 +244,24 @@ func _draw() -> void:
 		draw_set_transform_matrix(transform)
 		draw_rect(
 			Rect2(Vector2(-46.0, -45.0), Vector2(92.0, 42.0)),
-			Color(0.34, 0.2, 0.12, alpha * 0.9)
+			PresentationPalette.with_alpha(&"coal", alpha * 0.9)
 		)
-		draw_line(Vector2(-46.0, -48.0), Vector2(46.0, -48.0), Color(1.0, 0.62, 0.24, alpha), 3.0)
-		draw_circle(Vector2(-28.0, 2.0), 9.0, Color(0.08, 0.08, 0.09, alpha))
-		draw_circle(Vector2(28.0, 2.0), 9.0, Color(0.08, 0.08, 0.09, alpha))
+		draw_line(
+			Vector2(-46.0, -48.0),
+			Vector2(46.0, -48.0),
+			PresentationPalette.with_alpha(&"ember", alpha),
+			3.0
+		)
+		draw_circle(
+			Vector2(-28.0, 2.0),
+			9.0,
+			PresentationPalette.with_alpha(&"night_void", alpha)
+		)
+		draw_circle(
+			Vector2(28.0, 2.0),
+			9.0,
+			PresentationPalette.with_alpha(&"night_void", alpha)
+		)
 		draw_set_transform_matrix(Transform2D.IDENTITY)
 	# dawn overlay near end
 	if _dawn_progress > 0.05:

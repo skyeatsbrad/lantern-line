@@ -18,11 +18,13 @@ const PHASE_MIN_DURATIONS: Array[float] = [16.0, 18.0, 24.0]
 const PHASE_LENSES: Array[String] = ["Pale", "Hearth", "Standard"]
 const RESPONSE_THRESHOLDS: Array[float] = [14.0, 16.0, 12.0]
 const RESPONSE_HEALTH_FLOOR: float = 0.28
+const ENTRANCE_DURATION: float = 3.0
 const TRANSITION_DURATION: float = 2.5
 
 var _run_state: RunState
 var _view_size: Vector2 = Vector2(1280.0, 720.0)
 var _train_pos: Vector2 = Vector2(360.0, 500.0)
+var _train_scale: float = 1.0
 var _active: bool = false
 var _completed: bool = false
 var _phase: int = Phase.VEIL
@@ -49,6 +51,17 @@ func setup(run_state: RunState, view_size: Vector2, train_pos: Vector2) -> void:
 	visible = false
 
 
+func set_world_layout(
+	view_size: Vector2,
+	train_pos: Vector2,
+	train_scale: float
+) -> void:
+	_view_size = view_size
+	_train_pos = train_pos
+	_train_scale = clampf(train_scale, 0.6, 1.0)
+	queue_redraw()
+
+
 func start(snapshot: Dictionary = {}) -> void:
 	_active = true
 	_completed = false
@@ -64,7 +77,7 @@ func start(snapshot: Dictionary = {}) -> void:
 		_target_switch_timer = 3.0
 		_elapsed = 0.0
 		_phase_elapsed = 0.0
-		_transition_timer = 3.0
+		_transition_timer = ENTRANCE_DURATION
 		_phase_unlocked = false
 		_response_progress = 0.0
 		_charge_warning_issued = false
@@ -223,8 +236,15 @@ func current_target_position() -> Vector2:
 	var boss := _boss_position()
 	if _phase != Phase.TETHER:
 		return boss
-	var band_offsets: Array[float] = [-150.0, -46.0, 72.0]
-	return Vector2(boss.x - 85.0, _train_pos.y + band_offsets[_target_band])
+	var band_positions: Array[float] = [
+		maxf(106.0, _train_pos.y - 150.0),
+		_train_pos.y - 46.0,
+		minf(
+			_train_pos.y + 72.0,
+			UITheme.gameplay_safe_bottom(_view_size) - 48.0
+		)
+	]
+	return Vector2(boss.x - 85.0, band_positions[_target_band])
 
 
 func checkpoint_state() -> Dictionary:
@@ -466,7 +486,10 @@ func _boss_position() -> Vector2:
 	)
 	return Vector2(
 		minf(_view_size.x * 0.68, _train_pos.x + 380.0),
-		_train_pos.y - 38.0 + bob
+		minf(
+			_train_pos.y - 38.0,
+			UITheme.gameplay_safe_bottom(_view_size) - 88.0
+		) + bob
 	)
 
 
@@ -493,71 +516,421 @@ func _apply_phase_damage(amount: float) -> void:
 func _draw() -> void:
 	if not is_active():
 		return
-	var boss := _boss_position()
-	var reduced_motion := bool(GameManager.get_setting("reduced_motion", false))
-	var visual_time := 0.0 if reduced_motion else _elapsed
-	var pulse := 1.0 if reduced_motion else 1.0 + sin(_elapsed * 3.0) * 0.08
-	var shadow := Color(0.28, 0.06, 0.24, 0.92)
-	draw_circle(boss, 50.0 * pulse, Color(0.08, 0.03, 0.1, 0.88))
-	draw_circle(boss, 34.0 * pulse, shadow)
-	for index in range(6):
-		var angle := visual_time * 0.35 + float(index) * TAU / 6.0
-		var end := boss + Vector2(cos(angle), sin(angle)) * (62.0 + 8.0 * sin(visual_time + index))
-		draw_line(boss, end, Color(0.45, 0.12, 0.38, 0.55), 5.0)
+	var boss: Vector2 = _boss_position()
+	var reduced_motion: bool = bool(
+		GameManager.get_setting("reduced_motion", false)
+	)
+	var pulse: float = (
+		1.0
+		if reduced_motion
+		else 1.0 + sin(_elapsed * 2.4) * 0.045
+	)
+	match _phase:
+		Phase.VEIL:
+			_draw_veil_body(boss, pulse)
+		Phase.TETHER:
+			_draw_tether_body(boss, pulse)
+		Phase.CHARGE:
+			_draw_charge_body(boss, pulse)
+	_draw_transition_flourish(boss, reduced_motion)
 	if _transition_timer > 0.0:
-		var transition_ratio: float = 1.0 - _transition_timer / maxf(0.01, TRANSITION_DURATION)
-		for ring in range(3):
+		_draw_boss_status(boss)
+		return
+	_draw_response_lock(boss)
+	if _phase == Phase.VEIL:
+		_draw_veil_mechanic(boss)
+	elif _phase == Phase.TETHER:
+		_draw_tether_mechanic(boss)
+	elif _phase == Phase.CHARGE:
+		_draw_charge_mechanic(boss)
+	_draw_boss_status(boss)
+
+
+func _draw_veil_body(center: Vector2, scale: float) -> void:
+	var shadow: Color = PresentationPalette.color(
+		&"shadow_veil",
+		UITheme.high_contrast()
+	)
+	var left := _offset_points(center, [
+		Vector2(-5.0, -52.0),
+		Vector2(-42.0, -43.0),
+		Vector2(-73.0, -12.0),
+		Vector2(-61.0, 35.0),
+		Vector2(-26.0, 57.0),
+		Vector2(-8.0, 22.0)
+	], scale)
+	var right := _offset_points(center, [
+		Vector2(7.0, -48.0),
+		Vector2(36.0, -57.0),
+		Vector2(68.0, -27.0),
+		Vector2(73.0, 18.0),
+		Vector2(34.0, 51.0),
+		Vector2(10.0, 20.0)
+	], scale)
+	_draw_outlined_polygon(
+		left,
+		PresentationPalette.COAL,
+		PresentationPalette.with_alpha(&"shadow_veil", 0.72),
+		2.5
+	)
+	_draw_outlined_polygon(
+		right,
+		PresentationPalette.COAL.lerp(shadow, 0.18),
+		PresentationPalette.with_alpha(&"shadow_veil", 0.72),
+		2.5
+	)
+	draw_circle(center, 27.0 * scale, shadow.darkened(0.28))
+	draw_circle(center + Vector2(-4.0, 2.0), 18.0 * scale, PresentationPalette.NIGHT_VOID)
+	draw_arc(
+		center,
+		43.0 * scale,
+		-2.72,
+		-0.62,
+		18,
+		PresentationPalette.with_alpha(&"bone", 0.24),
+		2.0
+	)
+	draw_arc(
+		center,
+		49.0 * scale,
+		0.38,
+		2.24,
+		18,
+		PresentationPalette.with_alpha(&"shadow_veil", 0.8),
+		4.0
+	)
+
+
+func _draw_tether_body(center: Vector2, scale: float) -> void:
+	var shadow: Color = PresentationPalette.color(
+		&"shadow_veil",
+		UITheme.high_contrast()
+	)
+	var upper := _offset_points(center, [
+		Vector2(-45.0, -7.0),
+		Vector2(-30.0, -52.0),
+		Vector2(2.0, -68.0),
+		Vector2(34.0, -43.0),
+		Vector2(21.0, -8.0)
+	], scale)
+	var lower := _offset_points(center, [
+		Vector2(-43.0, 8.0),
+		Vector2(-24.0, 53.0),
+		Vector2(8.0, 67.0),
+		Vector2(39.0, 36.0),
+		Vector2(20.0, 8.0)
+	], scale)
+	_draw_outlined_polygon(
+		upper,
+		PresentationPalette.COAL.lerp(shadow, 0.28),
+		PresentationPalette.with_alpha(&"shadow_veil", 0.82),
+		2.5
+	)
+	_draw_outlined_polygon(
+		lower,
+		PresentationPalette.COAL,
+		PresentationPalette.with_alpha(&"shadow_veil", 0.82),
+		2.5
+	)
+	draw_rect(
+		Rect2(
+			center + Vector2(-8.0, -48.0) * scale,
+			Vector2(16.0, 96.0) * scale
+		),
+		PresentationPalette.NIGHT_VOID
+	)
+	draw_line(
+		center + Vector2(-7.0, -30.0) * scale,
+		center + Vector2(7.0, -7.0) * scale,
+		PresentationPalette.with_alpha(&"bone", 0.38),
+		2.0
+	)
+	draw_line(
+		center + Vector2(-7.0, 30.0) * scale,
+		center + Vector2(7.0, 7.0) * scale,
+		PresentationPalette.with_alpha(&"bone", 0.38),
+		2.0
+	)
+
+
+func _draw_charge_body(center: Vector2, scale: float) -> void:
+	var shadow: Color = PresentationPalette.color(
+		&"shadow_veil",
+		UITheme.high_contrast()
+	)
+	var wedge := _offset_points(center, [
+		Vector2(-66.0, 0.0),
+		Vector2(-25.0, -47.0),
+		Vector2(33.0, -39.0),
+		Vector2(70.0, 0.0),
+		Vector2(28.0, 43.0),
+		Vector2(-27.0, 46.0)
+	], scale)
+	_draw_outlined_polygon(
+		wedge,
+		PresentationPalette.COAL.lerp(shadow, 0.34),
+		PresentationPalette.with_alpha(&"danger", 0.82),
+		3.0
+	)
+	var slit := _offset_points(center, [
+		Vector2(-38.0, 0.0),
+		Vector2(12.0, -15.0),
+		Vector2(29.0, 0.0),
+		Vector2(12.0, 15.0)
+	], scale)
+	draw_colored_polygon(slit, PresentationPalette.NIGHT_VOID)
+	for spine in range(3):
+		var y: float = float(spine - 1) * 22.0
+		draw_line(
+			center + Vector2(30.0, y) * scale,
+			center + Vector2(58.0, y * 1.25) * scale,
+			PresentationPalette.with_alpha(&"shadow_veil", 0.72),
+			4.0
+		)
+
+
+func _draw_transition_flourish(center: Vector2, reduced_motion: bool) -> void:
+	if _transition_timer <= 0.0:
+		return
+	var gate_duration: float = (
+		ENTRANCE_DURATION
+		if _phase == Phase.VEIL and _phase_elapsed <= 0.001
+		else TRANSITION_DURATION
+	)
+	var flourish_duration: float = 1.1
+	var elapsed: float = maxf(0.0, gate_duration - _transition_timer)
+	if elapsed > flourish_duration:
+		return
+	var ratio: float = clampf(elapsed / flourish_duration, 0.0, 1.0)
+	var visual_ratio: float = 1.0 if reduced_motion else ratio
+	for ring in range(3):
+		var radius: float = 70.0 + float(ring) * 15.0 + visual_ratio * 22.0
+		var alpha: float = (0.48 - float(ring) * 0.1) * (1.0 - ratio * 0.7)
+		for segment in range(3):
+			var start: float = float(segment) * 2.12 + ratio * 0.6
 			draw_arc(
-				boss,
-				72.0 + float(ring) * 18.0 + transition_ratio * 20.0,
-				0.0,
-				TAU,
-				48,
-				Color(0.82, 0.3, 0.62, 0.45 - float(ring) * 0.1),
+				center,
+				radius,
+				start,
+				start + 1.22,
+				12,
+				PresentationPalette.with_alpha(
+					&"shadow_veil",
+					alpha,
+					UITheme.high_contrast()
+				),
+				3.5
+			)
+
+
+func _draw_response_lock(center: Vector2) -> void:
+	var response_ratio: float = _response_ratio()
+	if not _phase_unlocked:
+		var base_color: Color = PresentationPalette.with_alpha(
+			&"shadow_veil",
+			0.46,
+			UITheme.high_contrast()
+		)
+		for segment in range(3):
+			var start: float = -PI * 0.5 + float(segment) * 2.14
+			draw_arc(
+				center,
+				80.0,
+				start,
+				start + 1.36,
+				14,
+				base_color,
 				4.0
 			)
-	if not _phase_unlocked:
 		draw_arc(
-			boss,
-			78.0,
+			center,
+			80.0,
 			-PI * 0.5,
-			-PI * 0.5 + TAU * _response_ratio(),
-			48,
-			Color(0.94, 0.68, 0.26, 0.9),
-			6.0
+			-PI * 0.5 + TAU * response_ratio,
+			42,
+			PresentationPalette.color(&"brass", UITheme.high_contrast()),
+			5.5
 		)
-		draw_string(
-			ThemeDB.fallback_font,
-			boss + Vector2(-54.0, 90.0),
-			"%s + ACTIVE" % PHASE_LENSES[_phase].to_upper(),
-			HORIZONTAL_ALIGNMENT_CENTER,
-			108.0,
-			12,
-			Color(1.0, 0.82, 0.42)
-		)
-
-	if _phase == Phase.VEIL:
-		draw_arc(boss, 66.0, 0.0, TAU, 48, Color(0.62, 0.28, 0.58, 0.7), 6.0)
-	elif _phase == Phase.TETHER:
-		var anchor := current_target_position()
-		draw_line(_train_pos + Vector2(38.0, -22.0), anchor, Color(0.72, 0.18, 0.3, 0.8), 5.0)
-		draw_circle(anchor, 15.0, Color(0.92, 0.56, 0.25, 0.9))
-		draw_circle(anchor, 6.0, Color(1.0, 0.9, 0.62, 0.95))
-	elif _phase == Phase.CHARGE:
-		var charge_ratio := 1.0 - clampf(_charge_timer / 11.0, 0.0, 1.0)
-		draw_arc(
-			boss,
-			62.0 + charge_ratio * 32.0,
-			0.0,
-			TAU,
-			48,
-			Color(0.95, 0.25, 0.2, 0.35 + charge_ratio * 0.55),
-			4.0 + charge_ratio * 5.0
-		)
-
-	var bar_pos := boss + Vector2(-70.0, -88.0)
-	draw_rect(Rect2(bar_pos, Vector2(140.0, 7.0)), Color(0.04, 0.03, 0.05, 0.95))
-	draw_rect(
-		Rect2(bar_pos, Vector2(140.0 * health_ratio(), 7.0)),
-		Color(0.9, 0.3, 0.24, 0.95)
+	var response_text: String = (
+		"EXPOSED"
+		if _phase_unlocked
+		else "%s + ACTIVE" % PHASE_LENSES[_phase].to_upper()
 	)
+	draw_string(
+		UITheme.bold_font(),
+		center + Vector2(-88.0, -124.0),
+		response_text,
+		HORIZONTAL_ALIGNMENT_CENTER,
+		176.0,
+		UITheme.font_size(11),
+		PresentationPalette.color(
+			&"danger" if _phase_unlocked else &"brass",
+			UITheme.high_contrast()
+		)
+	)
+
+
+func _draw_veil_mechanic(center: Vector2) -> void:
+	var rotation: float = (
+		0.0
+		if bool(GameManager.get_setting("reduced_motion", false))
+		else _elapsed * 0.22
+	)
+	for segment in range(4):
+		var start: float = rotation + float(segment) * 1.58
+		draw_arc(
+			center,
+			64.0,
+			start,
+			start + 0.84,
+			10,
+			PresentationPalette.with_alpha(
+				&"shadow_veil",
+				0.66,
+				UITheme.high_contrast()
+			),
+			5.0
+		)
+
+
+func _draw_tether_mechanic(center: Vector2) -> void:
+	var anchor: Vector2 = current_target_position()
+	var source: Vector2 = _train_pos + Vector2(38.0, -22.0) * _train_scale
+	var bend := Vector2(lerpf(source.x, anchor.x, 0.52), anchor.y - 26.0)
+	draw_polyline(
+		PackedVector2Array([source, bend, anchor]),
+		PresentationPalette.with_alpha(
+			&"danger",
+			0.78,
+			UITheme.high_contrast()
+		),
+		4.0
+	)
+	for knot in range(1, 4):
+		var t: float = float(knot) / 4.0
+		var knot_pos: Vector2 = source.lerp(bend, minf(1.0, t * 1.7))
+		if t > 0.58:
+			knot_pos = bend.lerp(anchor, (t - 0.58) / 0.42)
+		draw_rect(
+			Rect2(knot_pos - Vector2(3.0, 3.0), Vector2(6.0, 6.0)),
+			PresentationPalette.color(&"brass", UITheme.high_contrast())
+		)
+	var diamond := PackedVector2Array([
+		anchor + Vector2(0.0, -17.0),
+		anchor + Vector2(17.0, 0.0),
+		anchor + Vector2(0.0, 17.0),
+		anchor + Vector2(-17.0, 0.0)
+	])
+	_draw_outlined_polygon(
+		diamond,
+		PresentationPalette.COAL,
+		PresentationPalette.color(&"brass", UITheme.high_contrast()),
+		3.0
+	)
+	draw_string(
+		UITheme.bold_font(),
+		anchor + Vector2(-33.0, -23.0),
+		"SEVER",
+		HORIZONTAL_ALIGNMENT_CENTER,
+		66.0,
+		UITheme.font_size(10),
+		PresentationPalette.color(&"danger", UITheme.high_contrast())
+	)
+
+
+func _draw_charge_mechanic(center: Vector2) -> void:
+	var charge_ratio: float = 1.0 - clampf(_charge_timer / 11.0, 0.0, 1.0)
+	var warning_color: Color = PresentationPalette.with_alpha(
+		&"danger",
+		0.42 + charge_ratio * 0.5,
+		UITheme.high_contrast()
+	)
+	for chevron in range(3):
+		var x: float = lerpf(
+			center.x - 84.0,
+			_train_pos.x + 96.0 * _train_scale,
+			float(chevron) / 3.0
+		)
+		var y: float = lerpf(
+			center.y,
+			_train_pos.y - 26.0 * _train_scale,
+			float(chevron) / 3.0
+		)
+		var size: float = 14.0 + charge_ratio * 9.0
+		draw_polyline(
+			PackedVector2Array([
+				Vector2(x + size, y - size),
+				Vector2(x, y),
+				Vector2(x + size, y + size)
+			]),
+			warning_color,
+			3.0 + charge_ratio * 2.0
+		)
+	if _charge_timer <= 3.0:
+		draw_string(
+			UITheme.bold_font(),
+			center + Vector2(-62.0, -148.0),
+			"CHARGE %.1f" % _charge_timer,
+			HORIZONTAL_ALIGNMENT_CENTER,
+			124.0,
+			UITheme.font_size(13),
+			PresentationPalette.color(&"danger", UITheme.high_contrast())
+		)
+
+
+func _draw_boss_status(center: Vector2) -> void:
+	var font_size: int = UITheme.font_size(11)
+	var title: String = "LONGSHADOW // %s" % phase_name()
+	draw_string(
+		UITheme.bold_font(),
+		center + Vector2(-88.0, -102.0),
+		title,
+		HORIZONTAL_ALIGNMENT_CENTER,
+		176.0,
+		font_size,
+		PresentationPalette.color(&"bone", UITheme.high_contrast())
+	)
+	var bar_pos: Vector2 = center + Vector2(-72.0, -88.0)
+	draw_rect(
+		Rect2(bar_pos, Vector2(144.0, 8.0)),
+		PresentationPalette.color(&"night_void", UITheme.high_contrast())
+	)
+	draw_rect(
+		Rect2(bar_pos, Vector2(144.0 * health_ratio(), 8.0)),
+		PresentationPalette.color(
+			&"danger" if health_ratio() <= 0.3 else &"shadow_veil",
+			UITheme.high_contrast()
+		)
+	)
+	draw_rect(
+		Rect2(bar_pos, Vector2(144.0, 8.0)),
+		PresentationPalette.with_alpha(&"bone", 0.54),
+		false,
+		1.0
+	)
+
+
+func _offset_points(
+	center: Vector2,
+	offsets: Array,
+	scale: float
+) -> PackedVector2Array:
+	var points := PackedVector2Array()
+	for offset_variant in offsets:
+		var offset: Vector2 = offset_variant
+		points.append(center + offset * scale)
+	return points
+
+
+func _draw_outlined_polygon(
+	points: PackedVector2Array,
+	fill: Color,
+	outline: Color,
+	width: float
+) -> void:
+	if points.size() < 3:
+		return
+	draw_colored_polygon(points, fill)
+	var closed: PackedVector2Array = points.duplicate()
+	closed.append(points[0])
+	draw_polyline(closed, outline, width, true)

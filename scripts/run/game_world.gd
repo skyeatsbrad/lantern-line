@@ -21,6 +21,7 @@ const REVEAL_INTERVAL: float = 52.0
 const DETACH_HOLD_SECONDS: float = 0.85
 const ACCESSIBLE_DETACH_HOLD_SECONDS: float = 0.45
 const VICTORY_REVEAL_SECONDS: float = 4.5
+const DEFEAT_REVEAL_SECONDS: float = 1.6
 
 var run_state: RunState
 var route_director: RouteDirector
@@ -38,12 +39,15 @@ var _station_panel: StationPanel
 var _end_screen: EndScreen
 var _settings_panel: SettingsPanel
 var _guide_panel: GuidePanel
+var _presentation_director: PresentationDirector
+var _presentation_metrics: PresentationMetrics
 
 var _view_size: Vector2 = Vector2(1280, 720)
 var _mode: RunMode = RunMode.TRAVEL
 var _reveal_timer: float = REVEAL_INTERVAL
 var _last_autosave: float = 0.0
 var _train_screen_pos: Vector2 = Vector2(360, 500)
+var _train_visual_scale: float = 1.0
 var _route_commit_pending: bool = false
 var _route_reroll_index: int = 0
 var _end_committed: bool = false
@@ -56,6 +60,12 @@ var _light_profile: LightProfile
 var _locomotive_critical_notified: bool = false
 var _overlay_open: bool = false
 var _overlay_was_paused: bool = false
+var _route_events: Array = []
+var _route_context: Dictionary = {
+	"category": "neutral",
+	"event_id": "",
+	"danger": 0
+}
 
 # Compatibility read-only properties for the v0.1 probes.
 var _reveal_open: bool:
@@ -81,6 +91,7 @@ func bootstrap(run_seed: int, resume: Dictionary) -> void:
 		"crew": _load_json(DATA_CREW).get("crew", []),
 		"events": _load_json(DATA_ROUTES).get("events", [])
 	}
+	_route_events = configs["events"]
 	var normalized_resume: Dictionary = RunSnapshot.normalize(resume)
 	var run_resume: Dictionary = (
 		RunSnapshot.run_state_data(normalized_resume)
@@ -98,9 +109,20 @@ func bootstrap(run_seed: int, resume: Dictionary) -> void:
 	if not run_resume.is_empty():
 		run_state.apply_dict(run_resume)
 		run_state.resume_grace_time = 3.0
+	_refresh_route_context()
+	_compute_world_layout()
 
 	route_director = RouteDirector.new()
 	route_director.setup(run_state.run_seed, configs["events"], configs["lenses"])
+
+	_presentation_metrics = PresentationMetrics.new()
+	_presentation_metrics.name = "PresentationMetrics"
+	add_child(_presentation_metrics)
+
+	_presentation_director = PresentationDirector.new()
+	_presentation_director.name = "PresentationDirector"
+	_presentation_director.setup(run_state, _view_size)
+	add_child(_presentation_director)
 
 	var world_layer: Node2D = Node2D.new()
 	world_layer.name = "WorldLayer"
@@ -108,34 +130,54 @@ func bootstrap(run_seed: int, resume: Dictionary) -> void:
 
 	_world_renderer = WorldRenderer.new()
 	_world_renderer.setup(_view_size)
+	_world_renderer.set_route_context(_route_context)
 	world_layer.add_child(_world_renderer)
 
 	_route_projection = RouteProjection.new()
-	_route_projection.setup(_view_size, _train_screen_pos)
+	_route_projection.setup(
+		_view_size,
+		_train_screen_pos,
+		_train_visual_scale
+	)
 	world_layer.add_child(_route_projection)
 
 	_enemy_director = EnemyDirector.new()
 	_enemy_director.setup(run_state, _view_size)
+	_enemy_director.set_world_layout(
+		_view_size,
+		_train_screen_pos,
+		_train_visual_scale
+	)
 	_enemy_director.apply_checkpoint_state(world_resume.get("enemy_state", {}))
 	world_layer.add_child(_enemy_director)
 
 	_train_renderer = TrainRenderer.new()
 	_train_renderer.setup(run_state)
-	_train_screen_pos = Vector2(_view_size.x * 0.28, _view_size.y * 0.72)
-	_route_projection.setup(_view_size, _train_screen_pos)
-	_train_renderer.set_position_hint(_train_screen_pos)
+	_train_renderer.set_layout(_train_screen_pos, _train_visual_scale)
 	world_layer.add_child(_train_renderer)
 
 	_longshadow = LongshadowEncounter.new()
 	_longshadow.setup(run_state, _view_size, _train_screen_pos)
+	_longshadow.set_world_layout(
+		_view_size,
+		_train_screen_pos,
+		_train_visual_scale
+	)
 	world_layer.add_child(_longshadow)
 
 	_train_controller = TrainController.new()
-	_train_controller.set_origin_screen(_train_screen_pos + Vector2(74, -24))
+	_train_controller.set_origin_screen(_train_lamp_position())
 	add_child(_train_controller)
 
 	_effects = EffectsLayer.new()
+	_effects.setup(run_state.run_seed)
 	world_layer.add_child(_effects)
+	_presentation_director.state_changed.connect(
+		_world_renderer.set_presentation_state
+	)
+	_presentation_director.state_changed.connect(
+		_train_renderer.set_presentation_state
+	)
 
 	var ui_layer: CanvasLayer = CanvasLayer.new()
 	ui_layer.name = "UILayer"
@@ -176,6 +218,10 @@ func bootstrap(run_seed: int, resume: Dictionary) -> void:
 	ui_layer.add_child(_guide_panel)
 
 	_wire_signals()
+	if not get_viewport().size_changed.is_connected(_on_viewport_size_changed):
+		get_viewport().size_changed.connect(_on_viewport_size_changed)
+	if not GameManager.settings_changed.is_connected(_on_layout_settings_changed):
+		GameManager.settings_changed.connect(_on_layout_settings_changed)
 	_reveal_timer = maxf(0.0, float(world_resume.get("reveal_timer", REVEAL_INTERVAL)))
 	if run_state.boss_triggered and not run_state.boss_defeated:
 		run_state.distance = minf(run_state.distance, RunState.BOSS_GATE_DISTANCE)
@@ -202,6 +248,27 @@ func _load_json(path: String) -> Dictionary:
 	if typeof(parsed) != TYPE_DICTIONARY:
 		return {}
 	return parsed
+
+
+func _refresh_route_context() -> void:
+	_route_context = {
+		"category": "neutral",
+		"event_id": "",
+		"danger": 0
+	}
+	if run_state == null or run_state.route_history.is_empty():
+		return
+	var event_id: String = String(run_state.route_history.back())
+	for event_variant in _route_events:
+		var event: Dictionary = event_variant
+		if String(event.get("id", "")) != event_id:
+			continue
+		_route_context = {
+			"category": String(event.get("category", "neutral")),
+			"event_id": event_id,
+			"danger": int(event.get("danger", 0))
+		}
+		return
 
 
 func _wire_signals() -> void:
@@ -303,6 +370,7 @@ func _update_aim() -> void:
 
 
 func _update_presentational_state() -> void:
+	_refresh_world_layout()
 	if (
 		run_state.locomotive_hp / maxf(1.0, run_state.locomotive_max_hp) > 0.45
 	):
@@ -312,7 +380,7 @@ func _update_presentational_state() -> void:
 		run_state,
 		current_stats,
 		_train_controller.light_direction,
-		Vector2(_train_screen_pos.x + 74.0, _train_screen_pos.y - 24.0)
+		_train_lamp_position()
 	)
 	_world_renderer.update_state(
 		run_state.distance,
@@ -327,7 +395,7 @@ func _update_presentational_state() -> void:
 		else current_stats.speed / 80.0
 	)
 	AudioManager.set_wheel_rate(clampf(speed_ratio * 4.0, 0.2, 6.0))
-	_effects.set_dawn_progress(
+	var dawn_progress: float = (
 		clampf(
 			(run_state.distance - RunState.BOSS_GATE_DISTANCE)
 			/ (RunState.JOURNEY_TARGET - RunState.BOSS_GATE_DISTANCE),
@@ -337,6 +405,15 @@ func _update_presentational_state() -> void:
 		if run_state.boss_defeated
 		else 0.0
 	)
+	_effects.set_dawn_progress(dawn_progress)
+	_presentation_director.update_state(
+		_mode_name(),
+		_enemy_director.active_count(),
+		_enemy_director.pressure_limit(),
+		_longshadow.is_active(),
+		_longshadow.phase_name() if _longshadow.is_active() else "",
+		dawn_progress
+	)
 	var world_layer: Node = get_node_or_null("WorldLayer")
 	if world_layer is Node2D:
 		(world_layer as Node2D).position = _effects.shake_offset()
@@ -344,6 +421,133 @@ func _update_presentational_state() -> void:
 		_hud.set_boss_status(_longshadow.status_text(), _longshadow.health_ratio())
 	else:
 		_hud.set_boss_status("")
+
+
+func _compute_world_layout() -> void:
+	_view_size = get_viewport().get_visible_rect().size
+	if _view_size.x < 100.0:
+		_view_size = Vector2(1280.0, 720.0)
+	var visual_slots: int = RunState.START_SLOT_CAPACITY
+	if run_state != null:
+		visual_slots = maxi(run_state.slot_capacity, run_state.cars.size())
+	var layout: Dictionary = calculate_world_layout(_view_size, visual_slots)
+	_train_screen_pos = layout.get("train_position", Vector2(360.0, 500.0))
+	_train_visual_scale = float(layout.get("train_scale", 1.0))
+
+
+func calculate_world_layout(
+	viewport_size: Vector2,
+	visual_slots: int
+) -> Dictionary:
+	var safe_view := viewport_size
+	if safe_view.x < 100.0:
+		safe_view = Vector2(1280.0, 720.0)
+	var compact: bool = UITheme.compact_layout(safe_view)
+	var anchor_ratio: float = 0.46 if compact else 0.40
+	var anchor_x: float = safe_view.x * anchor_ratio
+	var fitted_slots: int = clampi(
+		visual_slots,
+		RunState.START_SLOT_CAPACITY,
+		RunState.MAX_SLOT_CAPACITY
+	)
+	var rear_extent: float = (
+		TrainRenderer.LOCO_WIDTH * 0.5
+		+ float(fitted_slots) * (TrainRenderer.CAR_WIDTH + 8.0)
+	)
+	var train_scale: float = clampf(
+		(anchor_x - 18.0) / maxf(1.0, rear_extent),
+		0.68,
+		1.0
+	)
+	var safe_bottom: float = UITheme.gameplay_safe_bottom(safe_view)
+	var train_position := Vector2(
+		anchor_x,
+		minf(
+			safe_view.y * 0.72,
+			safe_bottom - 40.0
+		)
+	)
+	return {
+		"train_position": train_position,
+		"train_scale": train_scale,
+		"rear_left": train_position.x - rear_extent * train_scale,
+		"train_floor": train_position.y + 24.0 * train_scale,
+		"safe_bottom": safe_bottom
+	}
+
+
+func _refresh_world_layout(force: bool = false) -> void:
+	var previous_view := _view_size
+	var previous_position := _train_screen_pos
+	var previous_scale := _train_visual_scale
+	_compute_world_layout()
+	if (
+		not force
+		and previous_view.is_equal_approx(_view_size)
+		and previous_position.is_equal_approx(_train_screen_pos)
+		and is_equal_approx(previous_scale, _train_visual_scale)
+	):
+		return
+	if is_instance_valid(_world_renderer):
+		_world_renderer.set_view_size(_view_size)
+	if is_instance_valid(_presentation_director):
+		_presentation_director.set_view_size(_view_size)
+	if is_instance_valid(_route_projection):
+		_route_projection.set_world_layout(
+			_view_size,
+			_train_screen_pos,
+			_train_visual_scale
+		)
+	if is_instance_valid(_enemy_director):
+		_enemy_director.set_world_layout(
+			_view_size,
+			_train_screen_pos,
+			_train_visual_scale
+		)
+	if is_instance_valid(_train_renderer):
+		_train_renderer.set_layout(_train_screen_pos, _train_visual_scale)
+	if is_instance_valid(_longshadow):
+		_longshadow.set_world_layout(
+			_view_size,
+			_train_screen_pos,
+			_train_visual_scale
+		)
+	if is_instance_valid(_train_controller):
+		_train_controller.set_origin_screen(_train_lamp_position())
+
+
+func _on_viewport_size_changed() -> void:
+	_refresh_world_layout(true)
+	if is_instance_valid(_hud):
+		_hud.rebuild()
+	if is_instance_valid(_route_choice) and _route_choice.visible:
+		_route_choice.rebuild()
+	if is_instance_valid(_station_panel) and _station_panel.visible:
+		_station_panel.rebuild()
+	if is_instance_valid(_end_screen) and _end_screen.visible:
+		_end_screen.rebuild()
+
+
+func _on_layout_settings_changed() -> void:
+	_refresh_world_layout(true)
+
+
+func _train_lamp_position() -> Vector2:
+	return (
+		_train_screen_pos
+		+ Vector2(74.0, -24.0) * _train_visual_scale
+	)
+
+
+func _mode_name() -> String:
+	return {
+		RunMode.TRAVEL: "travel",
+		RunMode.ROUTE_REVEAL: "route",
+		RunMode.STATION: "station",
+		RunMode.BOSS: "boss",
+		RunMode.ENDING: "ending",
+		RunMode.ENDED: "ended"
+	}.get(_mode, "travel")
 
 
 func _open_reveal() -> void:
@@ -399,14 +603,15 @@ func _start_boss() -> void:
 	_enemy_director.clear_regular_enemies()
 	_longshadow.start()
 	_set_mode(RunMode.BOSS)
-	_hud.flash("THE LONGSHADOW APPROACHES - speed set to 1x", 3.5)
 	_effects.request_flash(Color(0.32, 0.08, 0.28, 0.65), 1.2)
-	AudioManager.play("alarm")
 	_save_checkpoint()
 
 
 func _on_route_chosen(event: Dictionary) -> void:
 	run_state.apply_route_event(event)
+	AudioManager.play("route_commit")
+	_refresh_route_context()
+	_world_renderer.set_route_context(_route_context)
 	var danger: int = int(event.get("danger", 0))
 	if danger > 0:
 		_enemy_director.spawn_threat_waves(danger)
@@ -423,7 +628,7 @@ func _on_route_reroll() -> void:
 	var result: Dictionary = run_state.purchase_route_reroll()
 	if not bool(result.get("ok", false)):
 		_hud.flash(String(result.get("message", "Route reroll unavailable.")), 2.0)
-		AudioManager.play("alarm")
+		AudioManager.play("ui_reject")
 		return
 	_route_reroll_index += 1
 	var choices: Array = _generate_route_choices()
@@ -502,13 +707,13 @@ func _on_focus() -> void:
 		var block_reason: String = _longshadow.focus_block_reason(_light_profile)
 		if not block_reason.is_empty():
 			_hud.flash(block_reason, 1.8)
-			AudioManager.play("alarm")
+			AudioManager.play("ui_reject")
 			return
 	if run_state.request_focus():
-		AudioManager.play("reveal")
+		AudioManager.play("focus")
 		_hud.flash("FOCUS BEAM", 1.0)
 	else:
-		AudioManager.play("alarm")
+		AudioManager.play("ui_reject")
 
 
 func _on_defense_salvo() -> void:
@@ -516,17 +721,17 @@ func _on_defense_salvo() -> void:
 		return
 	if not _longshadow.is_active() and not _enemy_director.has_salvo_target():
 		_hud.flash("Defense salvo: no target in range.", 1.5)
-		AudioManager.play("alarm")
+		AudioManager.play("ui_reject")
 		return
 	if _longshadow.is_active() and not _longshadow.can_accept_active_response():
 		_hud.flash("Defense salvo held - target lock is still forming.", 1.5)
-		AudioManager.play("alarm")
+		AudioManager.play("ui_reject")
 		return
 	var salvo_stats: TrainStats = run_state.stats()
 	var request: Dictionary = run_state.request_defense_salvo()
 	if not bool(request.get("ok", false)):
 		_hud.flash(String(request.get("message", "Defense salvo unavailable.")), 1.8)
-		AudioManager.play("alarm")
+		AudioManager.play("ui_reject")
 		return
 	var hit_positions: Array = []
 	var damage: float = 0.0
@@ -540,14 +745,15 @@ func _on_defense_salvo() -> void:
 	for position_variant in hit_positions:
 		var target_position: Vector2 = position_variant
 		_effects.add_tracer(
-			_train_screen_pos + Vector2(-20.0, -68.0),
+			_train_screen_pos
+			+ Vector2(-20.0, -68.0) * _train_visual_scale,
 			target_position,
 			Color(1.0, 0.58, 0.24)
 		)
 		_effects.add_hit(target_position, Color(1.0, 0.58, 0.24))
 	_effects.request_shake(7.0)
 	_effects.request_flash(Color(1.0, 0.5, 0.2, 0.28), 0.22)
-	AudioManager.play("salvo")
+	AudioManager.play_spatial("salvo", -0.35)
 	_hud.flash("DEFENSE SALVO - %.0f damage" % damage, 1.5)
 
 
@@ -566,7 +772,11 @@ func _on_field_action(action: String) -> void:
 			return
 	_hud.flash(String(result.get("message", "No change.")), 2.0)
 	if bool(result.get("ok", false)):
-		AudioManager.play("repair" if action == "patch" else "overcharge")
+		AudioManager.play({
+			"patch": "repair",
+			"overcharge": "overcharge",
+			"flare": "flare"
+		}.get(action, "reveal"))
 		_effects.request_flash(
 			Color(0.36, 0.78, 0.48, 0.2)
 			if action == "patch"
@@ -579,7 +789,7 @@ func _on_field_action(action: String) -> void:
 		)
 		_save_checkpoint()
 	else:
-		AudioManager.play("alarm")
+		AudioManager.play("ui_reject")
 
 
 func _on_detach_hold_changed(active: bool) -> void:
@@ -696,9 +906,9 @@ func _on_detach() -> void:
 	var detached_position: Vector2 = _train_renderer.car_screen_center(run_state.cars.size() - 1)
 	var rear: Dictionary = run_state.detach_rear_car()
 	if rear.is_empty():
-		AudioManager.play("alarm")
+		AudioManager.play("ui_reject")
 		return
-	AudioManager.play("detach")
+	AudioManager.play_spatial("detach", -0.72)
 	_effects.request_shake(8.0)
 	_effects.add_detached_car(detached_position)
 	_enemy_director.on_detach(detach_stats.detach_purge_radius)
@@ -725,6 +935,8 @@ func _on_enemy_killed(kind: String, _value: int) -> void:
 
 
 func _on_boss_phase_changed(phase_name: String) -> void:
+	if _longshadow != null and _longshadow.can_accept_active_response():
+		return
 	var instruction: String
 	match phase_name:
 		"VEIL":
@@ -735,15 +947,43 @@ func _on_boss_phase_changed(phase_name: String) -> void:
 			instruction = "Use Standard and interrupt with Focus or Salvo."
 		_:
 			instruction = "Keep the lantern trained."
-	_hud.flash("LONGSHADOW: %s - %s" % [phase_name, instruction], 3.2)
+	_hud.show_cinematic(
+		"FINAL APPROACH" if phase_name == "VEIL" else "PHASE SHIFT",
+		"THE LONGSHADOW" if phase_name == "VEIL" else phase_name,
+		instruction,
+		1.35
+	)
 	_effects.request_shake(4.0)
 	_effects.request_flash(Color(0.52, 0.12, 0.42, 0.34), 0.65)
+	AudioManager.play("boss_%s" % phase_name.to_lower())
 
 
 func _on_boss_attack(message: String, severity: float) -> void:
 	_hud.flash(message, 2.2)
 	_effects.request_shake(severity)
-	AudioManager.play("alarm" if severity >= 7.0 else "impact")
+	var impact_position: Vector2 = (
+		_longshadow.current_target_position()
+		if _longshadow.phase_name() == "TETHER"
+		else (
+			_train_screen_pos
+			+ Vector2(38.0, -24.0) * _train_visual_scale
+		)
+	)
+	_effects.add_hit(
+		impact_position,
+		PresentationPalette.color(&"shadow_veil", UITheme.high_contrast()),
+		"shadow"
+	)
+	var cue: String
+	if message.contains("CHARGE IMMINENT"):
+		cue = "boss_charge"
+	elif severity >= 7.0:
+		cue = "boss_impact"
+	elif severity <= 2.0:
+		cue = "ward_break"
+	else:
+		cue = "boss_%s" % _longshadow.phase_name().to_lower()
+	AudioManager.play_spatial(cue, _audio_pan(impact_position.x))
 
 
 func _on_boss_defeated() -> void:
@@ -751,8 +991,14 @@ func _on_boss_defeated() -> void:
 	run_state.external_speed_multiplier = 1.0
 	_set_mode(RunMode.TRAVEL)
 	_hud.set_boss_status("")
-	_hud.flash("THE LONGSHADOW FALLS - ride the final 300 m into dawn", 4.5)
+	_hud.show_cinematic(
+		"THE SHADOW BREAKS",
+		"FINAL 300 METERS",
+		"Keep the lantern burning. Ride the line into dawn.",
+		3.4
+	)
 	_effects.request_flash(Color(1.0, 0.82, 0.46, 0.42), 1.4)
+	AudioManager.play("ward_break")
 	_save_checkpoint()
 
 
@@ -770,6 +1016,7 @@ func _on_car_destroyed(display_name: String, evacuated_names: Array) -> void:
 	_hud.show_critical("CAR LOST - %s" % message, 6.0)
 	_effects.request_shake(9.0)
 	_effects.request_flash(Color(0.95, 0.18, 0.12, 0.34), 0.6)
+	AudioManager.play_spatial("detach", -0.58)
 
 
 func _on_car_damaged(
@@ -782,7 +1029,7 @@ func _on_car_damaged(
 	_train_renderer.flash_car(car_id)
 	_effects.add_hit(
 		_train_renderer.car_screen_center(index),
-		Color(1.0, 0.34, 0.18)
+		PresentationPalette.color(&"flame", UITheme.high_contrast())
 	)
 
 
@@ -795,7 +1042,7 @@ func _on_car_critical(car_id: String, display_name: String, index: int) -> void:
 	)
 	_effects.add_hit(
 		_train_renderer.car_screen_center(index),
-		Color(1.0, 0.18, 0.12)
+		PresentationPalette.color(&"danger", UITheme.high_contrast())
 	)
 	_effects.request_shake(7.0)
 	AudioManager.play("alarm")
@@ -819,19 +1066,32 @@ func _on_defense_fired(
 	crewed: bool
 ) -> void:
 	var source: Vector2 = _train_renderer.car_screen_center_by_id(source_car_id)
-	var color: Color = Color(1.0, 0.84, 0.42) if crewed else Color(0.78, 0.68, 0.52)
+	var color: Color = (
+		PresentationPalette.color(&"ember", UITheme.high_contrast())
+		if crewed
+		else PresentationPalette.color(&"bone", UITheme.high_contrast()).darkened(0.28)
+	)
 	_effects.add_tracer(source + Vector2(0.0, -28.0), target_position, color)
+	AudioManager.play_spatial("defense_fire", _audio_pan(source.x))
 
 
 func _on_active_response(position: Vector2, message: String) -> void:
-	_effects.add_hit(position, Color(0.82, 0.62, 1.0))
+	_effects.add_hit(
+		position,
+		PresentationPalette.color(&"shadow_veil", UITheme.high_contrast()),
+		"ward"
+	)
 	_effects.request_flash(Color(0.65, 0.42, 1.0, 0.18), 0.3)
 	_hud.flash(message, 2.2)
-	AudioManager.play("reveal")
+	AudioManager.play_spatial("ward_break", _audio_pan(position.x))
 
 
 func _on_enemy_attack_landed(position: Vector2, _kind: String) -> void:
-	_effects.add_hit(position, Color(1.0, 0.22, 0.16))
+	_effects.add_hit(
+		position,
+		PresentationPalette.color(&"danger", UITheme.high_contrast())
+	)
+	AudioManager.play_spatial("impact", _audio_pan(position.x))
 
 
 func _on_pressure_brake_changed(active: bool) -> void:
@@ -847,9 +1107,13 @@ func _on_threat_announced(kind: String, guidance: String) -> void:
 	if kind == "Ward":
 		run_state.trigger_critical_slow(5.0)
 		_hud.show_critical(guidance, 5.0)
+		AudioManager.play_spatial("ward_warning", 0.82)
 	else:
 		_hud.flash(guidance, 2.5)
-	AudioManager.play("alarm")
+		AudioManager.play_spatial(
+			"threat_%s" % kind.to_lower(),
+			0.82
+		)
 
 
 func _input(event: InputEvent) -> void:
@@ -911,10 +1175,29 @@ func _begin_end(victory_value: bool) -> void:
 		return
 	_end_committed = true
 	_ending_victory = victory_value
-	_ending_timer = VICTORY_REVEAL_SECONDS if victory_value else 0.25
+	_ending_timer = (
+		VICTORY_REVEAL_SECONDS
+		if victory_value
+		else DEFEAT_REVEAL_SECONDS
+	)
 	run_state.victory = victory_value
 	run_state.defeat = not victory_value
 	_set_mode(RunMode.ENDING)
+	_update_presentational_state()
+	if victory_value:
+		_hud.show_cinematic(
+			"JOURNEY COMPLETE",
+			"DAWN BEACON",
+			"The Lantern Line endures. The ledger is being written.",
+			VICTORY_REVEAL_SECONDS - 0.2
+		)
+	else:
+		_hud.show_cinematic(
+			"JOURNEY ENDED",
+			"THE LANTERN FAILS",
+			"The distance is marked. The ledger remembers.",
+			DEFEAT_REVEAL_SECONDS - 0.1
+		)
 	GameManager.record_run_end(run_state.distance, victory_value, run_state.run_seed)
 
 
@@ -952,6 +1235,10 @@ func _gameplay_controls_enabled() -> bool:
 		(_mode == RunMode.TRAVEL or _mode == RunMode.BOSS)
 		and not _overlay_open
 	)
+
+
+func _audio_pan(screen_x: float) -> float:
+	return clampf(screen_x / maxf(1.0, _view_size.x) * 2.0 - 1.0, -1.0, 1.0)
 
 
 func _save_checkpoint() -> void:

@@ -1,0 +1,26 @@
+{
+  "generator": "generate_visual_assets.py",
+  "seed": 1710050,
+  "files": {
+    "grain.png": {
+      "bytes": 20903,
+      "sha256": "410d440392aac895efb5041b0be81cc105ebf87fc2fcaa15d4861d930c8408b2"
+    },
+    "headlight_falloff.png": {
+      "bytes": 7762,
+      "sha256": "688174f4e2f46b9274c4cc01b13668ebcf1c026596aebcada61259c4982e2c09"
+    },
+    "light_radial.png": {
+      "bytes": 6137,
+      "sha256": "b55641e09573f3b34c37b1a6944f9b28338b1c2401dff97e31d72fc317b4a02f"
+    },
+    "soft_particle.png": {
+      "bytes": 1769,
+      "sha256": "e77876dd53be8fea358c2d82a732e41398a31af31280d7ea04fe81fae7dcc553"
+    },
+    "spark.png": {
+      "bytes": 439,
+      "sha256": "a83d815bb59a14b1eab3b0ec6f8046d3de6f7c77b675c7cb990daf2038fe5065"
+    }
+  }
+}

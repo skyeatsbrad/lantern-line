@@ -24,6 +24,8 @@ var _reroll_cost: int = 0
 var _scrap_available: int = 0
 var _input_guard_time: float = 0.0
 var _input_blocker: Control
+var _backdrop: ColorRect
+var _frame: PanelContainer
 
 
 func present(
@@ -42,7 +44,7 @@ func present(
 	_reroll_cost = reroll_cost
 	_scrap_available = scrap_available
 	_selected_index = _band_to_index(initial_band)
-	_input_guard_time = 0.22
+	_input_guard_time = 0.3
 	_build()
 	_active = true
 	visible = true
@@ -66,36 +68,42 @@ func _build() -> void:
 	anchor_right = 1.0
 	anchor_bottom = 1.0
 	mouse_filter = Control.MOUSE_FILTER_PASS
-	var viewport_size: Vector2 = get_viewport_rect().size
-	_compact_layout = (
-		viewport_size.x < 1100.0
-		or viewport_size.y < 620.0
-		or UITheme.text_scale() > 1.15
+	_backdrop = ColorRect.new()
+	_backdrop.color = PresentationPalette.with_alpha(
+		&"night_void",
+		0.62 if UITheme.high_contrast() else 0.5,
+		UITheme.high_contrast()
 	)
+	_backdrop.anchor_right = 1.0
+	_backdrop.anchor_bottom = 1.0
+	_backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(_backdrop)
+	var viewport_size: Vector2 = get_viewport_rect().size
+	_compact_layout = UITheme.compact_layout(viewport_size)
 	var text_scale: float = UITheme.text_scale()
 	var half_width := minf(
 		430.0 * text_scale,
 		viewport_size.x * (0.46 if _compact_layout else 0.4)
 	)
 	var half_height := minf(
-		210.0 * text_scale,
-		viewport_size.y * 0.46
+		(160.0 if _compact_layout else 210.0) * text_scale,
+		viewport_size.y * (0.4 if _compact_layout else 0.46)
 	)
 
-	var frame := PanelContainer.new()
-	frame.anchor_left = 1.0
-	frame.anchor_right = 1.0
-	frame.anchor_top = 0.5
-	frame.anchor_bottom = 0.5
-	frame.offset_left = -half_width
-	frame.offset_right = -12.0 if _compact_layout else -24.0
-	frame.offset_top = -half_height
-	frame.offset_bottom = half_height
-	add_child(frame)
+	_frame = PanelContainer.new()
+	_frame.anchor_left = 1.0
+	_frame.anchor_right = 1.0
+	_frame.anchor_top = 0.46 if _compact_layout else 0.5
+	_frame.anchor_bottom = _frame.anchor_top
+	_frame.offset_left = -half_width
+	_frame.offset_right = -12.0 if _compact_layout else -24.0
+	_frame.offset_top = -half_height
+	_frame.offset_bottom = half_height
+	add_child(_frame)
 
 	var root := VBoxContainer.new()
 	root.add_theme_constant_override("separation", 6 if _compact_layout else 10)
-	frame.add_child(root)
+	_frame.add_child(root)
 
 	var heading := Label.new()
 	heading.text = "ROUTE PROJECTION - %s LENS" % _lens_key.to_upper()
@@ -183,6 +191,11 @@ func _build() -> void:
 	set_reroll_state(_reroll_allowed, _reroll_cost, _scrap_available)
 	_add_input_blocker()
 	_refresh_selection()
+	UITheme.animate_panel_in(
+		_frame,
+		_backdrop,
+		Vector2(18.0, 0.0)
+	)
 
 
 func _add_input_blocker() -> void:
@@ -318,9 +331,17 @@ func _select(index: int) -> void:
 	if not _active or index < 0 or index >= _choices.size():
 		return
 	_active = false
-	visible = false
 	AudioManager.play("click")
-	emit_signal("chosen", _choices[index])
+	var selected_event: Dictionary = _choices[index].duplicate(true)
+	var tween: Tween = UITheme.animate_panel_out(
+		_frame,
+		_backdrop,
+		Vector2(18.0, 0.0),
+		UITheme.MODAL_EXIT_SECONDS
+	)
+	await tween.finished
+	visible = false
+	emit_signal("chosen", selected_event)
 	emit_signal("closed")
 
 

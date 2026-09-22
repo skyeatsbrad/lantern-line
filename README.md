@@ -6,6 +6,29 @@ A fortress-train survival strategy game through a world without sunlight, built 
 
 ![The Lantern Line gameplay](assets/screenshots/gameplay.png)
 
+## v0.6 - September 22, 2026
+
+The v0.6 release completes a ground-up audiovisual and interface remaster while
+preserving the deterministic strategy game:
+
+- Rebuilt the world, train, threats, effects, and Longshadow around the original
+  **Coal-lit Ink & Brass** visual language.
+- Added an original six-state, 72 BPM score, procedural train ambience, victory
+  and defeat stingers, and 70 deterministic sound effects.
+- Added independent Master, Music, Ambience, SFX, and UI volume controls with
+  browser-safe audio activation.
+- Added distinct enemy silhouettes, readable attack telegraphs, Shadow Ward
+  presentation, and phase-specific Longshadow visuals.
+- Added responsive train and world framing for five-car consists at desktop and
+  compact sizes without placing combat silhouettes behind the HUD.
+- Rebuilt route, station, HUD, boss-card, scene-transition, and ending flows
+  around clear hierarchy, keyboard focus, and bounded animation timing.
+- Rebuilt the Dawn and Last Light Ledgers as responsive metric cards and
+  structured journey reports with a fixed Return to Title action.
+- Preserved High Contrast, 100%/115%/130% text, Reduced Motion, Reduced
+  Flashes, independent screen shake, and non-audio equivalents for every
+  critical cue.
+
 ## v0.5 - September 21, 2026
 
 The v0.5 release locks the core mechanics and focuses on onboarding, presentation, and accessibility:

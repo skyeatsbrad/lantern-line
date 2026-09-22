@@ -11,6 +11,10 @@ signal settings_changed()
 
 const DEFAULT_SETTINGS: Dictionary = {
 	"master_volume": 0.8,
+	"music_volume": 0.72,
+	"ambience_volume": 0.72,
+	"sfx_volume": 0.86,
+	"ui_volume": 0.82,
 	"screen_shake": true,
 	"reduced_motion": false,
 	"reduced_flashes": false,
@@ -177,7 +181,8 @@ func _normalize_settings() -> void:
 
 func _normalize_setting(key: String, value: Variant) -> Variant:
 	match key:
-		"master_volume":
+		"master_volume", "music_volume", "ambience_volume", "sfx_volume", \
+		"ui_volume":
 			return clampf(float(value), 0.0, 1.0)
 		"text_scale":
 			var requested: float = clampf(float(value), 1.0, 1.3)

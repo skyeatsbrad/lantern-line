@@ -85,26 +85,18 @@ func _build() -> void:
 	var audio_card := _add_card(
 		body,
 		"AUDIO",
-		"Adjust all ambient sound, warnings, and action cues."
+		"Adjust the overall mix or tune music, train ambience, action cues, and UI separately."
 	)
-	var volume_row := HBoxContainer.new()
-	volume_row.add_theme_constant_override("separation", 12)
-	audio_card.add_child(volume_row)
-	var volume_label := Label.new()
-	volume_label.text = "Master volume"
-	volume_label.custom_minimum_size = Vector2(150.0, 0.0)
-	volume_row.add_child(volume_label)
-	var volume_slider := HSlider.new()
-	volume_slider.min_value = 0.0
-	volume_slider.max_value = 1.0
-	volume_slider.step = 0.05
-	volume_slider.value = float(GameManager.get_setting("master_volume", 0.8))
-	volume_slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	volume_slider.value_changed.connect(func(value: float) -> void:
-		GameManager.set_setting("master_volume", value)
+	_first_focus = _add_volume_slider(
+		audio_card,
+		"Master volume",
+		"master_volume",
+		0.8
 	)
-	volume_row.add_child(volume_slider)
-	_first_focus = volume_slider
+	_add_volume_slider(audio_card, "Music", "music_volume", 0.72)
+	_add_volume_slider(audio_card, "Train & ambience", "ambience_volume", 0.72)
+	_add_volume_slider(audio_card, "Combat & actions", "sfx_volume", 0.86)
+	_add_volume_slider(audio_card, "Interface", "ui_volume", 0.82)
 
 	var reading_card := _add_card(
 		body,
@@ -220,6 +212,32 @@ func _add_card(parent: VBoxContainer, heading: String, description: String) -> V
 	detail.add_theme_color_override("font_color", UITheme.muted_text_color())
 	content.add_child(detail)
 	return content
+
+
+func _add_volume_slider(
+	parent: VBoxContainer,
+	label_text: String,
+	setting_key: String,
+	default_value: float
+) -> HSlider:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 12)
+	parent.add_child(row)
+	var label := Label.new()
+	label.text = label_text
+	label.custom_minimum_size = Vector2(170.0, 0.0)
+	row.add_child(label)
+	var slider := HSlider.new()
+	slider.min_value = 0.0
+	slider.max_value = 1.0
+	slider.step = 0.05
+	slider.value = float(GameManager.get_setting(setting_key, default_value))
+	slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	slider.value_changed.connect(func(value: float) -> void:
+		GameManager.set_setting(setting_key, value)
+	)
+	row.add_child(slider)
+	return slider
 
 
 func _focus_first_control() -> void:

@@ -19,6 +19,8 @@ var _scroll_positions: Dictionary = {}
 var _input_guard_time: float = 0.0
 var _input_blocker: Control
 var _leave_button: Button
+var _backdrop: ColorRect
+var _frame: PanelContainer
 
 
 func present(run_state: RunState) -> void:
@@ -28,13 +30,13 @@ func present(run_state: RunState) -> void:
 	_departure_armed = false
 	_selected_tab = 0
 	_scroll_positions.clear()
-	_input_guard_time = 0.22
+	_input_guard_time = 0.3
 	_build()
 	visible = true
 	_open = true
 	set_process(true)
 	set_process_input(true)
-	AudioManager.play("reveal")
+	AudioManager.play("station_enter")
 
 
 func rebuild() -> void:
@@ -53,36 +55,35 @@ func _build() -> void:
 	anchor_right = 1.0
 	anchor_bottom = 1.0
 
-	var backdrop := ColorRect.new()
-	backdrop.color = Color(0.0, 0.0, 0.0, 0.68)
-	backdrop.anchor_right = 1.0
-	backdrop.anchor_bottom = 1.0
-	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
-	add_child(backdrop)
+	_backdrop = ColorRect.new()
+	_backdrop.color = Color(0.0, 0.0, 0.0, 0.68)
+	_backdrop.anchor_right = 1.0
+	_backdrop.anchor_bottom = 1.0
+	_backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(_backdrop)
 
 	var viewport_size := get_viewport_rect().size
 	_compact_layout = (
-		viewport_size.x < 1100.0
+		UITheme.compact_layout(viewport_size)
 		or viewport_size.y < 650.0
-		or UITheme.text_scale() > 1.15
 	)
 	var half_width := minf(530.0, viewport_size.x * 0.48)
 	var half_height := minf(330.0, viewport_size.y * 0.46)
 	_content_width = half_width * 2.0 - 24.0
-	var frame := PanelContainer.new()
-	frame.anchor_left = 0.5
-	frame.anchor_right = 0.5
-	frame.anchor_top = 0.5
-	frame.anchor_bottom = 0.5
-	frame.offset_left = -half_width
-	frame.offset_right = half_width
-	frame.offset_top = -half_height
-	frame.offset_bottom = half_height
-	add_child(frame)
+	_frame = PanelContainer.new()
+	_frame.anchor_left = 0.5
+	_frame.anchor_right = 0.5
+	_frame.anchor_top = 0.5
+	_frame.anchor_bottom = 0.5
+	_frame.offset_left = -half_width
+	_frame.offset_right = half_width
+	_frame.offset_top = -half_height
+	_frame.offset_bottom = half_height
+	add_child(_frame)
 
 	var root := VBoxContainer.new()
 	root.add_theme_constant_override("separation", 8)
-	frame.add_child(root)
+	_frame.add_child(root)
 	_build_header(root)
 	_build_train_summary(root)
 
@@ -116,6 +117,7 @@ func _build() -> void:
 	if _input_guard_time > 0.0:
 		_add_input_blocker()
 	call_deferred("_restore_scroll_positions")
+	UITheme.animate_panel_in(_frame, _backdrop)
 
 
 func _add_tab(tab_name: String) -> VBoxContainer:
@@ -512,7 +514,7 @@ func _apply_transaction(result: Dictionary, before: Dictionary) -> void:
 		AudioManager.play("click")
 		emit_signal("state_changed")
 	else:
-		AudioManager.play("alarm")
+		AudioManager.play("ui_reject")
 	_build()
 
 
@@ -589,8 +591,15 @@ func _close() -> void:
 		_build()
 		return
 	_open = false
-	visible = false
 	AudioManager.play("click")
+	var tween: Tween = UITheme.animate_panel_out(
+		_frame,
+		_backdrop,
+		Vector2(0.0, 12.0),
+		UITheme.MODAL_EXIT_SECONDS
+	)
+	await tween.finished
+	visible = false
 	emit_signal("closed")
 
 

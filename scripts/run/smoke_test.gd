@@ -19,6 +19,10 @@ func run(_host: Node) -> void:
 	print("[smoke] starting")
 	_test_data_load()
 	_test_accessibility_settings(_host)
+	_test_presentation_foundation(_host)
+	await _test_responsive_ui(_host)
+	await _test_scene_transition(_host)
+	_test_world_route_context(_host)
 	_test_route_generation()
 	_test_run_state_tick()
 	_test_priority_fail_safes()
@@ -38,7 +42,7 @@ func run(_host: Node) -> void:
 	_test_deterministic_damage()
 	_test_save_roundtrip()
 	_test_v1_save_migration()
-	_test_mode_boundaries(_host)
+	await _test_mode_boundaries(_host)
 	_test_hold_to_detach(_host)
 	_test_boss_resume(_host)
 	_test_boss_phase_pacing()
@@ -174,6 +178,509 @@ func _test_accessibility_settings(host: Node) -> void:
 	GameManager.settings = saved_settings
 	GameManager.emit_signal("settings_changed")
 	GameManager.call("_save")
+
+
+func _test_presentation_foundation(host: Node) -> void:
+	var saved_settings: Dictionary = GameManager.settings.duplicate(true)
+	for setting_key in [
+		"master_volume",
+		"music_volume",
+		"ambience_volume",
+		"sfx_volume",
+		"ui_volume"
+	]:
+		GameManager.set_setting(setting_key, 1.4)
+		_expect(
+			is_equal_approx(float(GameManager.get_setting(setting_key, -1.0)), 1.0),
+			"%s was not clamped to the volume range" % setting_key
+		)
+		GameManager.set_setting(setting_key, -0.4)
+		_expect(
+			is_equal_approx(float(GameManager.get_setting(setting_key, -1.0)), 0.0),
+			"%s was not clamped to the volume range" % setting_key
+		)
+
+	for bus_name in ["Master", "Music", "Ambience", "SFX", "UI"]:
+		_expect(
+			AudioServer.get_bus_index(bus_name) >= 0,
+			"%s audio bus was not available" % bus_name
+		)
+
+	_expect(UITheme.body_font() != null, "Atkinson body font was not loaded")
+	_expect(UITheme.bold_font() != null, "Atkinson bold font was not loaded")
+	_expect(UITheme.display_font() != null, "Bitter display font was not loaded")
+	var display_font := UITheme.display_font() as FontVariation
+	var weight_tag: int = (
+		TextServerManager.get_primary_interface().name_to_tag("wght")
+	)
+	_expect(
+		display_font != null
+		and is_equal_approx(
+			float(display_font.variation_opentype.get(weight_tag, 0.0)),
+			600.0
+		),
+		"Bitter display font did not resolve to SemiBold"
+	)
+	_expect(
+		PresentationPalette.color(&"brass", false)
+		!= PresentationPalette.color(&"brass", true),
+		"high-contrast palette did not provide a distinct brass color"
+	)
+	_expect(
+		ResourceLoader.exists("res://assets/generated/visual/grain.png"),
+		"generated grain texture was not imported"
+	)
+	for audio_path in [
+		"res://assets/generated/audio/ui_click_01.wav",
+		"res://assets/generated/audio/critical_alarm_01.wav",
+		"res://assets/generated/audio/impact_01.wav",
+		"res://assets/generated/audio/threat_pursuer_01.wav",
+		"res://assets/generated/audio/boss_charge_01.wav",
+		"res://assets/generated/audio/music_title.ogg",
+		"res://assets/generated/audio/music_travel_calm.ogg",
+		"res://assets/generated/audio/music_travel_tension.ogg",
+		"res://assets/generated/audio/music_station.ogg",
+		"res://assets/generated/audio/music_longshadow.ogg",
+		"res://assets/generated/audio/music_dawn.ogg",
+		"res://assets/generated/audio/victory_stinger.ogg",
+		"res://assets/generated/audio/defeat_stinger.ogg"
+	]:
+		_expect(
+			ResourceLoader.exists(audio_path),
+			"generated audio was not imported: %s" % audio_path
+		)
+	for cue_name in [
+		"click",
+		"ui_reject",
+		"alarm",
+		"impact",
+		"salvo",
+		"defense_fire",
+		"repair",
+		"overcharge",
+		"flare",
+		"detach",
+		"focus",
+		"ward_break",
+		"ward_warning",
+		"route_commit",
+		"station_enter",
+		"threat_pursuer",
+		"threat_boarder",
+		"threat_drainer"
+	]:
+		_expect(
+			AudioManager.variant_count(cue_name) >= 3,
+			"%s did not provide three deterministic variants" % cue_name
+		)
+	for boss_cue in ["boss_veil", "boss_tether", "boss_charge", "boss_impact"]:
+		_expect(
+			AudioManager.variant_count(boss_cue) >= 3,
+			"%s did not provide three deterministic variants" % boss_cue
+		)
+	for bus_name in ["SFX Left", "SFX Center", "SFX Right"]:
+		_expect(
+			AudioServer.get_bus_index(bus_name) >= 0,
+			"%s positional cue bus was not available" % bus_name
+		)
+	var audio_snapshot: Dictionary = AudioManager.debug_snapshot()
+	_expect(
+		not bool(audio_snapshot.get("user_gestured", true)),
+		"audio began before intentional user input"
+	)
+	_expect(
+		int(audio_snapshot.get("active_voices", -1)) == 0,
+		"audio voices were active before intentional user input"
+	)
+	_expect(AudioManager.music_state_count() == 6, "score did not expose six music states")
+	_expect(AudioManager.voice_capacity() == 16, "audio voice ceiling changed")
+	_expect(
+		is_equal_approx(AudioManager.MUSIC_CROSSFADE_SECONDS, 1.8),
+		"music crossfade duration changed from the 1.8-second design value"
+	)
+	var audio_manifest: Dictionary = _load_json(
+		"res://assets/generated/audio/manifest.json"
+	)
+	_expect(
+		int(audio_manifest.get("total_bytes", 0)) < 8 * 1024 * 1024,
+		"generated audio exceeded the 8 MB production target"
+	)
+	var audio_groups: Dictionary = audio_manifest.get("groups", {})
+	_expect(
+		not audio_groups.has("mechanical_tick"),
+		"audio manifest retained the unused standalone mechanical tick group"
+	)
+	_expect(
+		String(audio_manifest.get("license", "")).contains("no external samples"),
+		"audio manifest did not record original-source provenance"
+	)
+
+	var panel := SettingsPanel.new()
+	host.add_child(panel)
+	panel.present()
+	_expect(
+		_count_nodes_of_type(panel, "HSlider") >= 5,
+		"settings panel did not expose five independent volume controls"
+	)
+	panel.free()
+
+	var configs: Dictionary = _mk_configs()
+	var run_state := RunState.new()
+	run_state.setup(2468, configs)
+	var director := PresentationDirector.new()
+	director.setup(run_state, Vector2(1280.0, 720.0))
+	host.add_child(director)
+	director.update_state("boss", 8, 10, true, "The Grasp", 0.0)
+	var state: Dictionary = director.snapshot()
+	_expect(float(state.get("tension", 0.0)) > 0.8, "boss state did not raise tension")
+	_expect(String(state.get("music_state", "")) == "longshadow", "boss music state was not derived")
+	_expect(int(state.get("quality_tier", -1)) == 2, "desktop quality tier was not selected")
+	run_state.victory = false
+	director.update_state("ending", 0, 10, false, "", 0.0)
+	_expect(
+		String(director.snapshot().get("music_state", "")) == "silence",
+		"defeat presentation did not silence the travel score"
+	)
+	run_state.victory = true
+	director.update_state("ending", 0, 10, false, "", 1.0)
+	_expect(
+		String(director.snapshot().get("music_state", "")) == "dawn",
+		"victory presentation did not select the dawn score"
+	)
+	director.free()
+
+	var metrics := PresentationMetrics.new()
+	host.add_child(metrics)
+	metrics.sample_now()
+	var metrics_snapshot: Dictionary = metrics.snapshot()
+	_expect(metrics_snapshot.has("fps"), "presentation metrics omitted FPS")
+	_expect(metrics_snapshot.has("draw_calls"), "presentation metrics omitted draw calls")
+	_expect(
+		int(metrics_snapshot.get("audio_voices", -1)) >= 0,
+		"presentation metrics returned an invalid voice count"
+	)
+	metrics.free()
+
+	var effects_a := EffectsLayer.new()
+	var effects_b := EffectsLayer.new()
+	effects_a.setup(7722)
+	effects_b.setup(7722)
+	effects_a.add_hit(Vector2(10.0, 20.0), Color.WHITE, "ward")
+	effects_b.add_hit(Vector2(10.0, 20.0), Color.WHITE, "ward")
+	var hit_a: Dictionary = (effects_a.get("_hits") as Array)[0]
+	var hit_b: Dictionary = (effects_b.get("_hits") as Array)[0]
+	_expect(
+		is_equal_approx(float(hit_a.get("size", 0.0)), float(hit_b.get("size", -1.0)))
+		and is_equal_approx(
+			float(hit_a.get("angle", 0.0)),
+			float(hit_b.get("angle", -1.0))
+		)
+		and int(hit_a.get("spokes", 0)) == int(hit_b.get("spokes", -1)),
+		"seeded combat effects were not deterministic"
+	)
+	for index in range(EffectsLayer.MAX_HITS + 5):
+		effects_a.add_hit(Vector2(float(index), 0.0))
+	_expect(
+		(effects_a.get("_hits") as Array).size() == EffectsLayer.MAX_HITS,
+		"combat hit pool exceeded its fixed cap"
+	)
+	effects_a.free()
+	effects_b.free()
+
+	GameManager.settings = saved_settings
+	GameManager.emit_signal("settings_changed")
+	GameManager.call("_save")
+
+
+func _test_responsive_ui(host: Node) -> void:
+	var saved_settings: Dictionary = GameManager.settings.duplicate(true)
+	GameManager.settings["text_scale"] = 1.3
+	GameManager.settings["high_contrast"] = true
+	GameManager.settings["reduced_motion"] = true
+	GameManager.settings["reduced_flashes"] = true
+	GameManager.settings["screen_shake"] = false
+	GameManager.emit_signal("settings_changed")
+
+	var scene: PackedScene = load("res://scenes/game_world.tscn")
+	var world: Node = scene.instantiate()
+	host.add_child(world)
+	world.call("bootstrap", 4242, {})
+	var layout: Dictionary = world.call(
+		"calculate_world_layout",
+		Vector2(960.0, 540.0),
+		RunState.MAX_SLOT_CAPACITY
+	)
+	var train_position: Vector2 = layout.get("train_position", Vector2.ZERO)
+	var train_scale: float = float(layout.get("train_scale", 0.0))
+	var safe_bottom: float = float(layout.get("safe_bottom", 0.0))
+	_expect(
+		float(layout.get("rear_left", -1.0)) >= 12.0,
+		"five-car consist crossed the compact viewport edge"
+	)
+	_expect(
+		train_position.x + TrainRenderer.LOCO_WIDTH * 0.5 * train_scale
+		<= 948.0,
+		"locomotive crossed the compact viewport edge"
+	)
+	_expect(
+		float(layout.get("train_floor", INF)) <= safe_bottom,
+		"train wheels entered the compact HUD safe area"
+	)
+	var director: EnemyDirector = world.get("_enemy_director") as EnemyDirector
+	if director != null:
+		director.set_world_layout(
+			Vector2(960.0, 540.0),
+			train_position,
+			train_scale
+		)
+		var pursuer_target: Vector2 = director.call("_rear_target")
+		_expect(
+			pursuer_target.y + 25.0 <= safe_bottom,
+			"Pursuer legs entered the compact HUD safe area"
+		)
+
+	var hud: HUD = world.get("_hud") as HUD
+	hud.flash("NORMAL", 4.0)
+	_expect(
+		bool((hud.get("_notification_panel") as Control).visible),
+		"normal HUD notification did not appear"
+	)
+	hud.show_cinematic("PHASE", "TETHER", "Hold the beam.", 1.0)
+	_expect(
+		hud.cinematic_visible()
+		and not bool((hud.get("_notification_panel") as Control).visible),
+		"cinematic HUD message did not suppress normal notification"
+	)
+	hud.show_critical("CRITICAL", 4.0)
+	_expect(
+		bool((hud.get("_critical_panel") as Control).visible)
+		and not hud.cinematic_visible(),
+		"critical HUD message did not override cinematic presentation"
+	)
+
+	var choices: Array = [
+		{
+			"title": "Upper",
+			"position": "upper",
+			"category": "living",
+			"description": "A safe upper route.",
+			"summary": "Supplies +4",
+			"danger": 0
+		},
+		{
+			"title": "Middle",
+			"position": "middle",
+			"category": "machinery",
+			"description": "A useful middle route.",
+			"summary": "Scrap +4",
+			"danger": 1
+		},
+		{
+			"title": "Lower",
+			"position": "lower",
+			"category": "danger",
+			"description": "A dangerous lower route.",
+			"summary": "Power +4",
+			"danger": 2
+		}
+	]
+	var route := RouteChoice.new()
+	host.add_child(route)
+	route.present(choices, "Standard")
+	await get_tree().process_frame
+	route.call("_process", 1.0)
+	await get_tree().process_frame
+	_expect(
+		get_viewport().gui_get_focus_owner() == route.get("_commit_button"),
+		"route commitment did not receive keyboard focus"
+	)
+	var route_choices: Array = []
+	route.chosen.connect(
+		func(choice: Dictionary) -> void: route_choices.append(choice)
+	)
+	route.call("_select", 1)
+	route.call("_select", 2)
+	await get_tree().create_timer(0.16).timeout
+	_expect(
+		route_choices.size() == 1,
+		"route exit transition accepted duplicate input"
+	)
+	route.free()
+
+	var station := StationPanel.new()
+	host.add_child(station)
+	var station_closed: Array = []
+	station.closed.connect(func() -> void: station_closed.append(true))
+	station.present(world.get("run_state") as RunState)
+	await get_tree().process_frame
+	station.call("_process", 1.0)
+	await get_tree().process_frame
+	_expect(
+		get_viewport().gui_get_focus_owner() == station.get("_tabs"),
+		"station tabs did not receive keyboard focus"
+	)
+	station.call("_close")
+	station.call("_close")
+	await get_tree().create_timer(0.16).timeout
+	_expect(
+		station_closed.size() == 1,
+		"station exit transition accepted duplicate input"
+	)
+	station.free()
+
+	GameManager.settings["reduced_motion"] = false
+	GameManager.emit_signal("settings_changed")
+	_expect(
+		UITheme.MODAL_EXIT_SECONDS >= 0.25
+		and UITheme.MODAL_EXIT_SECONDS <= 0.5,
+		"full-motion route/station exit fell outside 0.25-0.5 seconds"
+	)
+
+	var timed_route := RouteChoice.new()
+	host.add_child(timed_route)
+	var timed_route_choices: Array = []
+	timed_route.chosen.connect(
+		func(choice: Dictionary) -> void: timed_route_choices.append(choice)
+	)
+	timed_route.present(choices, "Standard")
+	timed_route.call("_select", 1)
+	await get_tree().create_timer(0.2).timeout
+	_expect(
+		timed_route_choices.is_empty(),
+		"full-motion route exit completed before 0.25 seconds"
+	)
+	await get_tree().create_timer(0.12).timeout
+	_expect(
+		timed_route_choices.size() == 1,
+		"full-motion route exit did not complete within 0.5 seconds"
+	)
+	timed_route.free()
+
+	var timed_station := StationPanel.new()
+	host.add_child(timed_station)
+	var timed_station_closed: Array = []
+	timed_station.closed.connect(
+		func() -> void: timed_station_closed.append(true)
+	)
+	timed_station.present(world.get("run_state") as RunState)
+	timed_station.call("_close")
+	await get_tree().create_timer(0.2).timeout
+	_expect(
+		timed_station_closed.is_empty(),
+		"full-motion station exit completed before 0.25 seconds"
+	)
+	await get_tree().create_timer(0.12).timeout
+	_expect(
+		timed_station_closed.size() == 1,
+		"full-motion station exit did not complete within 0.5 seconds"
+	)
+	timed_station.free()
+
+	var end_screen := EndScreen.new()
+	host.add_child(end_screen)
+	end_screen.show_end(true, world.get("run_state") as RunState)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var return_button: Button = end_screen.get("_return_button") as Button
+	_expect(
+		return_button != null
+		and return_button.visible
+		and get_viewport().gui_get_focus_owner() == return_button,
+		"ending action was not visible and keyboard-focused"
+	)
+	if return_button != null:
+		_expect(
+			return_button.get_global_rect().end.y
+			<= get_viewport().get_visible_rect().size.y,
+			"ending action fell below the viewport"
+		)
+	end_screen.free()
+
+	var constants: Dictionary = (
+		world.get_script() as Script
+	).get_script_constant_map()
+	_expect(
+		is_equal_approx(
+			float(constants.get("DEFEAT_REVEAL_SECONDS", 0.0)),
+			1.6
+		),
+		"defeat reveal duration changed from 1.6 seconds"
+	)
+	world.free()
+	GameManager.settings = saved_settings
+	GameManager.emit_signal("settings_changed")
+	GameManager.call("_save")
+
+
+func _test_scene_transition(host: Node) -> void:
+	var constants: Dictionary = (
+		host.get_script() as Script
+	).get_script_constant_map()
+	_expect(
+		is_equal_approx(
+			float(constants.get("SCENE_FADE_SECONDS", 0.0)),
+			0.28
+		),
+		"scene fade duration changed from 0.28 seconds"
+	)
+	_expect(
+		is_equal_approx(
+			float(constants.get("REDUCED_SCENE_FADE_SECONDS", 0.0)),
+			0.12
+		),
+		"reduced-motion scene fade changed from 0.12 seconds"
+	)
+	await host.call("_fade_scene", true)
+	var transition_rect: ColorRect = host.get("_transition_rect") as ColorRect
+	_expect(
+		transition_rect != null
+		and is_equal_approx(transition_rect.modulate.a, 1.0),
+		"scene transition did not reach a full cover"
+	)
+	await host.call("_fade_scene", false)
+	await get_tree().process_frame
+	_expect(
+		host.get("_transition_layer") == null,
+		"scene transition overlay was not released"
+	)
+
+
+func _test_world_route_context(host: Node) -> void:
+	var scene: PackedScene = load("res://scenes/game_world.tscn")
+	var world: Node = scene.instantiate()
+	host.add_child(world)
+	world.call("bootstrap", 2469, {})
+	var run_state: RunState = world.get("run_state") as RunState
+	run_state.route_history = ["danger_black_rain"]
+	world.call("_refresh_route_context")
+	var context: Dictionary = world.get("_route_context")
+	_expect(
+		String(context.get("category", "")) == "danger",
+		"route context did not resolve the latest event category"
+	)
+	_expect(
+		String(context.get("event_id", "")) == "danger_black_rain",
+		"route context did not retain the latest event id"
+	)
+	_expect(
+		int(context.get("danger", 0)) == 2,
+		"route context did not retain the latest danger level"
+	)
+	run_state.route_history = ["missing_route_event"]
+	world.call("_refresh_route_context")
+	context = world.get("_route_context")
+	_expect(
+		String(context.get("category", "")) == "neutral",
+		"unknown route context did not fall back to neutral"
+	)
+	world.free()
+
+
+func _count_nodes_of_type(root: Node, class_type: String) -> int:
+	var count: int = 1 if root.is_class(class_type) else 0
+	for child in root.get_children():
+		count += _count_nodes_of_type(child, class_type)
+	return count
 
 
 func _test_route_generation() -> void:
@@ -668,7 +1175,7 @@ func _test_mode_boundaries(host: Node) -> void:
 	_expect(not bool(route_world.get("_overlay_open")), "route options did not close")
 	_expect(bool(route_world.get("_reveal_open")), "closing options dismissed route reveal")
 	var route_choice: RouteChoice = route_world.get("_route_choice") as RouteChoice
-	route_choice.call("_select", 0)
+	await route_choice.call("_select", 0)
 	_expect(route_state.reveal_index == 1, "route index did not advance after commitment")
 	route_world.free()
 	GameManager.pending_run = saved_pending
@@ -737,6 +1244,14 @@ func _test_boss_resume(host: Node) -> void:
 
 
 func _test_boss_phase_pacing() -> void:
+	_expect(
+		is_equal_approx(LongshadowEncounter.ENTRANCE_DURATION, 3.0),
+		"Longshadow entrance duration no longer matches the presentation contract"
+	)
+	_expect(
+		is_equal_approx(LongshadowEncounter.TRANSITION_DURATION, 2.5),
+		"Longshadow transition duration no longer matches the presentation contract"
+	)
 	var rs := RunState.new()
 	rs.setup(993, _mk_configs())
 	rs.set_priority("light", 3)
@@ -747,6 +1262,13 @@ func _test_boss_phase_pacing() -> void:
 	rs.focus_cooldown = 99.0
 	rs.defense_salvo_cooldown = 99.0
 	encounter.start()
+	_expect(
+		is_equal_approx(
+			float(encounter.checkpoint_state().get("transition_timer", 0.0)),
+			LongshadowEncounter.ENTRANCE_DURATION
+		),
+		"Longshadow entrance gate changed from 3.0 seconds"
+	)
 	_expect(
 		rs.focus_cooldown <= 0.0 and rs.defense_salvo_cooldown <= 0.0,
 		"Longshadow phase did not ready its active responses"
@@ -787,6 +1309,13 @@ func _test_boss_phase_pacing() -> void:
 	rs.focus_active_time = 100.0
 	encounter.advance(1.0, profile, rs.stats())
 	_expect(encounter.phase_name() == "TETHER", "Longshadow Veil did not advance after its duration")
+	_expect(
+		is_equal_approx(
+			float(encounter.checkpoint_state().get("transition_timer", 0.0)),
+			LongshadowEncounter.TRANSITION_DURATION
+		),
+		"Longshadow phase transition gate changed from 2.5 seconds"
+	)
 	encounter.free()
 
 	var charge := LongshadowEncounter.new()
@@ -879,7 +1408,11 @@ func _test_campaign_flow(host: Node) -> void:
 		director.call("_process", 0.25)
 		if bool(world.get("_reveal_open")):
 			var choices: Array = route_choice.get("_choices")
-			route_choice.call("_select", _campaign_choice_index(choices, rs))
+			_commit_route_immediately(
+				world,
+				route_choice,
+				_campaign_choice_index(choices, rs)
+			)
 			route_commits += 1
 		if bool(world.get("_station_open")):
 			var car_count_before: int = rs.cars.size()
@@ -890,7 +1423,7 @@ func _test_campaign_flow(host: Node) -> void:
 				var rear_type: String = String(rs.cars.back().get("type", ""))
 				station.call("_try_reorder")
 				reordered = String(rs.cars.front().get("type", "")) == rear_type
-			station.call("_close")
+			_close_station_immediately(world, station)
 		if rs.boss_triggered and not boss_tactics_set:
 			rs.set_priority("engine", 0)
 			rs.set_priority("light", 3)
@@ -1050,10 +1583,10 @@ func _run_campaign_scenario(host: Node, seed_value: int, strategy: String) -> Di
 			var choice_index := _strategy_choice_index(choices, rs, strategy)
 			danger_committed += int((choices[choice_index] as Dictionary).get("danger", 0))
 			route_commits += 1
-			route_choice.call("_select", choice_index)
+			_commit_route_immediately(world, route_choice, choice_index)
 		if bool(world.get("_station_open")):
 			station_action = _apply_station_strategy(rs, strategy)
-			station.call("_close")
+			_close_station_immediately(world, station)
 		if rs.boss_triggered:
 			_apply_strategy_priorities(rs, strategy, true)
 		iterations += 1
@@ -1079,6 +1612,33 @@ func _run_campaign_scenario(host: Node, seed_value: int, strategy: String) -> Di
 	}
 	world.free()
 	return result
+
+
+func _commit_route_immediately(
+	world: Node,
+	route_choice: RouteChoice,
+	choice_index: int
+) -> void:
+	var choices: Array = route_choice.get("_choices")
+	if choices.is_empty():
+		return
+	var safe_index: int = clampi(choice_index, 0, choices.size() - 1)
+	route_choice.set("_active", false)
+	route_choice.visible = false
+	world.call(
+		"_on_route_chosen",
+		(choices[safe_index] as Dictionary).duplicate(true)
+	)
+	world.call("_on_reveal_closed")
+
+
+func _close_station_immediately(
+	world: Node,
+	station: StationPanel
+) -> void:
+	station.set("_open", false)
+	station.visible = false
+	world.call("_on_station_closed")
 
 
 func _apply_strategy_priorities(rs: RunState, strategy: String, boss: bool) -> void:
