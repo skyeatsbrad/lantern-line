@@ -18,6 +18,7 @@ var _scene_transitioning: bool = false
 
 
 func _ready() -> void:
+	WebPlatformBridge.configure_runtime()
 	var capture_path: String = OS.get_environment("LANTERN_CAPTURE_TITLE")
 	if not capture_path.is_empty():
 		_prepare_title_capture()
@@ -67,6 +68,7 @@ func _ready() -> void:
 	if not get_viewport().size_changed.is_connected(_on_title_viewport_changed):
 		get_viewport().size_changed.connect(_on_title_viewport_changed)
 	_build_title()
+	WebPlatformBridge.notify_game_ready()
 	if not capture_path.is_empty():
 		var capture_watchdog := Timer.new()
 		capture_watchdog.wait_time = 6.0
@@ -83,10 +85,12 @@ func _should_run_smoke_test() -> bool:
 	var args: PackedStringArray = OS.get_cmdline_args()
 	for a in args:
 		if a == "--smoke-test" or a == "smoke-test":
+			OS.set_environment("LANTERN_SMOKE", "1")
 			return true
 	var user_args: PackedStringArray = OS.get_cmdline_user_args()
 	for a in user_args:
 		if a == "--smoke-test" or a == "smoke-test":
+			OS.set_environment("LANTERN_SMOKE", "1")
 			return true
 	return false
 
@@ -143,11 +147,19 @@ func _build_title() -> void:
 
 	var vbox: VBoxContainer = VBoxContainer.new()
 	var viewport_size: Vector2 = get_viewport_rect().size
+	var touch_layout := UITheme.touch_layout(viewport_size)
 	var compact: bool = UITheme.compact_layout(viewport_size)
-	var half_width: float = minf(360.0, viewport_size.x * 0.46)
+	var comfort := UITheme.comfort_insets(viewport_size)
+	var half_width: float = (
+		(viewport_size.x - comfort.x - comfort.z) * 0.5
+		if touch_layout
+		else minf(360.0, viewport_size.x * 0.46)
+	)
 	var half_height: float = minf(
-		310.0 if compact else 250.0,
-		viewport_size.y * 0.47
+		(viewport_size.y - comfort.y - comfort.w) * 0.5
+		if touch_layout
+		else (310.0 if compact else 250.0),
+		viewport_size.y * 0.47 if not touch_layout else viewport_size.y
 	)
 	vbox.anchor_left = 0.5
 	vbox.anchor_top = 0.5
@@ -167,7 +179,7 @@ func _build_title() -> void:
 	title.add_theme_font_override("font", UITheme.display_font())
 	title.add_theme_font_size_override(
 		"font_size",
-		UITheme.font_size(36 if compact else 48)
+		UITheme.font_size(30 if touch_layout else (36 if compact else 48))
 	)
 	title.add_theme_color_override("font_color", UITheme.accent_color())
 	vbox.add_child(title)
@@ -184,7 +196,11 @@ func _build_title() -> void:
 	vbox.add_child(subtitle)
 
 	var brief: Label = Label.new()
-	brief.text = "Aim the headlight. Choose the route. Manage power, cars, and crew.\nDetach the rear car when the darkness demands sacrifice. Reach the Dawn Beacon."
+	brief.text = (
+		"Aim the lantern, choose the route, and carry the train to dawn."
+		if touch_layout
+		else "Aim the headlight. Choose the route. Manage power, cars, and crew.\nDetach the rear car when the darkness demands sacrifice. Reach the Dawn Beacon."
+	)
 	brief.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	brief.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	brief.custom_minimum_size = Vector2(half_width * 1.9, 46 if compact else 60)
@@ -206,7 +222,12 @@ func _build_title() -> void:
 
 	var new_run_button: Button = Button.new()
 	new_run_button.text = "  New Run  "
-	new_run_button.custom_minimum_size = Vector2(220, 40)
+	var touch_target := UITheme.touch_target_size(viewport_size)
+	new_run_button.custom_minimum_size = (
+		Vector2(maxf(220.0, touch_target.x * 3.0), touch_target.y)
+		if touch_layout
+		else Vector2(220, 40)
+	)
 	new_run_button.pressed.connect(_on_new_run)
 	vbox.add_child(new_run_button)
 	new_run_button.call_deferred("grab_focus")
@@ -214,12 +235,20 @@ func _build_title() -> void:
 	if GameManager.has_continue():
 		var continue_button: Button = Button.new()
 		continue_button.text = "  Continue  "
-		continue_button.custom_minimum_size = Vector2(220, 40)
+		continue_button.custom_minimum_size = (
+			Vector2(maxf(220.0, touch_target.x * 3.0), touch_target.y)
+			if touch_layout
+			else Vector2(220, 40)
+		)
 		continue_button.pressed.connect(_on_continue)
 		vbox.add_child(continue_button)
 
 	var options_hint: Label = Label.new()
-	options_hint.text = "Mouse aim  |  1/2/3 lens  |  F Focus  |  C Salvo  |  T pace  |  Space pause\nH Conductor's Guide  |  Escape Accessibility & Presentation"
+	options_hint.text = (
+		"Touch and drag to aim. All run controls stay on screen."
+		if touch_layout
+		else "Mouse aim  |  1/2/3 lens  |  F Focus  |  C Salvo  |  T pace  |  Space pause\nH Conductor's Guide  |  Escape Accessibility & Presentation"
+	)
 	options_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	options_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	options_hint.custom_minimum_size = Vector2(half_width * 1.9, 34 if compact else 40)
@@ -236,12 +265,20 @@ func _build_title() -> void:
 	vbox.add_child(utility_row)
 	var guide_button := Button.new()
 	guide_button.text = "Conductor's Guide"
-	guide_button.custom_minimum_size = Vector2(190.0, 40.0)
+	guide_button.custom_minimum_size = (
+		Vector2(maxf(190.0, touch_target.x * 2.6), touch_target.y)
+		if touch_layout
+		else Vector2(190.0, 40.0)
+	)
 	guide_button.pressed.connect(func() -> void: _show_guide("Close Guide"))
 	utility_row.add_child(guide_button)
 	var settings_button := Button.new()
 	settings_button.text = "Accessibility & Presentation"
-	settings_button.custom_minimum_size = Vector2(230.0, 40.0)
+	settings_button.custom_minimum_size = (
+		Vector2(maxf(230.0, touch_target.x * 3.2), touch_target.y)
+		if touch_layout
+		else Vector2(230.0, 40.0)
+	)
 	settings_button.pressed.connect(_show_settings)
 	utility_row.add_child(settings_button)
 

@@ -7,6 +7,7 @@ signal guide_requested()
 
 var _open: bool = false
 var _first_focus: Control
+var _touch_layout: bool = false
 
 
 func present() -> void:
@@ -42,8 +43,18 @@ func _build() -> void:
 	add_child(backdrop)
 
 	var viewport_size := get_viewport_rect().size
-	var frame_width := minf(760.0, viewport_size.x - 32.0)
-	var frame_height := minf(660.0, viewport_size.y - 28.0)
+	_touch_layout = UITheme.touch_layout(viewport_size)
+	var comfort := UITheme.comfort_insets(viewport_size)
+	var frame_width := (
+		viewport_size.x - comfort.x - comfort.z
+		if _touch_layout
+		else minf(760.0, viewport_size.x - 32.0)
+	)
+	var frame_height := (
+		viewport_size.y - comfort.y - comfort.w
+		if _touch_layout
+		else minf(660.0, viewport_size.y - 28.0)
+	)
 	var frame := PanelContainer.new()
 	frame.anchor_left = 0.5
 	frame.anchor_right = 0.5
@@ -67,7 +78,11 @@ func _build() -> void:
 	root.add_child(title)
 
 	var intro := Label.new()
-	intro.text = "Changes save immediately. Use Tab to move, Enter to activate, and Escape to close."
+	intro.text = (
+		"Changes save immediately. Every row is touch-ready."
+		if _touch_layout
+		else "Changes save immediately. Use Tab to move, Enter to activate, and Escape to close."
+	)
 	intro.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	intro.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	intro.add_theme_color_override("font_color", UITheme.muted_text_color())
@@ -103,12 +118,17 @@ func _build() -> void:
 		"READABILITY",
 		"Text values remain visible alongside every color-coded gauge or warning."
 	)
-	var text_row := HBoxContainer.new()
+	var text_row: BoxContainer = (
+		VBoxContainer.new() if _touch_layout else HBoxContainer.new()
+	)
 	text_row.add_theme_constant_override("separation", 12)
 	reading_card.add_child(text_row)
 	var text_label := Label.new()
 	text_label.text = "Interface text size"
-	text_label.custom_minimum_size = Vector2(190.0, 0.0)
+	text_label.custom_minimum_size = Vector2(
+		0.0 if _touch_layout else 190.0,
+		0.0
+	)
 	text_row.add_child(text_label)
 	var text_size := OptionButton.new()
 	var scales: Array[float] = [1.0, 1.15, 1.3]
@@ -130,12 +150,17 @@ func _build() -> void:
 		"VISUAL QUALITY",
 		"Automatic chooses a safe profile for this device. Vector fallback is a recovery and comparison mode."
 	)
-	var profile_row := HBoxContainer.new()
+	var profile_row: BoxContainer = (
+		VBoxContainer.new() if _touch_layout else HBoxContainer.new()
+	)
 	profile_row.add_theme_constant_override("separation", 12)
 	presentation_card.add_child(profile_row)
 	var profile_label := Label.new()
 	profile_label.text = "Presentation profile"
-	profile_label.custom_minimum_size = Vector2(190.0, 0.0)
+	profile_label.custom_minimum_size = Vector2(
+		0.0 if _touch_layout else 190.0,
+		0.0
+	)
 	profile_row.add_child(profile_label)
 	var profile_select := OptionButton.new()
 	var profile_values: Array[String] = [
@@ -227,12 +252,17 @@ func _build() -> void:
 	)
 	input_card.add_child(holds_toggle)
 
-	var touch_row := HBoxContainer.new()
+	var touch_row: BoxContainer = (
+		VBoxContainer.new() if _touch_layout else HBoxContainer.new()
+	)
 	touch_row.add_theme_constant_override("separation", 12)
 	input_card.add_child(touch_row)
 	var touch_label := Label.new()
 	touch_label.text = "Touch target size"
-	touch_label.custom_minimum_size = Vector2(190.0, 0.0)
+	touch_label.custom_minimum_size = Vector2(
+		0.0 if _touch_layout else 190.0,
+		0.0
+	)
 	touch_row.add_child(touch_label)
 	var touch_size := OptionButton.new()
 	var touch_scales: Array[float] = [1.0, 1.15, 1.3]
@@ -256,6 +286,37 @@ func _build() -> void:
 	)
 	touch_row.add_child(touch_size)
 
+	var aim_row: BoxContainer = (
+		VBoxContainer.new() if _touch_layout else HBoxContainer.new()
+	)
+	aim_row.add_theme_constant_override("separation", 12)
+	input_card.add_child(aim_row)
+	var aim_label := Label.new()
+	aim_label.text = "Touch aiming"
+	aim_label.custom_minimum_size = Vector2(
+		0.0 if _touch_layout else 190.0,
+		0.0
+	)
+	aim_row.add_child(aim_label)
+	var aim_mode := OptionButton.new()
+	aim_mode.add_item("Absolute - point at the target")
+	aim_mode.set_item_metadata(0, "absolute")
+	aim_mode.add_item("Relative - drag like a trackpad")
+	aim_mode.set_item_metadata(1, "relative")
+	aim_mode.select(
+		1
+		if String(GameManager.get_setting("touch_aim_mode", "absolute"))
+			== "relative"
+		else 0
+	)
+	aim_mode.item_selected.connect(func(index: int) -> void:
+		GameManager.set_setting(
+			"touch_aim_mode",
+			String(aim_mode.get_item_metadata(index))
+		)
+	)
+	aim_row.add_child(aim_mode)
+
 	var guide_button := Button.new()
 	guide_button.text = "Replay Conductor's Guide"
 	guide_button.custom_minimum_size = Vector2(0.0, 42.0)
@@ -268,6 +329,11 @@ func _build() -> void:
 	close_button.custom_minimum_size = Vector2(0.0, 44.0)
 	close_button.pressed.connect(_close)
 	root.add_child(close_button)
+	if _touch_layout:
+		_apply_touch_targets(
+			frame,
+			UITheme.touch_target_size(viewport_size).y
+		)
 	call_deferred("_focus_first_control")
 
 
@@ -296,12 +362,17 @@ func _add_volume_slider(
 	setting_key: String,
 	default_value: float
 ) -> HSlider:
-	var row := HBoxContainer.new()
+	var row: BoxContainer = (
+		VBoxContainer.new() if _touch_layout else HBoxContainer.new()
+	)
 	row.add_theme_constant_override("separation", 12)
 	parent.add_child(row)
 	var label := Label.new()
 	label.text = label_text
-	label.custom_minimum_size = Vector2(170.0, 0.0)
+	label.custom_minimum_size = Vector2(
+		0.0 if _touch_layout else 170.0,
+		0.0
+	)
 	row.add_child(label)
 	var slider := HSlider.new()
 	slider.min_value = 0.0
@@ -314,6 +385,24 @@ func _add_volume_slider(
 	)
 	row.add_child(slider)
 	return slider
+
+
+func _apply_touch_targets(node: Node, minimum_height: float) -> void:
+	if node is BaseButton or node is HSlider:
+		var control := node as Control
+		control.custom_minimum_size.y = maxf(
+			control.custom_minimum_size.y,
+			minimum_height
+		)
+	if node is BoxContainer:
+		var row := node as BoxContainer
+		if row.get_child_count() > 1:
+			row.custom_minimum_size.y = maxf(
+				row.custom_minimum_size.y,
+				minimum_height
+			)
+	for child in node.get_children():
+		_apply_touch_targets(child, minimum_height)
 
 
 func _focus_first_control() -> void:

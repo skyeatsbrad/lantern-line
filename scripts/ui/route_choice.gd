@@ -19,6 +19,7 @@ var _outcome_label: Label
 var _commit_button: Button
 var _reroll_button: Button
 var _compact_layout: bool = false
+var _touch_layout: bool = false
 var _reroll_allowed: bool = false
 var _reroll_cost: int = 0
 var _scrap_available: int = 0
@@ -79,30 +80,51 @@ func _build() -> void:
 	_backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(_backdrop)
 	var viewport_size: Vector2 = get_viewport_rect().size
+	_touch_layout = UITheme.touch_layout(viewport_size)
 	_compact_layout = UITheme.compact_layout(viewport_size)
 	var text_scale: float = UITheme.effective_text_scale()
-	var half_width := minf(
-		430.0 * text_scale,
-		viewport_size.x * (0.46 if _compact_layout else 0.4)
-	)
-	var half_height := minf(
-		(160.0 if _compact_layout else 210.0) * text_scale,
-		viewport_size.y * (0.4 if _compact_layout else 0.46)
-	)
+	var half_width: float
+	var half_height: float
+	var comfort := UITheme.comfort_insets(viewport_size)
+	if _touch_layout:
+		half_width = (viewport_size.x - comfort.x - comfort.z) * 0.5
+		half_height = (viewport_size.y - comfort.y - comfort.w) * 0.5
+	else:
+		half_width = minf(
+			430.0 * text_scale,
+			viewport_size.x * (0.46 if _compact_layout else 0.4)
+		)
+		half_height = minf(
+			(160.0 if _compact_layout else 210.0) * text_scale,
+			viewport_size.y * (0.4 if _compact_layout else 0.46)
+		)
 
 	_frame = PanelContainer.new()
-	_frame.anchor_left = 1.0
-	_frame.anchor_right = 1.0
-	_frame.anchor_top = 0.46 if _compact_layout else 0.5
-	_frame.anchor_bottom = _frame.anchor_top
-	_frame.offset_left = -half_width
-	_frame.offset_right = -12.0 if _compact_layout else -24.0
-	_frame.offset_top = -half_height
-	_frame.offset_bottom = half_height
+	if _touch_layout:
+		_frame.anchor_left = 0.5
+		_frame.anchor_right = 0.5
+		_frame.anchor_top = 0.5
+		_frame.anchor_bottom = 0.5
+		_frame.offset_left = -half_width
+		_frame.offset_right = half_width
+		_frame.offset_top = -half_height
+		_frame.offset_bottom = half_height
+	else:
+		_frame.anchor_left = 1.0
+		_frame.anchor_right = 1.0
+		_frame.anchor_top = 0.46 if _compact_layout else 0.5
+		_frame.anchor_bottom = _frame.anchor_top
+		_frame.offset_left = -half_width
+		_frame.offset_right = -12.0 if _compact_layout else -24.0
+		_frame.offset_top = -half_height
+		_frame.offset_bottom = half_height
 	add_child(_frame)
 
 	var root := VBoxContainer.new()
-	root.add_theme_constant_override("separation", 6 if _compact_layout else 10)
+	root.add_theme_constant_override(
+		"separation",
+		5 if _touch_layout else (6 if _compact_layout else 10)
+	)
 	_frame.add_child(root)
 
 	var heading := Label.new()
@@ -117,6 +139,9 @@ func _build() -> void:
 
 	var instruction := Label.new()
 	instruction.text = (
+		"Tap a route slab to inspect it. Commit remains a separate action."
+		if _touch_layout
+		else (
 		"Aim vertically, inspect the forecast, then commit. Tab and Enter also work."
 		if _compact_layout
 		else "%s\nAim across the junction, or use Tab and Enter, then commit the lit rail." % String(
@@ -124,6 +149,7 @@ func _build() -> void:
 				"description",
 				"The selected lens changes which signatures are easiest to find."
 			)
+		)
 		)
 	)
 	instruction.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -134,13 +160,24 @@ func _build() -> void:
 
 	var bands := HBoxContainer.new()
 	bands.alignment = BoxContainer.ALIGNMENT_CENTER
-	bands.add_theme_constant_override("separation", 6)
+	var touch_spacing := UITheme.touch_spacing(viewport_size)
+	var touch_target := UITheme.touch_target_size(viewport_size)
+	bands.add_theme_constant_override(
+		"separation",
+		int(round(touch_spacing.x)) if _touch_layout else 6
+	)
 	root.add_child(bands)
 	for index in range(_choices.size()):
 		var event: Dictionary = _choices[index]
 		var button := Button.new()
 		button.text = String(event.get("position", "middle")).to_upper()
-		button.custom_minimum_size = Vector2(92.0 if _compact_layout else 110.0, 34.0)
+		button.custom_minimum_size = (
+			Vector2(touch_target.x * 1.8, touch_target.y)
+			if _touch_layout
+			else Vector2(92.0 if _compact_layout else 110.0, 34.0)
+		)
+		if _touch_layout:
+			button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var selected := index
 		button.pressed.connect(func() -> void: set_selected_index(selected))
 		bands.add_child(button)
@@ -163,7 +200,7 @@ func _build() -> void:
 	_description_label = Label.new()
 	_description_label.custom_minimum_size = Vector2(
 		300.0 if _compact_layout else 350.0,
-		58.0 if _compact_layout else 76.0
+		46.0 if _touch_layout else (58.0 if _compact_layout else 76.0)
 	)
 	_description_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_description_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -179,12 +216,19 @@ func _build() -> void:
 	action_row.add_theme_constant_override("separation", 8)
 	root.add_child(action_row)
 	_reroll_button = Button.new()
-	_reroll_button.custom_minimum_size = Vector2(118.0, 42.0)
+	_reroll_button.custom_minimum_size = (
+		Vector2(touch_target.x * 2.0, touch_target.y)
+		if _touch_layout
+		else Vector2(118.0, 42.0)
+	)
 	_reroll_button.pressed.connect(func() -> void: emit_signal("reroll_requested"))
 	action_row.add_child(_reroll_button)
 	_commit_button = Button.new()
 	_commit_button.text = "Commit illuminated route"
-	_commit_button.custom_minimum_size = Vector2(0.0, 42.0)
+	_commit_button.custom_minimum_size = Vector2(
+		0.0,
+		touch_target.y if _touch_layout else 42.0
+	)
 	_commit_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_commit_button.pressed.connect(func() -> void: _select(_selected_index))
 	action_row.add_child(_commit_button)
@@ -258,6 +302,12 @@ func _refresh_selection() -> void:
 			"> %s" % String(_choices[index].get("position", "middle")).to_upper()
 			if index == _selected_index
 			else String(_choices[index].get("position", "middle")).to_upper()
+		)
+		button.add_theme_color_override(
+			"font_color",
+			UITheme.accent_color()
+			if index == _selected_index
+			else UITheme.muted_text_color()
 		)
 	_position_label.text = "%s SIGNATURE" % String(event.get("category", "unknown")).to_upper()
 	_position_label.add_theme_color_override(

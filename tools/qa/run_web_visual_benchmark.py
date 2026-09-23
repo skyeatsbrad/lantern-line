@@ -107,6 +107,7 @@ def run_case(
     context = browser.new_context(
         viewport={"width": width, "height": height},
         device_scale_factor=1,
+        has_touch=viewport_name == "mobile_landscape",
         reduced_motion="no-preference",
     )
     page = context.new_page()
@@ -135,6 +136,7 @@ def run_case(
         timeout=(duration_seconds + 45.0) * 1000.0,
     )
     record = page.evaluate("() => window.__lanternBenchmarkResult")
+    runtime_info = page.evaluate("() => window.__lanternRuntimeInfo")
     webgl = inspect_webgl(page)
     receipt_dir.mkdir(parents=True, exist_ok=True)
     page.screenshot(
@@ -158,10 +160,30 @@ def run_case(
         )
     if not webgl.get("webgl2", False):
         raise RuntimeError(f"{viewport_name}/{mode} lacked WebGL 2")
+    if not isinstance(runtime_info, dict):
+        raise RuntimeError(
+            f"{viewport_name}/{mode} emitted no responsive-layout diagnostics"
+        )
+    expected_layout = (
+        "phone_touch"
+        if viewport_name == "mobile_landscape"
+        else "standard"
+    )
+    if runtime_info.get("layout_class") != expected_layout:
+        raise RuntimeError(
+            f"{viewport_name}/{mode} selected "
+            f"{runtime_info.get('layout_class')} instead of {expected_layout}"
+        )
+    expected_touch = viewport_name == "mobile_landscape"
+    if bool(runtime_info.get("touch_available")) != expected_touch:
+        raise RuntimeError(
+            f"{viewport_name}/{mode} touch detection did not match emulation"
+        )
     record["viewport"] = viewport_name
     record["viewport_width"] = width
     record["viewport_height"] = height
     record["webgl"] = webgl
+    record["runtime"] = runtime_info
     record["console_errors"] = console_errors
     return record
 
@@ -174,6 +196,7 @@ def verify_production_gate(
     context = browser.new_context(
         viewport={"width": 1280, "height": 720},
         device_scale_factor=1,
+        has_touch=False,
     )
     page = context.new_page()
     console_messages: list[str] = []
@@ -286,6 +309,7 @@ def markdown_report(payload: dict[str, Any]) -> str:
         f"- Git HEAD: `{payload['git_head']}`",
         f"- Source fingerprint: `{payload['source_fingerprint']}`",
         "- Production query gate: benchmark query blocked",
+        "- Responsive layout gate: desktop `standard`; mobile `phone_touch`",
         (
             "- Measurement: "
             f"{payload['measure_seconds']:.0f}s after "

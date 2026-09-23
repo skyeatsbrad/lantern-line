@@ -45,9 +45,19 @@ func _build(play_audio: bool) -> void:
 	add_child(_backdrop)
 
 	var viewport_size := get_viewport_rect().size
+	var touch_layout := UITheme.touch_layout(viewport_size)
 	var compact: bool = UITheme.compact_layout(viewport_size)
-	var frame_width := minf(720.0, viewport_size.x - 28.0)
-	var frame_height := minf(670.0, viewport_size.y - 28.0)
+	var comfort := UITheme.comfort_insets(viewport_size)
+	var frame_width := (
+		viewport_size.x - comfort.x - comfort.z
+		if touch_layout
+		else minf(720.0, viewport_size.x - 28.0)
+	)
+	var frame_height := (
+		viewport_size.y - comfort.y - comfort.w
+		if touch_layout
+		else minf(670.0, viewport_size.y - 28.0)
+	)
 	_frame = PanelContainer.new()
 	_frame.anchor_left = 0.5
 	_frame.anchor_right = 0.5
@@ -151,7 +161,12 @@ func _build(play_audio: bool) -> void:
 
 	_return_button = Button.new()
 	_return_button.text = "Return to Title"
-	_return_button.custom_minimum_size = Vector2(240.0, 44.0)
+	_return_button.custom_minimum_size = Vector2(
+		240.0,
+		UITheme.touch_target_size(viewport_size).y
+		if touch_layout
+		else 44.0
+	)
 	_return_button.pressed.connect(_close)
 	frame_root.add_child(_return_button)
 	_return_button.call_deferred("grab_focus")

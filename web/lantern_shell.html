@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta
+		name="viewport"
+		content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover"
+	>
+	<title>$GODOT_PROJECT_NAME</title>
+	<script>
+	  (() => {
+	    const param = new URLSearchParams(window.location.search).get("scoutTheme");
+	    const theme =
+	      param || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+	    document.documentElement.setAttribute("data-theme", theme);
+	  })();
+	</script>
+	<style>
+:root {
+  color-scheme: light;
+  --cp-bg: #f7f4ef;
+  --cp-bg-elevated: #fcfbf8;
+  --cp-surface: #ffffff;
+  --cp-surface-soft: #f5f5f5;
+  --cp-border: #dedede;
+  --cp-border-strong: #919191;
+  --cp-text: #242424;
+  --cp-text-muted: #5c5c5c;
+  --cp-text-soft: #6f6f6f;
+  --cp-accent: #b11f4b;
+  --cp-accent-hover: #9a1a41;
+  --cp-accent-soft: rgba(177, 31, 75, 0.08);
+  --cp-accent-fg: #ffffff;
+  --cp-success: #16a34a;
+  --cp-danger: #dc2626;
+  --cp-warning: #f59e0b;
+  --cp-link: #0078d4;
+  --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.12);
+  --cp-overlay: rgba(255, 255, 255, 0.8);
+  --cp-panel: rgba(255, 255, 255, 0.86);
+  --cp-panel-strong: rgba(255, 255, 255, 0.96);
+  --cp-sheen: rgba(255, 255, 255, 0.55);
+  --cp-highlight: rgba(177, 31, 75, 0.12);
+}
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --cp-bg: #3d3b3a;
+  --cp-bg-elevated: #343231;
+  --cp-surface: #292929;
+  --cp-surface-soft: #2e2e2e;
+  --cp-border: #474747;
+  --cp-border-strong: #5f5f5f;
+  --cp-text: #dedede;
+  --cp-text-muted: #919191;
+  --cp-text-soft: #b0b0b0;
+  --cp-accent: #fd8ea1;
+  --cp-accent-hover: #fb7b91;
+  --cp-accent-soft: rgba(253, 142, 161, 0.14);
+  --cp-accent-fg: #1a1a1a;
+  --cp-success: #4ade80;
+  --cp-danger: #f87171;
+  --cp-warning: #fbbf24;
+  --cp-link: #4da6ff;
+  --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
+  --cp-overlay: rgba(41, 41, 41, 0.88);
+  --cp-panel: rgba(41, 41, 41, 0.72);
+  --cp-panel-strong: rgba(41, 41, 41, 0.96);
+  --cp-sheen: rgba(255, 255, 255, 0.04);
+  --cp-highlight: rgba(253, 142, 161, 0.12);
+}
+
+* {
+	box-sizing: border-box;
+}
+
+html,
+body,
+#shell,
+#canvas {
+	width: 100%;
+	height: 100%;
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+
+body {
+	overflow: hidden;
+	background: var(--cp-bg);
+	color: var(--cp-text);
+	font-family: "Segoe UI", Aptos, Calibri, -apple-system, BlinkMacSystemFont, sans-serif;
+	touch-action: none;
+}
+
+#shell {
+	position: relative;
+	background: var(--cp-bg);
+}
+
+#canvas {
+	display: block;
+	outline: none;
+}
+
+#canvas:focus-visible {
+	outline: none;
+}
+
+#launch,
+#status,
+#rotate {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding:
+		calc(env(safe-area-inset-top) + 24px)
+		calc(env(safe-area-inset-right) + 24px)
+		calc(env(safe-area-inset-bottom) + 24px)
+		calc(env(safe-area-inset-left) + 24px);
+}
+
+#launch,
+#status {
+	background: var(--cp-overlay);
+}
+
+#launch-card,
+#status-card,
+#rotate-card {
+	width: min(34rem, 100%);
+	padding: 24px;
+	border: 1px solid var(--cp-border);
+	border-radius: 16px;
+	background: var(--cp-surface);
+	box-shadow: var(--cp-shadow);
+	text-align: center;
+}
+
+h1,
+h2,
+p {
+	margin: 0;
+}
+
+h1,
+h2 {
+	font-family: "Segoe UI", Aptos, Calibri, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+h1 {
+	font-size: clamp(1.5rem, 6vw, 2.5rem);
+}
+
+h2 {
+	font-size: 1.25rem;
+}
+
+.kicker {
+	margin-bottom: 8px;
+	color: var(--cp-accent);
+	font-size: 0.75rem;
+	font-weight: 700;
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+}
+
+.copy {
+	margin: 12px 0 20px;
+	color: var(--cp-text-muted);
+	line-height: 1.5;
+}
+
+button {
+	min-width: 12rem;
+	min-height: 48px;
+	padding: 12px 20px;
+	border: 1px solid var(--cp-accent);
+	border-radius: 0.625rem;
+	background: var(--cp-accent);
+	color: var(--cp-accent-fg);
+	font: 700 1rem/1.2 "Segoe UI", Aptos, Calibri, -apple-system, BlinkMacSystemFont, sans-serif;
+	cursor: pointer;
+}
+
+button:hover {
+	background: var(--cp-accent-hover);
+}
+
+button:focus-visible {
+	outline: 3px solid var(--cp-warning);
+	outline-offset: 3px;
+}
+
+button:disabled {
+	border-color: var(--cp-border-strong);
+	background: var(--cp-surface-soft);
+	color: var(--cp-text-muted);
+	cursor: wait;
+}
+
+details {
+	margin-top: 16px;
+	border-top: 1px solid var(--cp-border);
+	padding-top: 12px;
+	color: var(--cp-text-muted);
+	font-size: 0.8125rem;
+}
+
+summary {
+	cursor: pointer;
+	font-weight: 600;
+}
+
+#support-copy {
+	margin-top: 8px;
+	font-family: Consolas, "Courier New", Courier, monospace;
+	line-height: 1.5;
+	white-space: pre-wrap;
+}
+
+#status {
+	display: none;
+}
+
+#status-card {
+	max-width: 28rem;
+}
+
+#status-progress {
+	width: 100%;
+	height: 12px;
+	margin-top: 18px;
+	accent-color: var(--cp-accent);
+}
+
+#status-notice {
+	margin-top: 16px;
+	color: var(--cp-danger);
+	line-height: 1.45;
+	white-space: pre-wrap;
+}
+
+#rotate {
+	z-index: 20;
+	display: none;
+	background: var(--cp-panel-strong);
+}
+
+#rotate-card {
+	max-width: 24rem;
+}
+
+#safe-area-probe {
+	position: fixed;
+	inset: 0;
+	padding:
+		env(safe-area-inset-top)
+		env(safe-area-inset-right)
+		env(safe-area-inset-bottom)
+		env(safe-area-inset-left);
+	visibility: hidden;
+	pointer-events: none;
+}
+
+[hidden] {
+	display: none !important;
+}
+
+@media (orientation: portrait) and (pointer: coarse) {
+	#rotate {
+		display: flex;
+	}
+}
+	</style>
+	$GODOT_HEAD_INCLUDE
+</head>
+<body>
+	<div id="shell">
+		<canvas id="canvas" tabindex="0">
+			Your browser does not support the canvas element.
+		</canvas>
+		<div id="launch">
+			<section id="launch-card" aria-labelledby="launch-title">
+				<p class="kicker">Fortress-train survival</p>
+				<h1 id="launch-title">$GODOT_PROJECT_NAME</h1>
+				<p class="copy">
+					Start from a tap or click so the browser can enable audio,
+					fullscreen, landscape orientation, and wake lock.
+				</p>
+				<button id="launch-button" type="button">Start journey</button>
+				<details>
+					<summary>Build and cache details</summary>
+					<div id="support-copy"></div>
+				</details>
+			</section>
+		</div>
+		<div id="status" role="status" aria-live="polite">
+			<section id="status-card">
+				<p class="kicker">Preparing the line</p>
+				<h2 id="status-heading">Loading</h2>
+				<progress id="status-progress"></progress>
+				<div id="status-notice"></div>
+			</section>
+		</div>
+		<div id="rotate" role="dialog" aria-modal="true">
+			<section id="rotate-card">
+				<p class="kicker">Landscape required</p>
+				<h2>Rotate your device</h2>
+				<p class="copy">
+					The train controls and clear aiming field are designed for
+					a wide screen.
+				</p>
+			</section>
+		</div>
+		<div id="safe-area-probe" aria-hidden="true"></div>
+	</div>
+	<noscript>This game requires JavaScript.</noscript>
+	<script src="$GODOT_URL"></script>
+	<script>
+const GODOT_CONFIG = $GODOT_CONFIG;
+const GODOT_THREADS_ENABLED = $GODOT_THREADS_ENABLED;
+const BUILD_LABEL = "v0.8-mobile-dev";
+const canvas = document.getElementById("canvas");
+const launch = document.getElementById("launch");
+const launchButton = document.getElementById("launch-button");
+const status = document.getElementById("status");
+const statusHeading = document.getElementById("status-heading");
+const statusProgress = document.getElementById("status-progress");
+const statusNotice = document.getElementById("status-notice");
+const supportCopy = document.getElementById("support-copy");
+const safeAreaProbe = document.getElementById("safe-area-probe");
+const params = new URLSearchParams(window.location.search);
+const engine = new Engine(GODOT_CONFIG);
+let starting = false;
+let wakeLock = null;
+let unlockContext = null;
+
+function safeInsets() {
+	const style = getComputedStyle(safeAreaProbe);
+	return {
+		left: Number.parseFloat(style.paddingLeft) || 0,
+		top: Number.parseFloat(style.paddingTop) || 0,
+		right: Number.parseFloat(style.paddingRight) || 0,
+		bottom: Number.parseFloat(style.paddingBottom) || 0,
+	};
+}
+
+function supportSnapshot() {
+	const insets = safeInsets();
+	return {
+		build: BUILD_LABEL,
+		online: navigator.onLine,
+		standalone: window.matchMedia("(display-mode: standalone)").matches,
+		serviceWorker: Boolean(navigator.serviceWorker?.controller),
+		wakeLock: Boolean(wakeLock),
+		safeArea: insets,
+		viewport: { width: window.innerWidth, height: window.innerHeight },
+	};
+}
+
+function updateSupport() {
+	const snapshot = supportSnapshot();
+	const lines = [
+		`build ${snapshot.build}`,
+		`cache ${snapshot.serviceWorker ? "active" : "pending"}`,
+		`network ${snapshot.online ? "online" : "offline"}`,
+		`display ${snapshot.standalone ? "standalone" : "browser"}`,
+		`safe ${snapshot.safeArea.left}/${snapshot.safeArea.top}/${snapshot.safeArea.right}/${snapshot.safeArea.bottom}`,
+	];
+	supportCopy.textContent = lines.join("\n");
+}
+
+async function requestWakeLock() {
+	if (!("wakeLock" in navigator) || document.visibilityState !== "visible") {
+		return false;
+	}
+	try {
+		wakeLock = await navigator.wakeLock.request("screen");
+		wakeLock.addEventListener("release", updateSupport, { once: true });
+		updateSupport();
+		return true;
+	} catch (error) {
+		console.info("Wake lock unavailable:", error);
+		return false;
+	}
+}
+
+async function unlockAudio() {
+	const AudioContextType = window.AudioContext || window.webkitAudioContext;
+	if (!AudioContextType) {
+		return false;
+	}
+	try {
+		unlockContext ||= new AudioContextType();
+		await unlockContext.resume();
+		return unlockContext.state === "running";
+	} catch (error) {
+		console.info("Audio unlock deferred:", error);
+		return false;
+	}
+}
+
+function requestFullscreen() {
+	const target = document.documentElement;
+	if (!target.requestFullscreen || document.fullscreenElement) {
+		return Promise.resolve(false);
+	}
+	try {
+		return Promise.resolve(
+			target.requestFullscreen({ navigationUI: "hide" })
+		).then(() => true).catch((error) => {
+			console.info("Fullscreen unavailable:", error);
+			return false;
+		});
+	} catch (error) {
+		console.info("Fullscreen unavailable:", error);
+		return Promise.resolve(false);
+	}
+}
+
+function requestLandscape() {
+	if (!screen.orientation?.lock) {
+		return Promise.resolve(false);
+	}
+	try {
+		return Promise.resolve(
+			screen.orientation.lock("landscape-primary")
+		).then(() => true).catch((error) => {
+			console.info("Orientation lock unavailable:", error);
+			return false;
+		});
+	} catch (error) {
+		console.info("Orientation lock unavailable:", error);
+		return Promise.resolve(false);
+	}
+}
+
+function showFailure(error) {
+	console.error(error);
+	statusHeading.textContent = "Unable to start";
+	statusProgress.hidden = true;
+	statusNotice.textContent = error instanceof Error
+		? error.message
+		: String(error || "An unknown error occurred.");
+	status.style.display = "flex";
+	starting = false;
+}
+
+async function startGame(fromGesture) {
+	if (starting) {
+		return;
+	}
+	starting = true;
+	launchButton.disabled = true;
+	if (fromGesture) {
+		const fullscreenPromise = requestFullscreen();
+		const audioPromise = unlockAudio();
+		const landscapePromise = requestLandscape();
+		requestWakeLock();
+		await Promise.allSettled([
+			fullscreenPromise,
+			audioPromise,
+			landscapePromise,
+		]);
+	}
+	launch.hidden = true;
+	status.style.display = "flex";
+	statusHeading.textContent = "Loading";
+	statusNotice.textContent = "";
+	statusProgress.hidden = false;
+
+	const missing = Engine.getMissingFeatures({
+		threads: GODOT_THREADS_ENABLED,
+	});
+	if (missing.length !== 0) {
+		if (
+			GODOT_CONFIG.serviceWorker
+			&& GODOT_CONFIG.ensureCrossOriginIsolationHeaders
+			&& "serviceWorker" in navigator
+		) {
+			try {
+				const registration = await Promise.race([
+					navigator.serviceWorker.getRegistration(),
+					new Promise((resolve) => setTimeout(() => resolve(null), 2000)),
+				]);
+				if (registration == null) {
+					await engine.installServiceWorker();
+					window.location.reload();
+					return;
+				}
+			} catch (error) {
+				console.info("Service worker recovery unavailable:", error);
+			}
+		}
+		showFailure(
+			new Error(`Missing browser features:\n${missing.join("\n")}`)
+		);
+		return;
+	}
+
+	try {
+		await engine.startGame({
+			onProgress(current, total) {
+				if (current > 0 && total > 0) {
+					statusProgress.value = current;
+					statusProgress.max = total;
+				} else {
+					statusProgress.removeAttribute("value");
+					statusProgress.removeAttribute("max");
+				}
+			},
+		});
+		status.remove();
+		canvas.focus({ preventScroll: true });
+		updateSupport();
+	} catch (error) {
+		showFailure(error);
+	}
+}
+
+window.LanternPlatform = {
+	safeInsets,
+	viewportSize() {
+		return { width: window.innerWidth, height: window.innerHeight };
+	},
+	supportSnapshot,
+	gameReady() {
+		updateSupport();
+	},
+	requestWakeLock,
+	requestFullscreen,
+	requestLandscape,
+};
+
+launchButton.addEventListener("click", () => startGame(true));
+document.addEventListener("pointerdown", unlockAudio, { passive: true });
+document.addEventListener("visibilitychange", () => {
+	if (document.visibilityState === "visible") {
+		requestWakeLock();
+	}
+	updateSupport();
+});
+window.addEventListener("online", updateSupport);
+window.addEventListener("offline", updateSupport);
+window.addEventListener("resize", updateSupport);
+updateSupport();
+
+if (params.has("benchmark") || params.get("autostart") === "1") {
+	startGame(false);
+}
+	</script>
+</body>
+</html>

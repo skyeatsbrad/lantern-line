@@ -1,0 +1,50 @@
+{
+  "landscape": {
+    "launch_target": {
+      "x": 326,
+      "y": 226.5,
+      "width": 192,
+      "height": 48
+    },
+    "bridge": {
+      "present": true,
+      "safe": {
+        "left": 0,
+        "top": 0,
+        "right": 0,
+        "bottom": 0
+      },
+      "viewport": {
+        "width": 844,
+        "height": 390
+      }
+    },
+    "canvas": {
+      "x": 0,
+      "y": 0,
+      "width": 844,
+      "height": 390
+    },
+    "overlays": {
+      "settings": "C:\\Users\\bradleywo\\Projects\\lantern-line\\design\\receipts\\v0.8-m1\\settings-844x390.png",
+      "guide": "C:\\Users\\bradleywo\\Projects\\lantern-line\\design\\receipts\\v0.8-m1\\guide-844x390.png"
+    },
+    "offline_cached_start": true,
+    "page_errors": [],
+    "console_errors": []
+  },
+  "portrait": {
+    "rotate_display": "flex",
+    "page_errors": [],
+    "console_errors": []
+  },
+  "pwa": {
+    "orientation": "landscape",
+    "display": "standalone",
+    "icon_sizes": [
+      "144x144",
+      "180x180",
+      "512x512"
+    ]
+  }
+}

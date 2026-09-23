@@ -20,6 +20,9 @@ var _lens_config: Dictionary
 var _last_notification: String = ""
 var _notification_timer: float = 0.0
 var _compact_layout: bool = false
+var _touch_layout: bool = false
+var _touch_lens_description_timer: float = 0.0
+var _touch_context_action: String = ""
 
 @onready var _title_label: Label
 @onready var _dist_label: Label
@@ -27,6 +30,8 @@ var _compact_layout: bool = false
 @onready var _lens_label: Label
 var _bars: Dictionary = {}
 var _prio_buttons: Dictionary = {}
+var _touch_priority_buttons: Dictionary = {}
+var _lens_buttons: Dictionary = {}
 @onready var _notification_label: Label
 @onready var _notification_panel: PanelContainer
 @onready var _hint_label: Label
@@ -45,6 +50,9 @@ var _prio_buttons: Dictionary = {}
 @onready var _crew_status_label: Label
 @onready var _critical_label: Label
 @onready var _critical_panel: PanelContainer
+var _touch_context_button: Button
+var _touch_priority_flyout: PanelContainer
+var _touch_priority_blocker: Control
 var _critical_timer: float = 0.0
 var _cinematic_panel: PanelContainer
 var _cinematic_kicker: Label
@@ -78,6 +86,10 @@ func _build_ui() -> void:
 		child.queue_free()
 	_bars.clear()
 	_prio_buttons.clear()
+	_touch_priority_buttons.clear()
+	_lens_buttons.clear()
+	_touch_priority_flyout = null
+	_touch_priority_blocker = null
 	anchor_right = 1.0
 	anchor_bottom = 1.0
 	mouse_filter = Control.MOUSE_FILTER_PASS
@@ -85,6 +97,11 @@ func _build_ui() -> void:
 	var text_scale: float = UITheme.effective_text_scale()
 	var base_font_size: int = UITheme.font_size(14)
 	var viewport_size: Vector2 = get_viewport_rect().size
+	_touch_layout = UITheme.touch_layout(viewport_size)
+	if _touch_layout:
+		_compact_layout = true
+		_build_touch_ui(viewport_size)
+		return
 	_compact_layout = UITheme.compact_layout(viewport_size)
 	if _compact_layout:
 		base_font_size = UITheme.font_size(13)
@@ -507,6 +524,616 @@ func _build_ui() -> void:
 	cinematic_vbox.add_child(_cinematic_body)
 
 
+static func touch_layout_metrics(
+	viewport_size: Vector2,
+	physical_size: Vector2 = Vector2.ZERO,
+	physical_insets: Vector4 = Vector4(-1.0, -1.0, -1.0, -1.0)
+) -> Dictionary:
+	var insets := UITheme.comfort_insets(
+		viewport_size,
+		physical_size,
+		physical_insets
+	)
+	var target := UITheme.touch_target_size(
+		viewport_size,
+		UITheme.MIN_TOUCH_TARGET_PHYSICAL,
+		physical_size
+	).ceil()
+	var focus_target := UITheme.touch_target_size(
+		viewport_size,
+		UITheme.FOCUS_TOUCH_TARGET_PHYSICAL,
+		physical_size
+	).ceil()
+	var detach_target := UITheme.touch_target_size(
+		viewport_size,
+		UITheme.DETACH_TOUCH_TARGET_PHYSICAL,
+		physical_size
+	).ceil()
+	var spacing := UITheme.touch_spacing(
+		viewport_size,
+		physical_size
+	).ceil()
+	var top_strip_bottom := insets.y + target.y
+	var bottom_row_top := viewport_size.y - insets.w - target.y
+	var clear_height := maxf(0.0, bottom_row_top - top_strip_bottom)
+	return {
+		"insets": insets,
+		"target": target,
+		"focus_target": focus_target,
+		"detach_target": detach_target,
+		"spacing": spacing,
+		"top_strip_bottom": top_strip_bottom,
+		"bottom_row_top": bottom_row_top,
+		"clear_height": clear_height,
+		"clear_ratio": clear_height / maxf(1.0, viewport_size.y),
+		"power_row_width": target.x * 4.0 + spacing.x * 3.0
+	}
+
+
+func _build_touch_ui(viewport_size: Vector2) -> void:
+	var metrics := touch_layout_metrics(viewport_size)
+	var insets: Vector4 = metrics["insets"]
+	var target: Vector2 = metrics["target"]
+	var focus_target: Vector2 = metrics["focus_target"]
+	var detach_target: Vector2 = metrics["detach_target"]
+	var spacing: Vector2 = metrics["spacing"]
+	var top_bottom: float = float(metrics["top_strip_bottom"])
+	var bottom_top: float = float(metrics["bottom_row_top"])
+	var physical_scale := UITheme.physical_to_viewport_scale(viewport_size)
+	var font_small := UITheme.font_size(9)
+	var font_body := UITheme.font_size(11)
+
+	var top := PanelContainer.new()
+	top.offset_left = insets.x
+	top.offset_top = insets.y
+	top.offset_right = viewport_size.x - insets.z
+	top.offset_bottom = top_bottom
+	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	top.add_theme_stylebox_override(
+		"panel",
+		_touch_panel_style(8.0, 0.0)
+	)
+	add_child(top)
+	var top_row := HBoxContainer.new()
+	top_row.add_theme_constant_override("separation", int(round(spacing.x)))
+	top.add_child(top_row)
+
+	var journey := VBoxContainer.new()
+	journey.custom_minimum_size = Vector2(112.0 * physical_scale.x, 0.0)
+	journey.add_theme_constant_override("separation", 0)
+	top_row.add_child(journey)
+	_title_label = Label.new()
+	_title_label.text = "LANTERN LINE"
+	_title_label.add_theme_font_size_override("font_size", font_small)
+	_title_label.add_theme_color_override("font_color", UITheme.accent_color())
+	journey.add_child(_title_label)
+	_dist_label = Label.new()
+	_dist_label.add_theme_font_size_override("font_size", font_small)
+	journey.add_child(_dist_label)
+	_time_label = Label.new()
+	_time_label.add_theme_font_size_override("font_size", font_small)
+	journey.add_child(_time_label)
+
+	var locomotive := VBoxContainer.new()
+	locomotive.custom_minimum_size = Vector2(142.0 * physical_scale.x, 0.0)
+	locomotive.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	locomotive.add_theme_constant_override("separation", 0)
+	top_row.add_child(locomotive)
+	var loco_label := Label.new()
+	loco_label.text = "LOCOMOTIVE"
+	loco_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	loco_label.add_theme_font_size_override("font_size", font_small)
+	loco_label.add_theme_color_override("font_color", UITheme.danger_color())
+	locomotive.add_child(loco_label)
+	_loco_bar = ProgressBar.new()
+	_loco_bar.min_value = 0.0
+	_loco_bar.max_value = 100.0
+	_loco_bar.show_percentage = false
+	_loco_bar.custom_minimum_size = Vector2(0.0, 6.0 * physical_scale.y)
+	locomotive.add_child(_loco_bar)
+	_boss_label = Label.new()
+	_boss_label.visible = false
+	_boss_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_boss_label.add_theme_font_size_override("font_size", font_small)
+	_boss_label.add_theme_color_override("font_color", UITheme.danger_color())
+	locomotive.add_child(_boss_label)
+	_consist_label = Label.new()
+	_consist_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_consist_label.add_theme_font_size_override("font_size", font_small)
+	locomotive.add_child(_consist_label)
+	_crew_status_label = Label.new()
+	_crew_status_label.visible = false
+	locomotive.add_child(_crew_status_label)
+
+	var resources := GridContainer.new()
+	resources.columns = 2
+	resources.custom_minimum_size = Vector2(164.0 * physical_scale.x, 0.0)
+	resources.add_theme_constant_override("h_separation", int(round(spacing.x)))
+	resources.add_theme_constant_override("v_separation", 0)
+	top_row.add_child(resources)
+	_bars["power"] = _make_touch_bar(resources, "PWR", font_small, physical_scale)
+	_bars["scrap"] = _make_touch_bar(resources, "SCR", font_small, physical_scale)
+	_bars["supplies"] = _make_touch_bar(resources, "SUP", font_small, physical_scale)
+	_bars["lumen"] = _make_touch_bar(resources, "LUM", font_small, physical_scale)
+	_power_status_label = Label.new()
+	_power_status_label.visible = false
+	top_row.add_child(_power_status_label)
+
+	var top_actions := HBoxContainer.new()
+	top_actions.add_theme_constant_override("separation", int(round(spacing.x)))
+	top_row.add_child(top_actions)
+	var pause_button := _make_touch_button("Pause", target, font_small)
+	pause_button.tooltip_text = "Pause or resume the run."
+	pause_button.pressed.connect(func() -> void: emit_signal("request_pause"))
+	top_actions.add_child(pause_button)
+	var speed_button := _make_touch_button("Speed", target, font_small)
+	speed_button.tooltip_text = "Cycle 1x, 1.5x, and 2x travel speed."
+	speed_button.pressed.connect(func() -> void: emit_signal("request_speed"))
+	top_actions.add_child(speed_button)
+	var guide_button := _make_touch_button("Guide", target, font_small)
+	guide_button.pressed.connect(func() -> void: emit_signal("request_guide"))
+	top_actions.add_child(guide_button)
+	var settings_button := _make_touch_button("Options", target, font_small)
+	settings_button.pressed.connect(func() -> void: emit_signal("request_settings"))
+	top_actions.add_child(settings_button)
+
+	var lens_rail := VBoxContainer.new()
+	lens_rail.offset_left = insets.x
+	lens_rail.offset_top = top_bottom + spacing.y
+	lens_rail.offset_right = insets.x + target.x
+	lens_rail.offset_bottom = (
+		top_bottom + spacing.y + target.y * 3.0 + spacing.y * 2.0
+	)
+	lens_rail.add_theme_constant_override("separation", int(round(spacing.y)))
+	add_child(lens_rail)
+	for lens_key_variant in _lens_config.keys():
+		var lens_key := String(lens_key_variant)
+		var lens_button := _make_touch_button(
+			_touch_lens_abbreviation(lens_key),
+			target,
+			font_body
+		)
+		lens_button.tooltip_text = String(
+			_lens_config.get(lens_key, {}).get("description", lens_key)
+		)
+		lens_button.pressed.connect(
+			func() -> void: _on_touch_lens_pressed(lens_key)
+		)
+		lens_rail.add_child(lens_button)
+		_lens_buttons[lens_key] = lens_button
+	_lens_label = Label.new()
+	_lens_label.visible = false
+	_lens_label.offset_left = insets.x + target.x + spacing.x
+	_lens_label.offset_top = top_bottom + spacing.y
+	_lens_label.offset_right = minf(
+		viewport_size.x * 0.45,
+		insets.x + target.x + spacing.x + 190.0 * physical_scale.x
+	)
+	_lens_label.offset_bottom = (
+		top_bottom + spacing.y + detach_target.y
+	)
+	_lens_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_lens_label.add_theme_font_size_override("font_size", font_body)
+	_lens_label.add_theme_color_override("font_color", UITheme.accent_color())
+	_lens_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_lens_label)
+
+	var action_rail := VBoxContainer.new()
+	action_rail.offset_left = viewport_size.x - insets.z - focus_target.x
+	action_rail.offset_top = top_bottom + spacing.y
+	action_rail.offset_right = viewport_size.x - insets.z
+	action_rail.offset_bottom = viewport_size.y - insets.w
+	action_rail.alignment = BoxContainer.ALIGNMENT_BEGIN
+	action_rail.add_theme_constant_override("separation", int(round(spacing.y)))
+	add_child(action_rail)
+	_focus_button = _make_touch_button(
+		"FOCUS",
+		focus_target,
+		font_body
+	)
+	_focus_button.tooltip_text = "Spend lumen on a narrow high-intensity beam."
+	_focus_button.pressed.connect(func() -> void: emit_signal("request_focus"))
+	action_rail.add_child(_focus_button)
+	_salvo_button = _make_touch_button("SALVO", target, font_body)
+	_salvo_button.tooltip_text = "Spend power to fire every available defense mount."
+	_salvo_button.pressed.connect(
+		func() -> void: emit_signal("request_defense_salvo")
+	)
+	action_rail.add_child(_salvo_button)
+	_touch_context_button = _make_touch_button(
+		"FIELD",
+		detach_target,
+		font_small
+	)
+	_touch_context_button.pressed.connect(_on_touch_context_pressed)
+	action_rail.add_child(_touch_context_button)
+	_detach_button = _make_touch_button(
+		"HOLD\nDETACH",
+		detach_target,
+		font_small
+	)
+	_detach_button.visible = false
+	_detach_button.tooltip_text = "Hold to detach the rear car. Releasing cancels."
+	_detach_button.button_down.connect(
+		func() -> void: emit_signal("detach_hold_changed", true)
+	)
+	_detach_button.button_up.connect(
+		func() -> void: emit_signal("detach_hold_changed", false)
+	)
+	action_rail.add_child(_detach_button)
+	_detach_progress = ProgressBar.new()
+	_detach_progress.min_value = 0.0
+	_detach_progress.max_value = 1.0
+	_detach_progress.show_percentage = false
+	_detach_progress.custom_minimum_size = Vector2(0.0, 5.0 * physical_scale.y)
+	action_rail.add_child(_detach_progress)
+
+	var priorities := PanelContainer.new()
+	var power_width := float(metrics["power_row_width"])
+	priorities.offset_left = (viewport_size.x - power_width) * 0.5
+	priorities.offset_top = bottom_top
+	priorities.offset_right = priorities.offset_left + power_width
+	priorities.offset_bottom = viewport_size.y - insets.w
+	priorities.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	priorities.add_theme_stylebox_override(
+		"panel",
+		_touch_panel_style(0.0, 0.0)
+	)
+	add_child(priorities)
+	var priority_row := HBoxContainer.new()
+	priority_row.add_theme_constant_override("separation", int(round(spacing.x)))
+	priorities.add_child(priority_row)
+	for role in ["engine", "light", "defense", "repair"]:
+		var role_key: String = String(role)
+		var chip := _make_touch_button(
+			_touch_role_label(
+				role_key,
+				int(_run_state.priorities[role_key])
+			),
+			target,
+			font_small
+		)
+		chip.tooltip_text = "Set %s power priority from 0 to 3." % role_key
+		chip.pressed.connect(
+			func() -> void: _open_touch_priority_flyout(role_key, chip)
+		)
+		priority_row.add_child(chip)
+		_touch_priority_buttons[role_key] = chip
+
+	var hidden_controls := Control.new()
+	hidden_controls.visible = false
+	add_child(hidden_controls)
+	_patch_button = Button.new()
+	_patch_button.pressed.connect(
+		func() -> void: emit_signal("request_field_action", "patch")
+	)
+	hidden_controls.add_child(_patch_button)
+	_overcharge_button = Button.new()
+	_overcharge_button.pressed.connect(
+		func() -> void: emit_signal("request_field_action", "overcharge")
+	)
+	hidden_controls.add_child(_overcharge_button)
+	_flare_button = Button.new()
+	_flare_button.pressed.connect(
+		func() -> void: emit_signal("request_field_action", "flare")
+	)
+	hidden_controls.add_child(_flare_button)
+	_focus_label = Label.new()
+	hidden_controls.add_child(_focus_label)
+	_hint_label = Label.new()
+	hidden_controls.add_child(_hint_label)
+
+	_build_touch_notifications(
+		viewport_size,
+		top_bottom,
+		bottom_top,
+		physical_scale
+	)
+
+
+func _make_touch_bar(
+	parent: Container,
+	label_text: String,
+	font_size: int,
+	physical_scale: Vector2
+) -> Dictionary:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 2)
+	parent.add_child(row)
+	var label := Label.new()
+	label.text = label_text
+	label.custom_minimum_size = Vector2(24.0 * physical_scale.x, 0.0)
+	label.add_theme_font_size_override("font_size", font_size)
+	row.add_child(label)
+	var bar := ProgressBar.new()
+	bar.min_value = 0.0
+	bar.max_value = 100.0
+	bar.show_percentage = false
+	bar.custom_minimum_size = Vector2(
+		30.0 * physical_scale.x,
+		5.0 * physical_scale.y
+	)
+	row.add_child(bar)
+	var value := Label.new()
+	value.custom_minimum_size = Vector2(30.0 * physical_scale.x, 0.0)
+	value.add_theme_font_size_override("font_size", font_size)
+	row.add_child(value)
+	return {"bar": bar, "value": value}
+
+
+func _make_touch_button(
+	label_text: String,
+	minimum_size: Vector2,
+	font_size: int
+) -> Button:
+	var button := Button.new()
+	button.text = label_text
+	button.custom_minimum_size = minimum_size
+	button.add_theme_font_size_override("font_size", font_size)
+	button.focus_mode = Control.FOCUS_ALL
+	return button
+
+
+func _touch_panel_style(
+	horizontal_padding: float,
+	vertical_padding: float
+) -> StyleBox:
+	var source := theme.get_stylebox("panel", "PanelContainer")
+	var style := source.duplicate() as StyleBox
+	style.content_margin_left = horizontal_padding
+	style.content_margin_top = vertical_padding
+	style.content_margin_right = horizontal_padding
+	style.content_margin_bottom = vertical_padding
+	return style
+
+
+func _build_touch_notifications(
+	viewport_size: Vector2,
+	top_bottom: float,
+	bottom_top: float,
+	physical_scale: Vector2
+) -> void:
+	var notification_width := minf(
+		420.0 * physical_scale.x,
+		viewport_size.x * 0.58
+	)
+	var center_y := lerpf(top_bottom, bottom_top, 0.24)
+	_notification_panel = PanelContainer.new()
+	_notification_panel.offset_left = (viewport_size.x - notification_width) * 0.5
+	_notification_panel.offset_right = (
+		viewport_size.x + notification_width
+	) * 0.5
+	_notification_panel.offset_top = center_y
+	_notification_panel.offset_bottom = center_y + 44.0 * physical_scale.y
+	_notification_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_notification_panel.visible = false
+	add_child(_notification_panel)
+	_notification_label = Label.new()
+	_notification_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_notification_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_notification_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_notification_label.add_theme_font_size_override(
+		"font_size",
+		UITheme.font_size(15)
+	)
+	_notification_label.add_theme_color_override(
+		"font_color",
+		UITheme.accent_color()
+	)
+	_notification_panel.add_child(_notification_label)
+
+	_critical_panel = PanelContainer.new()
+	_critical_panel.offset_left = _notification_panel.offset_left
+	_critical_panel.offset_right = _notification_panel.offset_right
+	_critical_panel.offset_top = center_y
+	_critical_panel.offset_bottom = center_y + 52.0 * physical_scale.y
+	_critical_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_critical_panel.visible = false
+	add_child(_critical_panel)
+	_critical_label = Label.new()
+	_critical_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_critical_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_critical_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_critical_label.add_theme_font_size_override(
+		"font_size",
+		UITheme.font_size(16)
+	)
+	_critical_label.add_theme_color_override(
+		"font_color",
+		UITheme.danger_color()
+	)
+	_critical_panel.add_child(_critical_label)
+
+	_cinematic_panel = PanelContainer.new()
+	_cinematic_panel.offset_left = viewport_size.x * 0.22
+	_cinematic_panel.offset_right = viewport_size.x * 0.78
+	_cinematic_panel.offset_top = center_y
+	_cinematic_panel.offset_bottom = minf(
+		bottom_top,
+		center_y + 104.0 * physical_scale.y
+	)
+	_cinematic_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_cinematic_panel.visible = false
+	add_child(_cinematic_panel)
+	var cinematic_vbox := VBoxContainer.new()
+	cinematic_vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	_cinematic_panel.add_child(cinematic_vbox)
+	_cinematic_kicker = Label.new()
+	_cinematic_kicker.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_cinematic_kicker.add_theme_font_size_override(
+		"font_size",
+		UITheme.font_size(9)
+	)
+	cinematic_vbox.add_child(_cinematic_kicker)
+	_cinematic_title = Label.new()
+	_cinematic_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_cinematic_title.add_theme_font_override("font", UITheme.display_font())
+	_cinematic_title.add_theme_font_size_override(
+		"font_size",
+		UITheme.font_size(20)
+	)
+	_cinematic_title.add_theme_color_override(
+		"font_color",
+		UITheme.accent_color()
+	)
+	cinematic_vbox.add_child(_cinematic_title)
+	_cinematic_body = Label.new()
+	_cinematic_body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_cinematic_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_cinematic_body.add_theme_font_size_override(
+		"font_size",
+		UITheme.font_size(9)
+	)
+	cinematic_vbox.add_child(_cinematic_body)
+
+
+func _touch_role_label(role: String, level: int) -> String:
+	return "%s\n%d" % [
+		{
+			"engine": "ENG",
+			"light": "LGT",
+			"defense": "DEF",
+			"repair": "REP"
+		}.get(role, role.left(3).to_upper()),
+		level
+	]
+
+
+func _touch_lens_abbreviation(lens_key: String) -> String:
+	return {
+		"Standard": "STD",
+		"Hearth": "HEA",
+		"Pale": "PAL"
+	}.get(lens_key, lens_key.left(3).to_upper())
+
+
+func _on_touch_lens_pressed(lens_key: String) -> void:
+	_touch_lens_description_timer = 2.8
+	_lens_label.visible = true
+	emit_signal("request_lens", lens_key)
+
+
+func _open_touch_priority_flyout(role: String, source: Button) -> void:
+	_close_touch_priority_flyout()
+	var viewport_size := get_viewport_rect().size
+	var metrics := touch_layout_metrics(viewport_size)
+	var target: Vector2 = metrics["target"]
+	var spacing: Vector2 = metrics["spacing"]
+	var flyout_width := target.x * 4.0 + spacing.x * 3.0
+	var source_rect := source.get_global_rect()
+
+	_touch_priority_blocker = Control.new()
+	_touch_priority_blocker.anchor_right = 1.0
+	_touch_priority_blocker.anchor_bottom = 1.0
+	_touch_priority_blocker.mouse_filter = Control.MOUSE_FILTER_STOP
+	_touch_priority_blocker.gui_input.connect(
+		func(event: InputEvent) -> void:
+			if (
+				(event is InputEventScreenTouch
+					and (event as InputEventScreenTouch).pressed)
+				or (event is InputEventMouseButton
+					and (event as InputEventMouseButton).pressed)
+			):
+				_close_touch_priority_flyout()
+	)
+	add_child(_touch_priority_blocker)
+
+	_touch_priority_flyout = PanelContainer.new()
+	var center_x := source_rect.get_center().x
+	_touch_priority_flyout.offset_left = clampf(
+		center_x - flyout_width * 0.5,
+		0.0,
+		viewport_size.x - flyout_width
+	)
+	_touch_priority_flyout.offset_right = (
+		_touch_priority_flyout.offset_left + flyout_width
+	)
+	_touch_priority_flyout.offset_bottom = source_rect.position.y - spacing.y
+	_touch_priority_flyout.offset_top = (
+		_touch_priority_flyout.offset_bottom - target.y
+	)
+	add_child(_touch_priority_flyout)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", int(round(spacing.x)))
+	_touch_priority_flyout.add_child(row)
+	for level in range(4):
+		var level_button := _make_touch_button(
+			str(level),
+			target,
+			UITheme.font_size(13)
+		)
+		var selected_level := level
+		level_button.pressed.connect(
+			func() -> void:
+				emit_signal("request_priority", role, selected_level)
+				_close_touch_priority_flyout()
+		)
+		row.add_child(level_button)
+
+
+func _close_touch_priority_flyout() -> void:
+	if is_instance_valid(_touch_priority_flyout):
+		_touch_priority_flyout.queue_free()
+	if is_instance_valid(_touch_priority_blocker):
+		_touch_priority_blocker.queue_free()
+	_touch_priority_flyout = null
+	_touch_priority_blocker = null
+
+
+func _on_touch_context_pressed() -> void:
+	if _touch_context_action.is_empty():
+		return
+	emit_signal("request_field_action", _touch_context_action)
+
+
+func _touch_detach_relevant() -> bool:
+	if _run_state.cars.is_empty():
+		return false
+	var rear: Dictionary = _run_state.cars.back()
+	var rear_ratio := (
+		float(rear.get("hp", 0.0))
+		/ maxf(1.0, float(rear.get("max_hp", 1.0)))
+	)
+	var locomotive_ratio := (
+		_run_state.locomotive_hp
+		/ maxf(1.0, _run_state.locomotive_max_hp)
+	)
+	return rear_ratio <= 0.45 or locomotive_ratio <= 0.38
+
+
+func _refresh_touch_context() -> void:
+	var detach_relevant := _touch_detach_relevant()
+	_detach_button.visible = detach_relevant
+	_touch_context_button.visible = not detach_relevant
+	_detach_progress.visible = detach_relevant
+	if detach_relevant:
+		_touch_context_action = ""
+		return
+	if _run_state.field_patch_available():
+		_touch_context_action = "patch"
+		_touch_context_button.text = "PATCH\n%d SCR" % RunState.FIELD_PATCH_COST
+		_touch_context_button.tooltip_text = "Repair the most damaged train section."
+		_touch_context_button.disabled = false
+	elif _run_state.field_flare_available():
+		_touch_context_action = "flare"
+		_touch_context_button.text = "FLARE\n%d SCR" % RunState.FIELD_FLARE_COST
+		_touch_context_button.tooltip_text = "Widen and strengthen the lantern temporarily."
+		_touch_context_button.disabled = false
+	elif (
+		_run_state.station_completed
+		and _run_state.scrap >= RunState.FIELD_OVERCHARGE_COST
+	):
+		_touch_context_action = "overcharge"
+		_touch_context_button.text = "BOOST\n%d SCR" % RunState.FIELD_OVERCHARGE_COST
+		_touch_context_button.tooltip_text = "Gain power, lumen, and a systems boost."
+		_touch_context_button.disabled = false
+	else:
+		_touch_context_action = ""
+		_touch_context_button.text = "FIELD\nLOCKED"
+		_touch_context_button.tooltip_text = "Field actions unlock after Waypost Five."
+		_touch_context_button.disabled = true
+
+
 func _make_bar(parent: Node, label: String, col: Color, font_size: int) -> Dictionary:
 	var row: HBoxContainer = HBoxContainer.new()
 	parent.add_child(row)
@@ -555,15 +1182,37 @@ func _process(delta: float) -> void:
 		pace_status = ">%sx AUTO" % str(effective_speed).trim_suffix(".0")
 	_time_label.text = "Time: %02d:%02d   %sx %s" % [m, s, speed_text, pace_status]
 	var lens: Dictionary = _lens_config.get(_run_state.current_lens, {})
-	_lens_label.text = (
-		"%s  %.1fs" % [_run_state.current_lens, _run_state.lens_cooldown]
-		if _compact_layout
-		else "%s (%.1fs)\n%s" % [
+	if _touch_layout:
+		_touch_lens_description_timer = maxf(
+			0.0,
+			_touch_lens_description_timer - delta
+		)
+		_lens_label.visible = _touch_lens_description_timer > 0.0
+		_lens_label.text = "%s  %.1fs\n%s" % [
 			_run_state.current_lens,
 			_run_state.lens_cooldown,
 			String(lens.get("description", ""))
 		]
-	)
+		for lens_key_variant in _lens_buttons.keys():
+			var lens_key := String(lens_key_variant)
+			var lens_button: Button = _lens_buttons[lens_key]
+			lens_button.text = _touch_lens_abbreviation(lens_key)
+			lens_button.add_theme_color_override(
+				"font_color",
+				UITheme.accent_color()
+				if lens_key == _run_state.current_lens
+				else UITheme.muted_text_color()
+			)
+	else:
+		_lens_label.text = (
+			"%s  %.1fs" % [_run_state.current_lens, _run_state.lens_cooldown]
+			if _compact_layout
+			else "%s (%.1fs)\n%s" % [
+				_run_state.current_lens,
+				_run_state.lens_cooldown,
+				String(lens.get("description", ""))
+			]
+		)
 	var focus_cost: float = _run_state.stats().focus_cost
 	var focus_status: String
 	if _run_state.focus_active_time > 0.0:
@@ -594,6 +1243,17 @@ func _process(delta: float) -> void:
 		or _run_state.stats().defense_mounts.is_empty()
 		or _run_state.power < RunState.DEFENSE_SALVO_POWER_COST
 	)
+	if _touch_layout:
+		_focus_button.text = (
+			"FOCUS\n%.1fs" % _run_state.focus_cooldown
+			if _run_state.focus_cooldown > 0.0
+			else ("FOCUS\nACTIVE" if _run_state.focus_active_time > 0.0 else "FOCUS\nREADY")
+		)
+		_salvo_button.text = (
+			"SALVO\n%.1fs" % _run_state.defense_salvo_cooldown
+			if _run_state.defense_salvo_cooldown > 0.0
+			else "SALVO\nREADY"
+		)
 	_hint_label.text = (
 		"Mouse aim | F focus | C salvo | hold X"
 		if _compact_layout
@@ -636,10 +1296,15 @@ func _refresh() -> void:
 	# priorities
 	for role in ["engine", "light", "defense", "repair"]:
 		var v: int = int(_run_state.priorities[role])
-		var buttons: Array = _prio_buttons.get(role, [])
-		for level in range(buttons.size()):
-			var button: Button = buttons[level]
-			button.text = ("[%d]" % level) if level == v else str(level)
+		if _touch_layout:
+			var chip: Button = _touch_priority_buttons.get(role)
+			if chip != null:
+				chip.text = _touch_role_label(role, v)
+		else:
+			var buttons: Array = _prio_buttons.get(role, [])
+			for level in range(buttons.size()):
+				var button: Button = buttons[level]
+				button.text = ("[%d]" % level) if level == v else str(level)
 	# locomotive
 	_loco_bar.value = _run_state.locomotive_hp / _run_state.locomotive_max_hp * 100.0
 	_consist_label.text = _consist_status()
@@ -658,6 +1323,8 @@ func _refresh() -> void:
 		_run_state.scrap < RunState.FIELD_OVERCHARGE_COST
 	)
 	_flare_button.disabled = not _run_state.field_flare_available()
+	if _touch_layout:
+		_refresh_touch_context()
 
 
 func flash(msg: String, duration: float = 2.0) -> void:
@@ -704,11 +1371,18 @@ func set_detach_hold(progress: float, preview: String = "") -> void:
 	if _detach_progress == null:
 		return
 	_detach_progress.value = clampf(progress, 0.0, 1.0)
-	_detach_button.text = (
-		"Release to cancel: %s" % preview
-		if progress > 0.0 and not preview.is_empty()
-		else "Hold to detach rear (X)"
-	)
+	if _touch_layout:
+		_detach_button.text = (
+			"RELEASE\n%s" % preview.left(10).to_upper()
+			if progress > 0.0 and not preview.is_empty()
+			else "HOLD\nDETACH"
+		)
+	else:
+		_detach_button.text = (
+			"Release to cancel: %s" % preview
+			if progress > 0.0 and not preview.is_empty()
+			else "Hold to detach rear (X)"
+		)
 
 
 func set_boss_status(text: String, ratio: float = -1.0) -> void:

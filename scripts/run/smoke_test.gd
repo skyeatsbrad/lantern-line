@@ -17,12 +17,24 @@ var _failures: Array = []
 
 func run(_host: Node) -> void:
 	print("[smoke] starting")
+	GameManager.settings = GameManager.DEFAULT_SETTINGS.duplicate(true)
+	GameManager.meta = {
+		"best_distance": 0.0,
+		"wins": 0,
+		"runs": 0,
+		"last_seed": 0
+	}
+	GameManager.pending_run = {}
+	GameManager.has_pending_run = false
+	GameManager.emit_signal("settings_changed")
 	_test_data_load()
 	_test_v07_clarity_regressions()
 	_test_accessibility_settings(_host)
+	_test_mobile_input_foundation()
 	_test_contextual_onboarding(_host)
 	_test_presentation_foundation(_host)
 	await _test_responsive_ui(_host)
+	await _test_touch_ui_composition(_host)
 	await _test_scene_transition(_host)
 	_test_world_route_context(_host)
 	_test_route_generation()
@@ -122,6 +134,623 @@ func _test_v1_save_migration() -> void:
 		"v1 Defense crew mapping changed"
 	)
 	_expect(RunSnapshot.normalize({"distance": 10.0}).is_empty(), "malformed legacy run was accepted")
+
+
+func _test_mobile_input_foundation() -> void:
+	var viewport_size := Vector2(1280.0, 592.0)
+	var physical_size := Vector2(844.0, 390.0)
+	var target := UITheme.physical_size_to_viewport(
+		Vector2(48.0, 48.0),
+		viewport_size,
+		physical_size
+	)
+	var physical_roundtrip := target / UITheme.physical_to_viewport_scale(
+		viewport_size,
+		physical_size
+	)
+	_expect(
+		physical_roundtrip.distance_to(Vector2(48.0, 48.0)) < 0.01,
+		"physical touch sizing did not survive viewport conversion"
+	)
+	var insets := UITheme.safe_area_insets(
+		viewport_size,
+		physical_size,
+		Vector4(12.0, 8.0, 16.0, 10.0)
+	)
+	_expect(
+		is_equal_approx(insets.x, 12.0 * viewport_size.x / physical_size.x)
+		and is_equal_approx(insets.w, 10.0 * viewport_size.y / physical_size.y),
+		"safe-area insets were not converted through the canvas scale"
+	)
+	var hud_metrics := HUD.touch_layout_metrics(
+		viewport_size,
+		physical_size,
+		Vector4.ZERO
+	)
+	_expect(
+		float(hud_metrics.get("clear_ratio", 0.0)) >= 0.55,
+		"844x390 touch HUD did not preserve 55% clear world height"
+	)
+	var target_size: Vector2 = hud_metrics["target"]
+	var target_physical := target_size / UITheme.physical_to_viewport_scale(
+		viewport_size,
+		physical_size
+	)
+	_expect(
+		target_physical.x >= 48.0 and target_physical.y >= 48.0,
+		"touch HUD primary controls fell below 48 physical pixels"
+	)
+
+	var router := PointerRouter.new()
+	var control_touch := InputEventScreenTouch.new()
+	control_touch.index = 1
+	control_touch.position = Vector2(100.0, 120.0)
+	control_touch.pressed = true
+	_expect(
+		not router.route_screen_touch(control_touch, true)
+		and router.active_touch_index() == PointerRouter.NO_TOUCH,
+		"a touch originating over a Control became a world-aim touch"
+	)
+	var aim_touch := InputEventScreenTouch.new()
+	aim_touch.index = 2
+	aim_touch.position = Vector2(300.0, 210.0)
+	aim_touch.pressed = true
+	_expect(
+		router.route_screen_touch(aim_touch)
+		and router.active_touch_index() == 2,
+		"primary touch was not acquired for world aim"
+	)
+	var second_touch := InputEventScreenTouch.new()
+	second_touch.index = 3
+	second_touch.position = Vector2(500.0, 250.0)
+	second_touch.pressed = true
+	_expect(
+		not router.route_screen_touch(second_touch)
+		and router.active_touch_index() == 2,
+		"a second world touch stole the primary aim index"
+	)
+	var drag := InputEventScreenDrag.new()
+	drag.index = 2
+	drag.position = Vector2(340.0, 190.0)
+	_expect(
+		router.route_screen_drag(drag)
+		and router.current_aim(Vector2.ZERO).is_equal_approx(drag.position),
+		"primary touch drag did not update world aim"
+	)
+	var release := InputEventScreenTouch.new()
+	release.index = 2
+	release.position = drag.position
+	release.pressed = false
+	_expect(
+		router.route_screen_touch(release)
+		and router.active_touch_index() == PointerRouter.NO_TOUCH,
+		"primary touch release left the pointer router captured"
+	)
+	router.route_screen_touch(aim_touch)
+	router.set_blocked(true, &"smoke_modal")
+	_expect(
+		router.active_touch_index() == PointerRouter.NO_TOUCH,
+		"modal blocking did not cancel the active aim touch"
+	)
+	router.free()
+
+
+func _test_touch_ui_composition(host: Node) -> void:
+	var previous_force_touch := OS.get_environment("LANTERN_FORCE_TOUCH")
+	OS.set_environment("LANTERN_FORCE_TOUCH", "1")
+	var scene: PackedScene = load("res://scenes/game_world.tscn")
+	var world: Node = scene.instantiate()
+	host.add_child(world)
+	world.call("bootstrap", 8080, {})
+	await get_tree().process_frame
+	var hud: HUD = world.get("_hud") as HUD
+	var router: PointerRouter = world.get("_pointer_router") as PointerRouter
+	var rs: RunState = world.get("run_state") as RunState
+	_expect(
+		bool(hud.get("_touch_layout")),
+		"forced-touch run did not build the dedicated touch HUD"
+	)
+	_expect(
+		(hud.get("_lens_buttons") as Dictionary).size() == 3,
+		"touch HUD did not expose all three lens controls"
+	)
+	_expect(
+		(hud.get("_touch_priority_buttons") as Dictionary).size() == 4,
+		"touch HUD did not expose four role chips"
+	)
+	var undersized := _undersized_visible_controls(
+		hud,
+		UITheme.MIN_TOUCH_TARGET_PHYSICAL
+	)
+	_expect(
+		undersized.is_empty(),
+		"touch HUD contained undersized controls: %s" % ", ".join(undersized)
+	)
+
+	var aim_touch := InputEventScreenTouch.new()
+	aim_touch.index = 7
+	aim_touch.position = Vector2(640.0, 300.0)
+	aim_touch.pressed = true
+	router.route_screen_touch(aim_touch)
+	var focus_button: Button = hud.get("_focus_button") as Button
+	focus_button.emit_signal("pressed")
+	_expect(
+		rs.focus_active_time > 0.0 and router.active_touch_index() == 7,
+		"a secondary Focus touch interrupted held world aim"
+	)
+
+	var engine_chip: Button = (
+		hud.get("_touch_priority_buttons") as Dictionary
+	).get("engine")
+	engine_chip.emit_signal("pressed")
+	await get_tree().process_frame
+	var flyout: PanelContainer = hud.get("_touch_priority_flyout") as PanelContainer
+	_expect(
+		flyout != null and flyout.get_child(0).get_child_count() == 4,
+		"power chip did not open the temporary four-level flyout"
+	)
+	if flyout != null:
+		var level_three := flyout.get_child(0).get_child(3) as Button
+		level_three.emit_signal("pressed")
+		_expect(
+			int(rs.priorities.get("engine", -1)) == 3,
+			"touch power flyout did not set the selected level"
+		)
+
+	var rear: Dictionary = rs.cars.back()
+	rear["hp"] = 1.0
+	hud.call("_refresh")
+	var detach_button: Button = hud.get("_detach_button") as Button
+	_expect(
+		detach_button.visible
+		and not (hud.get("_touch_context_button") as Button).visible,
+		"critical rear car did not replace the field slot with protected detach"
+	)
+	detach_button.emit_signal("button_down")
+	_expect(
+		bool(world.get("_detach_hold_active")),
+		"touch detach hold did not start"
+	)
+	world.call("_open_settings")
+	_expect(
+		not bool(world.get("_detach_hold_active"))
+		and router.active_touch_index() == PointerRouter.NO_TOUCH,
+		"opening a modal did not cancel held touch actions"
+	)
+	world.free()
+	await _test_touch_hud_scaling(host)
+
+	var choices: Array = [
+		{
+			"title": "Upper",
+			"position": "upper",
+			"category": "living",
+			"description": "A safe upper route.",
+			"summary": "Supplies +4",
+			"danger": 0
+		},
+		{
+			"title": "Middle",
+			"position": "middle",
+			"category": "machinery",
+			"description": "A useful middle route.",
+			"summary": "Scrap +4",
+			"danger": 1
+		},
+		{
+			"title": "Lower",
+			"position": "lower",
+			"category": "danger",
+			"description": "A dangerous lower route.",
+			"summary": "Power +4",
+			"danger": 2
+		}
+	]
+	var route := RouteChoice.new()
+	host.add_child(route)
+	route.present(choices, "Standard")
+	await get_tree().process_frame
+	_expect(
+		bool(route.get("_touch_layout"))
+		and (route.get("_band_buttons") as Array).size() == 3,
+		"touch route overlay did not expose three selectable slabs"
+	)
+	var route_commit: Button = route.get("_commit_button") as Button
+	_expect(
+		route_commit.size.y >= UITheme.MIN_TOUCH_TARGET_PHYSICAL,
+		"touch route commit action was below minimum height"
+	)
+	(route.get("_band_buttons") as Array)[0].emit_signal("pressed")
+	_expect(
+		int(route.get("_selected_index")) == 0,
+		"route slab selection committed or ignored the inspected route"
+	)
+	route.free()
+
+	var station_state := RunState.new()
+	station_state.setup(8081, _mk_configs())
+	var station := StationPanel.new()
+	host.add_child(station)
+	station.present(station_state)
+	await get_tree().process_frame
+	var tabs: TabContainer = station.get("_tabs") as TabContainer
+	_expect(
+		bool(station.get("_touch_layout"))
+		and tabs.get_tab_count() == 3
+		and tabs.get_tab_bar().size.y >= UITheme.MIN_TOUCH_TARGET_PHYSICAL,
+		"touch station did not provide three large paged tabs"
+	)
+	_expect(
+		_undersized_visible_controls(
+			station,
+			UITheme.MIN_TOUCH_TARGET_PHYSICAL
+		).is_empty(),
+		"touch station contained an undersized visible action"
+	)
+	station.free()
+
+	var settings := SettingsPanel.new()
+	host.add_child(settings)
+	settings.present()
+	await get_tree().process_frame
+	_expect(
+		bool(settings.get("_touch_layout"))
+		and _undersized_visible_controls(
+			settings,
+			UITheme.MIN_TOUCH_TARGET_PHYSICAL
+		).is_empty(),
+		"touch settings did not use full-height rows and controls"
+	)
+	settings.free()
+
+	var guide := GuidePanel.new()
+	host.add_child(guide)
+	guide.present()
+	await get_tree().process_frame
+	_expect(
+		bool(guide.get("_touch_layout"))
+		and _undersized_visible_controls(
+			guide,
+			UITheme.MIN_TOUCH_TARGET_PHYSICAL
+		).is_empty(),
+		"touch guide navigation fell below the target minimum"
+	)
+	guide.free()
+
+	host.call("_build_title")
+	await get_tree().process_frame
+	var title_layer: Control = host.get("_title_layer") as Control
+	_expect(
+		title_layer != null
+		and _undersized_visible_controls(
+			title_layer,
+			UITheme.MIN_TOUCH_TARGET_PHYSICAL
+		).is_empty(),
+		"touch title screen exposed a sub-48-pixel action"
+	)
+	if title_layer != null:
+		title_layer.free()
+		host.set("_title_layer", null)
+
+	var end_state := RunState.new()
+	end_state.setup(8082, _mk_configs())
+	var end_screen := EndScreen.new()
+	host.add_child(end_screen)
+	end_screen.show_end(true, end_state)
+	await get_tree().process_frame
+	_expect(
+		_undersized_visible_controls(
+			end_screen,
+			UITheme.MIN_TOUCH_TARGET_PHYSICAL
+		).is_empty(),
+		"touch end screen exposed a sub-48-pixel action"
+	)
+	end_screen.free()
+	if previous_force_touch.is_empty():
+		OS.unset_environment("LANTERN_FORCE_TOUCH")
+	else:
+		OS.set_environment("LANTERN_FORCE_TOUCH", previous_force_touch)
+
+
+func _test_touch_hud_scaling(host: Node) -> void:
+	var saved_scale: float = float(
+		GameManager.get_setting("touch_target_scale", 1.0)
+	)
+	var captures: Array[Dictionary] = []
+	for target_scale in [1.0, 1.15, 1.3]:
+		GameManager.settings["touch_target_scale"] = target_scale
+		var viewport := SubViewport.new()
+		viewport.size = Vector2i(844, 390)
+		viewport.disable_3d = true
+		host.add_child(viewport)
+		var run_state := RunState.new()
+		var configs := _mk_configs()
+		run_state.setup(8180 + int(target_scale * 100.0), configs)
+		var hud := HUD.new()
+		viewport.add_child(hud)
+		hud.setup(run_state, configs["lenses"])
+		await get_tree().process_frame
+		await get_tree().process_frame
+		captures.append(
+			_assert_touch_hud_layout(hud, target_scale, "field")
+		)
+
+		var rear: Dictionary = run_state.cars.back()
+		rear["hp"] = 1.0
+		hud.call("_refresh")
+		await get_tree().process_frame
+		captures.append(
+			_assert_touch_hud_layout(hud, target_scale, "detach")
+		)
+		viewport.free()
+	GameManager.settings["touch_target_scale"] = saved_scale
+	var capture_path := OS.get_environment("LANTERN_TOUCH_LAYOUT_CAPTURE")
+	if not capture_path.is_empty():
+		var capture_file := FileAccess.open(capture_path, FileAccess.WRITE)
+		if capture_file == null:
+			_fail("touch HUD live-layout receipt could not be opened")
+		else:
+			capture_file.store_string(
+				JSON.stringify(
+					{
+						"viewport": {"width": 844, "height": 390},
+						"layouts": captures
+					},
+					"\t"
+				) + "\n"
+			)
+			capture_file.close()
+
+
+func _assert_touch_hud_layout(
+	hud: HUD,
+	target_scale: float,
+	state_label: String
+) -> Dictionary:
+	var viewport_size := hud.get_viewport_rect().size
+	var metrics := HUD.touch_layout_metrics(
+		viewport_size,
+		Vector2(844.0, 390.0),
+		Vector4.ZERO
+	)
+	_expect(
+		float(metrics.get("clear_ratio", 0.0)) >= 0.55,
+		"touch HUD clear world area fell below 55%% at %.0f%% scale" % [
+			target_scale * 100.0
+		]
+	)
+	var insets: Vector4 = metrics["insets"]
+	var comfort_rect := Rect2(
+		Vector2(insets.x, insets.y),
+		viewport_size - Vector2(
+			insets.x + insets.z,
+			insets.y + insets.w
+		)
+	)
+	var controls := _visible_buttons(hud)
+	var focus_button: Button = hud.get("_focus_button") as Button
+	var context_button: Button = hud.get("_touch_context_button") as Button
+	var detach_button: Button = hud.get("_detach_button") as Button
+	var regions: Array[Dictionary] = []
+	var size_failures: Array[String] = []
+	var bounds_failures: Array[String] = []
+	for control in controls:
+		var rect := control.get_global_rect()
+		var minimum := UITheme.MIN_TOUCH_TARGET_PHYSICAL * target_scale
+		if control == focus_button:
+			minimum = UITheme.FOCUS_TOUCH_TARGET_PHYSICAL * target_scale
+		elif control == context_button or control == detach_button:
+			minimum = UITheme.DETACH_TOUCH_TARGET_PHYSICAL * target_scale
+		var label := _button_label(hud, control)
+		var size_valid := (
+			rect.size.x + 0.5 >= minimum
+			and rect.size.y + 0.5 >= minimum
+		)
+		var bounds_valid := (
+			rect.position.x + 0.5 >= comfort_rect.position.x
+			and rect.position.y + 0.5 >= comfort_rect.position.y
+			and rect.end.x <= comfort_rect.end.x + 0.5
+			and rect.end.y <= comfort_rect.end.y + 0.5
+		)
+		if not size_valid:
+			size_failures.append(label)
+		if not bounds_valid:
+			bounds_failures.append(label)
+		regions.append(
+			{
+				"label": label,
+				"text": control.text.replace("\n", " "),
+				"minimum_px": minimum,
+				"rect": _rect_record(rect)
+			}
+		)
+		_expect(
+			size_valid,
+			"%s control %s was undersized at %.0f%% scale: %.1fx%.1f" % [
+				state_label,
+				label,
+				target_scale * 100.0,
+				rect.size.x,
+				rect.size.y
+			]
+		)
+		_expect(
+			bounds_valid,
+			"%s control %s escaped the 24 px comfort bounds at %.0f%% scale: %s within %s" % [
+				state_label,
+				label,
+				target_scale * 100.0,
+				rect,
+				comfort_rect
+			]
+		)
+
+	var minimum_gap: Vector2 = metrics["spacing"]
+	var overlaps: Array[String] = []
+	var gap_failures: Array[String] = []
+	for first_index in range(controls.size()):
+		var first := controls[first_index]
+		var first_rect := first.get_global_rect()
+		for second_index in range(first_index + 1, controls.size()):
+			var second := controls[second_index]
+			var second_rect := second.get_global_rect()
+			var intersection := first_rect.intersection(second_rect)
+			var pair_label := "%s / %s" % [
+				_button_label(hud, first),
+				_button_label(hud, second)
+			]
+			var overlap_area := intersection.size.x * intersection.size.y
+			if overlap_area > 0.5:
+				overlaps.append(pair_label)
+			_expect(
+				overlap_area <= 0.5,
+				"%s controls overlapped at %.0f%% scale: %s / %s" % [
+					state_label,
+					target_scale * 100.0,
+					_button_label(hud, first),
+					_button_label(hud, second)
+				]
+			)
+			var horizontal_overlap := (
+				minf(first_rect.end.x, second_rect.end.x)
+				- maxf(first_rect.position.x, second_rect.position.x)
+			)
+			var vertical_overlap := (
+				minf(first_rect.end.y, second_rect.end.y)
+				- maxf(first_rect.position.y, second_rect.position.y)
+			)
+			if horizontal_overlap > 0.5 and vertical_overlap <= 0.5:
+				var vertical_gap := maxf(
+					second_rect.position.y - first_rect.end.y,
+					first_rect.position.y - second_rect.end.y
+				)
+				if vertical_gap + 0.5 < minimum_gap.y:
+					gap_failures.append(pair_label)
+				_expect(
+					vertical_gap + 0.5 >= minimum_gap.y,
+					"%s controls lost the 8 px vertical gap at %.0f%% scale (%.1f px): %s / %s" % [
+						state_label,
+						target_scale * 100.0,
+						vertical_gap,
+						_button_label(hud, first),
+						_button_label(hud, second)
+					]
+				)
+			elif vertical_overlap > 0.5 and horizontal_overlap <= 0.5:
+				var horizontal_gap := maxf(
+					second_rect.position.x - first_rect.end.x,
+					first_rect.position.x - second_rect.end.x
+				)
+				if horizontal_gap + 0.5 < minimum_gap.x:
+					gap_failures.append(pair_label)
+				_expect(
+					horizontal_gap + 0.5 >= minimum_gap.x,
+					"%s controls lost the 8 px horizontal gap at %.0f%% scale (%.1f px): %s / %s" % [
+						state_label,
+						target_scale * 100.0,
+						horizontal_gap,
+						_button_label(hud, first),
+						_button_label(hud, second)
+					]
+				)
+
+	var detach_progress: ProgressBar = hud.get("_detach_progress") as ProgressBar
+	if detach_progress.visible:
+		var progress_rect := detach_progress.get_global_rect()
+		_expect(
+			progress_rect.end.y <= comfort_rect.end.y + 0.5,
+			"detach progress escaped the comfort bounds at %.0f%% scale" % [
+				target_scale * 100.0
+			]
+		)
+	return {
+		"scale": target_scale,
+		"state": state_label,
+		"metrics": {
+			"comfort": _rect_record(comfort_rect),
+			"target": _vector_record(metrics["target"]),
+			"focus_target": _vector_record(metrics["focus_target"]),
+			"detach_target": _vector_record(metrics["detach_target"]),
+			"spacing": _vector_record(metrics["spacing"]),
+			"top_strip_bottom": metrics["top_strip_bottom"],
+			"bottom_row_top": metrics["bottom_row_top"],
+			"clear_height": metrics["clear_height"],
+			"clear_ratio": metrics["clear_ratio"]
+		},
+		"regions": regions,
+		"checks": {
+			"size_failures": size_failures,
+			"bounds_failures": bounds_failures,
+			"overlaps": overlaps,
+			"gap_failures": gap_failures
+		}
+	}
+
+
+func _rect_record(rect: Rect2) -> Dictionary:
+	return {
+		"x": rect.position.x,
+		"y": rect.position.y,
+		"width": rect.size.x,
+		"height": rect.size.y
+	}
+
+
+func _vector_record(value: Vector2) -> Dictionary:
+	return {"x": value.x, "y": value.y}
+
+
+func _visible_buttons(root: Node) -> Array[BaseButton]:
+	var controls: Array[BaseButton] = []
+	var pending: Array[Node] = [root]
+	while not pending.is_empty():
+		var node: Node = pending.pop_back()
+		for child in node.get_children():
+			pending.append(child)
+		if node is BaseButton and (node as Control).is_visible_in_tree():
+			controls.append(node as BaseButton)
+	return controls
+
+
+func _button_label(root: Node, button: BaseButton) -> String:
+	return "%s[%s]" % [
+		String(root.get_path_to(button)),
+		button.text.replace("\n", " ")
+	]
+
+
+func _undersized_visible_controls(
+	root: Node,
+	minimum_physical_size: float
+) -> Array[String]:
+	var undersized: Array[String] = []
+	var viewport_size := get_viewport().get_visible_rect().size
+	var logical_minimum := UITheme.physical_size_to_viewport(
+		Vector2(minimum_physical_size, minimum_physical_size),
+		viewport_size
+	)
+	var pending: Array[Node] = [root]
+	while not pending.is_empty():
+		var node: Node = pending.pop_back()
+		for child in node.get_children():
+			pending.append(child)
+		if not (node is BaseButton or node is HSlider):
+			continue
+		var control := node as Control
+		if not control.is_visible_in_tree():
+			continue
+		if (
+			control.size.x + 0.5 < logical_minimum.x
+			or control.size.y + 0.5 < logical_minimum.y
+		):
+			undersized.append(
+				"%s %.0fx%.0f" % [
+					control.name,
+					control.size.x,
+					control.size.y
+				]
+			)
+	return undersized
 
 
 func _mk_configs() -> Dictionary:

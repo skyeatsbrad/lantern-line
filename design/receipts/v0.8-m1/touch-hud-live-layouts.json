@@ -1,0 +1,1172 @@
+{
+	"layouts": [
+		{
+			"checks": {
+				"bounds_failures": [],
+				"gap_failures": [],
+				"overlaps": [],
+				"size_failures": []
+			},
+			"metrics": {
+				"bottom_row_top": 318.0,
+				"clear_height": 246.0,
+				"clear_ratio": 0.630769230769231,
+				"comfort": {
+					"height": 342.0,
+					"width": 796.0,
+					"x": 24.0,
+					"y": 24.0
+				},
+				"detach_target": {
+					"x": 56.0,
+					"y": 56.0
+				},
+				"focus_target": {
+					"x": 68.0,
+					"y": 68.0
+				},
+				"spacing": {
+					"x": 8.0,
+					"y": 8.0
+				},
+				"target": {
+					"x": 48.0,
+					"y": 48.0
+				},
+				"top_strip_bottom": 72.0
+			},
+			"regions": [
+				{
+					"label": "@PanelContainer@1170/@HBoxContainer@1171/@Button@1175[REP 1]",
+					"minimum_px": 48.0,
+					"rect": {
+						"height": 48.0,
+						"width": 48.0,
+						"x": 482.0,
+						"y": 318.0
+					},
+					"text": "REP 1"
+				},
+				{
+					"label": "@PanelContainer@1170/@HBoxContainer@1171/@Button@1174[DEF 0]",
+					"minimum_px": 48.0,
+					"rect": {
+						"height": 48.0,
+						"width": 48.0,
+						"x": 426.0,
+						"y": 318.0
+					},
+					"text": "DEF 0"
+				},
+				{
+					"label": "@PanelContainer@1170/@HBoxContainer@1171/@Button@1173[LGT 2]",
+					"minimum_px": 48.0,
+					"rect": {
+						"height": 48.0,
+						"width": 48.0,
+						"x": 370.0,
+						"y": 318.0
+					},
+					"text": "LGT 2"
+				},
+				{
+					"label": "@PanelContainer@1170/@HBoxContainer@1171/@Button@1172[ENG 1]",
+					"minimum_px": 48.0,
+					"rect": {
+						"height": 48.0,
+						"width": 48.0,
+						"x": 314.0,
+						"y": 318.0
+					},
+					"text": "ENG 1"
+				},
+				{
+					"label": "@VBoxContainer@1164/@Button@1167[FIELD LOCKED]",
+					"minimum_px": 56.0,
+					"rect": {
+						"height": 56.0,
+						"width": 68.0,
+						"x": 752.0,
+						"y": 212.0
+					},
+					"text": "FIELD LOCKED"
+				},
+				{
+					"label": "@VBoxContainer@1164/@Button@1166[SALVO READY]",
+					"minimum_px": 48.0,
+					"rect": {
+						"height": 48.0,
+						"width": 68.0,
+						"x": 752.0,
+						"y": 156.0
+					},
+					"text": "SALVO READY"
+				},
+				{
+					"label": "@VBoxContainer@1164/@Button@1165[FOCUS READY]",
+					"minimum_px": 68.0,
+					"rect": {
+						"height": 68.0,
+						"width": 68.0,
+						"x": 752.0,
+						"y": 80.0
+					},
+					"text": "FOCUS READY"
+				},
+				{
+					"label": "@VBoxContainer@1159/@Button@1162[PAL]",
+					"minimum_px": 48.0,
+					"rect": {
+						"height": 48.0,
+						"width": 48.0,
+						"x": 24.0,
+						"y": 192.0
+					},
+					"text": "PAL"
+				},
+				{
+					"label": "@VBoxContainer@1159/@Button@1161[HEA]",
+					"minimum_px": 48.0,
+					"rect": {
+						"height": 48.0,
+						"width": 48.0,
+						"x": 24.0,
+						"y": 136.0
+					},
+					"text": "HEA"
+				},
+				{
+					"label": "@VBoxContainer@1159/@Button@1160[STD]",
+					"minimum_px": 48.0,
+					"rect": {
+						"height": 48.0,
+						"width": 48.0,
+						"x": 24.0,
+						"y": 80.0
+					},
+					"text": "STD"
+				},
+				{
+					"label": "@PanelContainer@1124/@HBoxContainer@1125/@HBoxContainer@1154/@Button@1158[Options]",
+					"minimum_px": 48.0,
+					"rect": {
+						"height": 48.0,
+						"width": 54.0,
+						"x": 758.0,
+						"y": 24.0
+					},
+					"text": "Options"
+				},
+				{
+					"label": "@PanelContainer@1124/@HBoxContainer@1125/@HBoxContainer@1154/@Button@1157[Guide]",
+					"minimum_px": 48.0,
+					"rect": {
+						"height": 48.0,
+						"width": 48.0,
+						"x": 702.0,
+						"y": 24.0
+					},
+					"text": "Guide"
+				},
+				{
+					"label": "@PanelContainer@1124/@HBoxContainer@1125/@HBoxContainer@1154/@Button@1156[Speed]",
+					"minimum_px": 48.0,
+					"rect": {
+						"height": 48.0,
+						"width": 48.0,
+						"x": 646.0,
+						"y": 24.0
+					},
+					"text": "Speed"
+				},
+				{
+					"label": "@PanelContainer@1124/@HBoxContainer@1125/@HBoxContainer@1154/@Button@1155[Pause]",
+					"minimum_px": 48.0,
+					"rect": {
+						"height": 48.0,
+						"width": 48.0,
+						"x": 590.0,
+						"y": 24.0
+					},
+					"text": "Pause"
+				}
+			],
+			"scale": 1.0,
+			"state": "field"
+		},
+		{
+			"checks": {
+				"bounds_failures": [],
+				"gap_failures": [],
+				"overlaps": [],
+				"size_failures": []
+			},
+			"metrics": {
+				"bottom_row_top": 318.0,
+				"clear_height": 246.0,
+				"clear_ratio": 0.630769230769231,
+				"comfort": {
+					"height": 342.0,
+					"width": 796.0,
+					"x": 24.0,
+					"y": 24.0
+				},
+				"detach_target": {
+					"x": 56.0,
+					"y": 56.0
+				},
+				"focus_target": {
+					"x": 68.0,
+					"y": 68.0
+				},
+				"spacing": {
+					"x": 8.0,
+					"y": 8.0
+				},
+				"target": {
+					"x": 48.0,
+					"y": 48.0
+				},
+				"top_strip_bottom": 72.0
+			},
+			"regions": [
+				{
+					"label": "@PanelContainer@1170/@HBoxContainer@1171/@Button@1175[REP 1]",
+					"minimum_px": 48.0,
+					"rect": {
+						"height": 48.0,
+						"width": 48.0,
+						"x": 482.0,
+						"y": 318.0
+					},
+					"text": "REP 1"
+				},
+				{
+					"label": "@PanelContainer@1170/@HBoxContainer@1171/@Button@1174[DEF 0]",
+					"minimum_px": 48.0,
+					"rect": {
+						"height": 48.0,
+						"width": 48.0,
+						"x": 426.0,
+						"y": 318.0
+					},
+					"text": "DEF 0"
+				},
+				{
+					"label": "@PanelContainer@1170/@HBoxContainer@1171/@Button@1173[LGT 2]",
+					"minimum_px": 48.0,
+					"rect": {
+						"height": 48.0,
+						"width": 48.0,
+						"x": 370.0,
+						"y": 318.0
+					},
+					"text": "LGT 2"
+				},
+				{
+					"label": "@PanelContainer@1170/@HBoxContainer@1171/@Button@1172[ENG 1]",
+					"minimum_px": 48.0,
+					"rect": {
+						"height": 48.0,
+						"width": 48.0,
+						"x": 314.0,
+						"y": 318.0
+					},
+					"text": "ENG 1"
+				},
+				{
+					"label": "@VBoxContainer@1164/@Button@1168[HOLD DETACH]",
+					"minimum_px": 56.0,
+					"rect": {
+						"height": 56.0,
+						"width": 68.0,
+						"x": 752.0,
+						"y": 212.0
+					},
+					"text": "HOLD DETACH"
+				},
+				{
+					"label": "@VBoxContainer@1164/@Button@1166[SALVO READY]",
+					"minimum_px": 48.0,
+					"rect": {
+						"height": 48.0,
+						"width": 68.0,
+						"x": 752.0,
+						"y": 156.0
+					},
+					"text": "SALVO READY"
+				},
+				{
+					"label": "@VBoxContainer@1164/@Button@1165[FOCUS READY]",
+					"minimum_px": 68.0,
+					"rect": {
+						"height": 68.0,
+						"width": 68.0,
+						"x": 752.0,
+						"y": 80.0
+					},
+					"text": "FOCUS READY"
+				},
+				{
+					"label": "@VBoxContainer@1159/@Button@1162[PAL]",
+					"minimum_px": 48.0,
+					"rect": {
+						"height": 48.0,
+						"width": 48.0,
+						"x": 24.0,
+						"y": 192.0
+					},
+					"text": "PAL"
+				},
+				{
+					"label": "@VBoxContainer@1159/@Button@1161[HEA]",
+					"minimum_px": 48.0,
+					"rect": {
+						"height": 48.0,
+						"width": 48.0,
+						"x": 24.0,
+						"y": 136.0
+					},
+					"text": "HEA"
+				},
+				{
+					"label": "@VBoxContainer@1159/@Button@1160[STD]",
+					"minimum_px": 48.0,
+					"rect": {
+						"height": 48.0,
+						"width": 48.0,
+						"x": 24.0,
+						"y": 80.0
+					},
+					"text": "STD"
+				},
+				{
+					"label": "@PanelContainer@1124/@HBoxContainer@1125/@HBoxContainer@1154/@Button@1158[Options]",
+					"minimum_px": 48.0,
+					"rect": {
+						"height": 48.0,
+						"width": 54.0,
+						"x": 758.0,
+						"y": 24.0
+					},
+					"text": "Options"
+				},
+				{
+					"label": "@PanelContainer@1124/@HBoxContainer@1125/@HBoxContainer@1154/@Button@1157[Guide]",
+					"minimum_px": 48.0,
+					"rect": {
+						"height": 48.0,
+						"width": 48.0,
+						"x": 702.0,
+						"y": 24.0
+					},
+					"text": "Guide"
+				},
+				{
+					"label": "@PanelContainer@1124/@HBoxContainer@1125/@HBoxContainer@1154/@Button@1156[Speed]",
+					"minimum_px": 48.0,
+					"rect": {
+						"height": 48.0,
+						"width": 48.0,
+						"x": 646.0,
+						"y": 24.0
+					},
+					"text": "Speed"
+				},
+				{
+					"label": "@PanelContainer@1124/@HBoxContainer@1125/@HBoxContainer@1154/@Button@1155[Pause]",
+					"minimum_px": 48.0,
+					"rect": {
+						"height": 48.0,
+						"width": 48.0,
+						"x": 590.0,
+						"y": 24.0
+					},
+					"text": "Pause"
+				}
+			],
+			"scale": 1.0,
+			"state": "detach"
+		},
+		{
+			"checks": {
+				"bounds_failures": [],
+				"gap_failures": [],
+				"overlaps": [],
+				"size_failures": []
+			},
+			"metrics": {
+				"bottom_row_top": 310.0,
+				"clear_height": 230.0,
+				"clear_ratio": 0.58974358974359,
+				"comfort": {
+					"height": 342.0,
+					"width": 796.0,
+					"x": 24.0,
+					"y": 24.0
+				},
+				"detach_target": {
+					"x": 65.0,
+					"y": 65.0
+				},
+				"focus_target": {
+					"x": 79.0,
+					"y": 79.0
+				},
+				"spacing": {
+					"x": 8.0,
+					"y": 8.0
+				},
+				"target": {
+					"x": 56.0,
+					"y": 56.0
+				},
+				"top_strip_bottom": 80.0
+			},
+			"regions": [
+				{
+					"label": "@PanelContainer@1239/@HBoxContainer@1240/@Button@1244[REP 1]",
+					"minimum_px": 55.2,
+					"rect": {
+						"height": 56.0,
+						"width": 56.0,
+						"x": 490.0,
+						"y": 310.0
+					},
+					"text": "REP 1"
+				},
+				{
+					"label": "@PanelContainer@1239/@HBoxContainer@1240/@Button@1243[DEF 0]",
+					"minimum_px": 55.2,
+					"rect": {
+						"height": 56.0,
+						"width": 56.0,
+						"x": 426.0,
+						"y": 310.0
+					},
+					"text": "DEF 0"
+				},
+				{
+					"label": "@PanelContainer@1239/@HBoxContainer@1240/@Button@1242[LGT 2]",
+					"minimum_px": 55.2,
+					"rect": {
+						"height": 56.0,
+						"width": 56.0,
+						"x": 362.0,
+						"y": 310.0
+					},
+					"text": "LGT 2"
+				},
+				{
+					"label": "@PanelContainer@1239/@HBoxContainer@1240/@Button@1241[ENG 1]",
+					"minimum_px": 55.2,
+					"rect": {
+						"height": 56.0,
+						"width": 56.0,
+						"x": 298.0,
+						"y": 310.0
+					},
+					"text": "ENG 1"
+				},
+				{
+					"label": "@VBoxContainer@1233/@Button@1236[FIELD LOCKED]",
+					"minimum_px": 64.4,
+					"rect": {
+						"height": 65.0,
+						"width": 79.0,
+						"x": 741.0,
+						"y": 239.0
+					},
+					"text": "FIELD LOCKED"
+				},
+				{
+					"label": "@VBoxContainer@1233/@Button@1235[SALVO READY]",
+					"minimum_px": 55.2,
+					"rect": {
+						"height": 56.0,
+						"width": 79.0,
+						"x": 741.0,
+						"y": 175.0
+					},
+					"text": "SALVO READY"
+				},
+				{
+					"label": "@VBoxContainer@1233/@Button@1234[FOCUS READY]",
+					"minimum_px": 78.2,
+					"rect": {
+						"height": 79.0,
+						"width": 79.0,
+						"x": 741.0,
+						"y": 88.0
+					},
+					"text": "FOCUS READY"
+				},
+				{
+					"label": "@VBoxContainer@1228/@Button@1231[PAL]",
+					"minimum_px": 55.2,
+					"rect": {
+						"height": 56.0,
+						"width": 56.0,
+						"x": 24.0,
+						"y": 216.0
+					},
+					"text": "PAL"
+				},
+				{
+					"label": "@VBoxContainer@1228/@Button@1230[HEA]",
+					"minimum_px": 55.2,
+					"rect": {
+						"height": 56.0,
+						"width": 56.0,
+						"x": 24.0,
+						"y": 152.0
+					},
+					"text": "HEA"
+				},
+				{
+					"label": "@VBoxContainer@1228/@Button@1229[STD]",
+					"minimum_px": 55.2,
+					"rect": {
+						"height": 56.0,
+						"width": 56.0,
+						"x": 24.0,
+						"y": 88.0
+					},
+					"text": "STD"
+				},
+				{
+					"label": "@PanelContainer@1193/@HBoxContainer@1194/@HBoxContainer@1223/@Button@1227[Options]",
+					"minimum_px": 55.2,
+					"rect": {
+						"height": 56.0,
+						"width": 56.0,
+						"x": 756.0,
+						"y": 24.0
+					},
+					"text": "Options"
+				},
+				{
+					"label": "@PanelContainer@1193/@HBoxContainer@1194/@HBoxContainer@1223/@Button@1226[Guide]",
+					"minimum_px": 55.2,
+					"rect": {
+						"height": 56.0,
+						"width": 56.0,
+						"x": 692.0,
+						"y": 24.0
+					},
+					"text": "Guide"
+				},
+				{
+					"label": "@PanelContainer@1193/@HBoxContainer@1194/@HBoxContainer@1223/@Button@1225[Speed]",
+					"minimum_px": 55.2,
+					"rect": {
+						"height": 56.0,
+						"width": 56.0,
+						"x": 628.0,
+						"y": 24.0
+					},
+					"text": "Speed"
+				},
+				{
+					"label": "@PanelContainer@1193/@HBoxContainer@1194/@HBoxContainer@1223/@Button@1224[Pause]",
+					"minimum_px": 55.2,
+					"rect": {
+						"height": 56.0,
+						"width": 56.0,
+						"x": 564.0,
+						"y": 24.0
+					},
+					"text": "Pause"
+				}
+			],
+			"scale": 1.15,
+			"state": "field"
+		},
+		{
+			"checks": {
+				"bounds_failures": [],
+				"gap_failures": [],
+				"overlaps": [],
+				"size_failures": []
+			},
+			"metrics": {
+				"bottom_row_top": 310.0,
+				"clear_height": 230.0,
+				"clear_ratio": 0.58974358974359,
+				"comfort": {
+					"height": 342.0,
+					"width": 796.0,
+					"x": 24.0,
+					"y": 24.0
+				},
+				"detach_target": {
+					"x": 65.0,
+					"y": 65.0
+				},
+				"focus_target": {
+					"x": 79.0,
+					"y": 79.0
+				},
+				"spacing": {
+					"x": 8.0,
+					"y": 8.0
+				},
+				"target": {
+					"x": 56.0,
+					"y": 56.0
+				},
+				"top_strip_bottom": 80.0
+			},
+			"regions": [
+				{
+					"label": "@PanelContainer@1239/@HBoxContainer@1240/@Button@1244[REP 1]",
+					"minimum_px": 55.2,
+					"rect": {
+						"height": 56.0,
+						"width": 56.0,
+						"x": 490.0,
+						"y": 310.0
+					},
+					"text": "REP 1"
+				},
+				{
+					"label": "@PanelContainer@1239/@HBoxContainer@1240/@Button@1243[DEF 0]",
+					"minimum_px": 55.2,
+					"rect": {
+						"height": 56.0,
+						"width": 56.0,
+						"x": 426.0,
+						"y": 310.0
+					},
+					"text": "DEF 0"
+				},
+				{
+					"label": "@PanelContainer@1239/@HBoxContainer@1240/@Button@1242[LGT 2]",
+					"minimum_px": 55.2,
+					"rect": {
+						"height": 56.0,
+						"width": 56.0,
+						"x": 362.0,
+						"y": 310.0
+					},
+					"text": "LGT 2"
+				},
+				{
+					"label": "@PanelContainer@1239/@HBoxContainer@1240/@Button@1241[ENG 1]",
+					"minimum_px": 55.2,
+					"rect": {
+						"height": 56.0,
+						"width": 56.0,
+						"x": 298.0,
+						"y": 310.0
+					},
+					"text": "ENG 1"
+				},
+				{
+					"label": "@VBoxContainer@1233/@Button@1237[HOLD DETACH]",
+					"minimum_px": 64.4,
+					"rect": {
+						"height": 65.0,
+						"width": 79.0,
+						"x": 741.0,
+						"y": 239.0
+					},
+					"text": "HOLD DETACH"
+				},
+				{
+					"label": "@VBoxContainer@1233/@Button@1235[SALVO READY]",
+					"minimum_px": 55.2,
+					"rect": {
+						"height": 56.0,
+						"width": 79.0,
+						"x": 741.0,
+						"y": 175.0
+					},
+					"text": "SALVO READY"
+				},
+				{
+					"label": "@VBoxContainer@1233/@Button@1234[FOCUS READY]",
+					"minimum_px": 78.2,
+					"rect": {
+						"height": 79.0,
+						"width": 79.0,
+						"x": 741.0,
+						"y": 88.0
+					},
+					"text": "FOCUS READY"
+				},
+				{
+					"label": "@VBoxContainer@1228/@Button@1231[PAL]",
+					"minimum_px": 55.2,
+					"rect": {
+						"height": 56.0,
+						"width": 56.0,
+						"x": 24.0,
+						"y": 216.0
+					},
+					"text": "PAL"
+				},
+				{
+					"label": "@VBoxContainer@1228/@Button@1230[HEA]",
+					"minimum_px": 55.2,
+					"rect": {
+						"height": 56.0,
+						"width": 56.0,
+						"x": 24.0,
+						"y": 152.0
+					},
+					"text": "HEA"
+				},
+				{
+					"label": "@VBoxContainer@1228/@Button@1229[STD]",
+					"minimum_px": 55.2,
+					"rect": {
+						"height": 56.0,
+						"width": 56.0,
+						"x": 24.0,
+						"y": 88.0
+					},
+					"text": "STD"
+				},
+				{
+					"label": "@PanelContainer@1193/@HBoxContainer@1194/@HBoxContainer@1223/@Button@1227[Options]",
+					"minimum_px": 55.2,
+					"rect": {
+						"height": 56.0,
+						"width": 56.0,
+						"x": 756.0,
+						"y": 24.0
+					},
+					"text": "Options"
+				},
+				{
+					"label": "@PanelContainer@1193/@HBoxContainer@1194/@HBoxContainer@1223/@Button@1226[Guide]",
+					"minimum_px": 55.2,
+					"rect": {
+						"height": 56.0,
+						"width": 56.0,
+						"x": 692.0,
+						"y": 24.0
+					},
+					"text": "Guide"
+				},
+				{
+					"label": "@PanelContainer@1193/@HBoxContainer@1194/@HBoxContainer@1223/@Button@1225[Speed]",
+					"minimum_px": 55.2,
+					"rect": {
+						"height": 56.0,
+						"width": 56.0,
+						"x": 628.0,
+						"y": 24.0
+					},
+					"text": "Speed"
+				},
+				{
+					"label": "@PanelContainer@1193/@HBoxContainer@1194/@HBoxContainer@1223/@Button@1224[Pause]",
+					"minimum_px": 55.2,
+					"rect": {
+						"height": 56.0,
+						"width": 56.0,
+						"x": 564.0,
+						"y": 24.0
+					},
+					"text": "Pause"
+				}
+			],
+			"scale": 1.15,
+			"state": "detach"
+		},
+		{
+			"checks": {
+				"bounds_failures": [],
+				"gap_failures": [],
+				"overlaps": [],
+				"size_failures": []
+			},
+			"metrics": {
+				"bottom_row_top": 303.0,
+				"clear_height": 216.0,
+				"clear_ratio": 0.553846153846154,
+				"comfort": {
+					"height": 342.0,
+					"width": 796.0,
+					"x": 24.0,
+					"y": 24.0
+				},
+				"detach_target": {
+					"x": 73.0,
+					"y": 73.0
+				},
+				"focus_target": {
+					"x": 89.0,
+					"y": 89.0
+				},
+				"spacing": {
+					"x": 8.0,
+					"y": 8.0
+				},
+				"target": {
+					"x": 63.0,
+					"y": 63.0
+				},
+				"top_strip_bottom": 87.0
+			},
+			"regions": [
+				{
+					"label": "@PanelContainer@1308/@HBoxContainer@1309/@Button@1313[REP 1]",
+					"minimum_px": 62.4,
+					"rect": {
+						"height": 63.0,
+						"width": 63.0,
+						"x": 497.0,
+						"y": 303.0
+					},
+					"text": "REP 1"
+				},
+				{
+					"label": "@PanelContainer@1308/@HBoxContainer@1309/@Button@1312[DEF 0]",
+					"minimum_px": 62.4,
+					"rect": {
+						"height": 63.0,
+						"width": 63.0,
+						"x": 426.0,
+						"y": 303.0
+					},
+					"text": "DEF 0"
+				},
+				{
+					"label": "@PanelContainer@1308/@HBoxContainer@1309/@Button@1311[LGT 2]",
+					"minimum_px": 62.4,
+					"rect": {
+						"height": 63.0,
+						"width": 63.0,
+						"x": 355.0,
+						"y": 303.0
+					},
+					"text": "LGT 2"
+				},
+				{
+					"label": "@PanelContainer@1308/@HBoxContainer@1309/@Button@1310[ENG 1]",
+					"minimum_px": 62.4,
+					"rect": {
+						"height": 63.0,
+						"width": 63.0,
+						"x": 284.0,
+						"y": 303.0
+					},
+					"text": "ENG 1"
+				},
+				{
+					"label": "@VBoxContainer@1302/@Button@1305[FIELD LOCKED]",
+					"minimum_px": 72.8,
+					"rect": {
+						"height": 73.0,
+						"width": 89.0,
+						"x": 731.0,
+						"y": 263.0
+					},
+					"text": "FIELD LOCKED"
+				},
+				{
+					"label": "@VBoxContainer@1302/@Button@1304[SALVO READY]",
+					"minimum_px": 62.4,
+					"rect": {
+						"height": 63.0,
+						"width": 89.0,
+						"x": 731.0,
+						"y": 192.0
+					},
+					"text": "SALVO READY"
+				},
+				{
+					"label": "@VBoxContainer@1302/@Button@1303[FOCUS READY]",
+					"minimum_px": 88.4,
+					"rect": {
+						"height": 89.0,
+						"width": 89.0,
+						"x": 731.0,
+						"y": 95.0
+					},
+					"text": "FOCUS READY"
+				},
+				{
+					"label": "@VBoxContainer@1297/@Button@1300[PAL]",
+					"minimum_px": 62.4,
+					"rect": {
+						"height": 63.0,
+						"width": 63.0,
+						"x": 24.0,
+						"y": 237.0
+					},
+					"text": "PAL"
+				},
+				{
+					"label": "@VBoxContainer@1297/@Button@1299[HEA]",
+					"minimum_px": 62.4,
+					"rect": {
+						"height": 63.0,
+						"width": 63.0,
+						"x": 24.0,
+						"y": 166.0
+					},
+					"text": "HEA"
+				},
+				{
+					"label": "@VBoxContainer@1297/@Button@1298[STD]",
+					"minimum_px": 62.4,
+					"rect": {
+						"height": 63.0,
+						"width": 63.0,
+						"x": 24.0,
+						"y": 95.0
+					},
+					"text": "STD"
+				},
+				{
+					"label": "@PanelContainer@1262/@HBoxContainer@1263/@HBoxContainer@1292/@Button@1296[Options]",
+					"minimum_px": 62.4,
+					"rect": {
+						"height": 63.0,
+						"width": 63.0,
+						"x": 749.0,
+						"y": 24.0
+					},
+					"text": "Options"
+				},
+				{
+					"label": "@PanelContainer@1262/@HBoxContainer@1263/@HBoxContainer@1292/@Button@1295[Guide]",
+					"minimum_px": 62.4,
+					"rect": {
+						"height": 63.0,
+						"width": 63.0,
+						"x": 678.0,
+						"y": 24.0
+					},
+					"text": "Guide"
+				},
+				{
+					"label": "@PanelContainer@1262/@HBoxContainer@1263/@HBoxContainer@1292/@Button@1294[Speed]",
+					"minimum_px": 62.4,
+					"rect": {
+						"height": 63.0,
+						"width": 63.0,
+						"x": 607.0,
+						"y": 24.0
+					},
+					"text": "Speed"
+				},
+				{
+					"label": "@PanelContainer@1262/@HBoxContainer@1263/@HBoxContainer@1292/@Button@1293[Pause]",
+					"minimum_px": 62.4,
+					"rect": {
+						"height": 63.0,
+						"width": 63.0,
+						"x": 536.0,
+						"y": 24.0
+					},
+					"text": "Pause"
+				}
+			],
+			"scale": 1.3,
+			"state": "field"
+		},
+		{
+			"checks": {
+				"bounds_failures": [],
+				"gap_failures": [],
+				"overlaps": [],
+				"size_failures": []
+			},
+			"metrics": {
+				"bottom_row_top": 303.0,
+				"clear_height": 216.0,
+				"clear_ratio": 0.553846153846154,
+				"comfort": {
+					"height": 342.0,
+					"width": 796.0,
+					"x": 24.0,
+					"y": 24.0
+				},
+				"detach_target": {
+					"x": 73.0,
+					"y": 73.0
+				},
+				"focus_target": {
+					"x": 89.0,
+					"y": 89.0
+				},
+				"spacing": {
+					"x": 8.0,
+					"y": 8.0
+				},
+				"target": {
+					"x": 63.0,
+					"y": 63.0
+				},
+				"top_strip_bottom": 87.0
+			},
+			"regions": [
+				{
+					"label": "@PanelContainer@1308/@HBoxContainer@1309/@Button@1313[REP 1]",
+					"minimum_px": 62.4,
+					"rect": {
+						"height": 63.0,
+						"width": 63.0,
+						"x": 497.0,
+						"y": 303.0
+					},
+					"text": "REP 1"
+				},
+				{
+					"label": "@PanelContainer@1308/@HBoxContainer@1309/@Button@1312[DEF 0]",
+					"minimum_px": 62.4,
+					"rect": {
+						"height": 63.0,
+						"width": 63.0,
+						"x": 426.0,
+						"y": 303.0
+					},
+					"text": "DEF 0"
+				},
+				{
+					"label": "@PanelContainer@1308/@HBoxContainer@1309/@Button@1311[LGT 2]",
+					"minimum_px": 62.4,
+					"rect": {
+						"height": 63.0,
+						"width": 63.0,
+						"x": 355.0,
+						"y": 303.0
+					},
+					"text": "LGT 2"
+				},
+				{
+					"label": "@PanelContainer@1308/@HBoxContainer@1309/@Button@1310[ENG 1]",
+					"minimum_px": 62.4,
+					"rect": {
+						"height": 63.0,
+						"width": 63.0,
+						"x": 284.0,
+						"y": 303.0
+					},
+					"text": "ENG 1"
+				},
+				{
+					"label": "@VBoxContainer@1302/@Button@1306[HOLD DETACH]",
+					"minimum_px": 72.8,
+					"rect": {
+						"height": 73.0,
+						"width": 89.0,
+						"x": 731.0,
+						"y": 263.0
+					},
+					"text": "HOLD DETACH"
+				},
+				{
+					"label": "@VBoxContainer@1302/@Button@1304[SALVO READY]",
+					"minimum_px": 62.4,
+					"rect": {
+						"height": 63.0,
+						"width": 89.0,
+						"x": 731.0,
+						"y": 192.0
+					},
+					"text": "SALVO READY"
+				},
+				{
+					"label": "@VBoxContainer@1302/@Button@1303[FOCUS READY]",
+					"minimum_px": 88.4,
+					"rect": {
+						"height": 89.0,
+						"width": 89.0,
+						"x": 731.0,
+						"y": 95.0
+					},
+					"text": "FOCUS READY"
+				},
+				{
+					"label": "@VBoxContainer@1297/@Button@1300[PAL]",
+					"minimum_px": 62.4,
+					"rect": {
+						"height": 63.0,
+						"width": 63.0,
+						"x": 24.0,
+						"y": 237.0
+					},
+					"text": "PAL"
+				},
+				{
+					"label": "@VBoxContainer@1297/@Button@1299[HEA]",
+					"minimum_px": 62.4,
+					"rect": {
+						"height": 63.0,
+						"width": 63.0,
+						"x": 24.0,
+						"y": 166.0
+					},
+					"text": "HEA"
+				},
+				{
+					"label": "@VBoxContainer@1297/@Button@1298[STD]",
+					"minimum_px": 62.4,
+					"rect": {
+						"height": 63.0,
+						"width": 63.0,
+						"x": 24.0,
+						"y": 95.0
+					},
+					"text": "STD"
+				},
+				{
+					"label": "@PanelContainer@1262/@HBoxContainer@1263/@HBoxContainer@1292/@Button@1296[Options]",
+					"minimum_px": 62.4,
+					"rect": {
+						"height": 63.0,
+						"width": 63.0,
+						"x": 749.0,
+						"y": 24.0
+					},
+					"text": "Options"
+				},
+				{
+					"label": "@PanelContainer@1262/@HBoxContainer@1263/@HBoxContainer@1292/@Button@1295[Guide]",
+					"minimum_px": 62.4,
+					"rect": {
+						"height": 63.0,
+						"width": 63.0,
+						"x": 678.0,
+						"y": 24.0
+					},
+					"text": "Guide"
+				},
+				{
+					"label": "@PanelContainer@1262/@HBoxContainer@1263/@HBoxContainer@1292/@Button@1294[Speed]",
+					"minimum_px": 62.4,
+					"rect": {
+						"height": 63.0,
+						"width": 63.0,
+						"x": 607.0,
+						"y": 24.0
+					},
+					"text": "Speed"
+				},
+				{
+					"label": "@PanelContainer@1262/@HBoxContainer@1263/@HBoxContainer@1292/@Button@1293[Pause]",
+					"minimum_px": 62.4,
+					"rect": {
+						"height": 63.0,
+						"width": 63.0,
+						"x": 536.0,
+						"y": 24.0
+					},
+					"text": "Pause"
+				}
+			],
+			"scale": 1.3,
+			"state": "detach"
+		}
+	],
+	"viewport": {
+		"height": 390,
+		"width": 844
+	}
+}

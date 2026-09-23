@@ -153,6 +153,18 @@ func _maybe_bootstrap() -> void:
 	if _game_world.is_inside_tree():
 		_game_world.call("bootstrap", 42, {})
 		_bootstrapped = true
+		if OS.has_feature("qa_visual_benchmark"):
+			WebRuntimeQuery.publish(
+				"__lanternRuntimeInfo",
+				{
+					"layout_class": String(
+						UITheme.layout_class(
+							get_viewport().get_visible_rect().size
+						)
+					),
+					"touch_available": WebPlatformBridge.touch_available()
+				}
+			)
 		var metrics: PresentationMetrics = (
 			_game_world.get("_presentation_metrics") as PresentationMetrics
 		)

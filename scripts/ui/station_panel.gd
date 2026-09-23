@@ -9,6 +9,7 @@ var _run_state: RunState
 var _open: bool = false
 var _message: String = "One stop. Make the consist count."
 var _compact_layout: bool = false
+var _touch_layout: bool = false
 var _content_width: float = 1010.0
 var _undo_stack: Array[Dictionary] = []
 var _departure_armed: bool = false
@@ -63,12 +64,22 @@ func _build() -> void:
 	add_child(_backdrop)
 
 	var viewport_size := get_viewport_rect().size
+	_touch_layout = UITheme.touch_layout(viewport_size)
 	_compact_layout = (
 		UITheme.compact_layout(viewport_size)
 		or viewport_size.y < 650.0
 	)
-	var half_width := minf(530.0, viewport_size.x * 0.48)
-	var half_height := minf(330.0, viewport_size.y * 0.46)
+	var comfort := UITheme.comfort_insets(viewport_size)
+	var half_width := (
+		(viewport_size.x - comfort.x - comfort.z) * 0.5
+		if _touch_layout
+		else minf(530.0, viewport_size.x * 0.48)
+	)
+	var half_height := (
+		(viewport_size.y - comfort.y - comfort.w) * 0.5
+		if _touch_layout
+		else minf(330.0, viewport_size.y * 0.46)
+	)
 	_content_width = half_width * 2.0 - 24.0
 	_frame = PanelContainer.new()
 	_frame.anchor_left = 0.5
@@ -104,6 +115,10 @@ func _build() -> void:
 
 	_tabs.current_tab = clampi(_selected_tab, 0, maxi(0, _tabs.get_tab_count() - 1))
 	_tabs.tab_changed.connect(_on_tab_changed)
+	if _touch_layout:
+		_tabs.get_tab_bar().custom_minimum_size.y = UITheme.touch_target_size(
+			viewport_size
+		).y
 
 	_leave_button = Button.new()
 	_leave_button.text = (
@@ -111,11 +126,21 @@ func _build() -> void:
 		if _departure_armed
 		else "Depart Waypost Five"
 	)
-	_leave_button.custom_minimum_size = Vector2(0.0, 42.0)
+	_leave_button.custom_minimum_size = Vector2(
+		0.0,
+		UITheme.touch_target_size(viewport_size).y
+		if _touch_layout
+		else 42.0
+	)
 	_leave_button.pressed.connect(_close)
 	root.add_child(_leave_button)
 	if _input_guard_time > 0.0:
 		_add_input_blocker()
+	if _touch_layout:
+		_apply_touch_targets(
+			_frame,
+			UITheme.touch_target_size(viewport_size).y
+		)
 	call_deferred("_restore_scroll_positions")
 	UITheme.animate_panel_in(_frame, _backdrop)
 
@@ -197,7 +222,11 @@ func _build_header(parent: VBoxContainer) -> void:
 	parent.add_child(message)
 
 	var keyboard_hint := Label.new()
-	keyboard_hint.text = "Tab moves between controls. Ctrl+Z undoes the last change."
+	keyboard_hint.text = (
+		"Tap BUILD, CREW, or REFITS. Changes can be undone before departure."
+		if _touch_layout
+		else "Tab moves between controls. Ctrl+Z undoes the last change."
+	)
 	keyboard_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	keyboard_hint.add_theme_font_size_override("font_size", UITheme.font_size(12))
 	keyboard_hint.add_theme_color_override("font_color", UITheme.muted_text_color())
@@ -504,6 +533,21 @@ func _add_section_title(parent: VBoxContainer, text: String) -> void:
 	title.add_theme_font_size_override("font_size", UITheme.font_size(16))
 	title.add_theme_color_override("font_color", Color(0.9, 0.72, 0.42))
 	parent.add_child(title)
+
+
+func _apply_touch_targets(node: Node, minimum_height: float) -> void:
+	if node is BaseButton:
+		var button := node as BaseButton
+		button.custom_minimum_size.x = maxf(
+			button.custom_minimum_size.x,
+			minimum_height
+		)
+		button.custom_minimum_size.y = maxf(
+			button.custom_minimum_size.y,
+			minimum_height
+		)
+	for child in node.get_children():
+		_apply_touch_targets(child, minimum_height)
 
 
 func _apply_transaction(result: Dictionary, before: Dictionary) -> void:

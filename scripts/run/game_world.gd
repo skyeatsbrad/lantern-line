@@ -30,6 +30,7 @@ var _world_renderer: WorldRenderer
 var _route_projection: RouteProjection
 var _train_renderer: TrainRenderer
 var _train_controller: TrainController
+var _pointer_router: PointerRouter
 var _enemy_director: EnemyDirector
 var _longshadow: LongshadowEncounter
 var _effects: EffectsLayer
@@ -178,6 +179,10 @@ func bootstrap(run_seed: int, resume: Dictionary) -> void:
 	_train_controller.set_origin_screen(_train_lamp_position())
 	add_child(_train_controller)
 
+	_pointer_router = PointerRouter.new()
+	_pointer_router.name = "PointerRouter"
+	add_child(_pointer_router)
+
 	_effects = EffectsLayer.new()
 	_effects.setup(run_state.run_seed)
 	world_layer.add_child(_effects)
@@ -293,6 +298,9 @@ func _wire_signals() -> void:
 	_hud.request_settings.connect(_open_settings)
 	_hud.request_guide.connect(_open_guide)
 	_hud.detach_hold_changed.connect(_on_detach_hold_changed)
+	_pointer_router.held_actions_cancelled.connect(
+		_on_pointer_holds_cancelled
+	)
 
 	_route_choice.chosen.connect(_on_route_chosen)
 	_route_choice.closed.connect(_on_reveal_closed)
@@ -378,7 +386,12 @@ func _update_aim() -> void:
 		_route_choice.set_selected_index(route_index)
 		_train_controller.aim_towards(_route_projection.endpoint_for_index(route_index))
 	else:
-		_train_controller.aim_towards(mouse_position)
+		var aim_position := (
+			_pointer_router.current_aim(mouse_position)
+			if is_instance_valid(_pointer_router)
+			else mouse_position
+		)
+		_train_controller.aim_towards(aim_position)
 
 
 func _update_presentational_state() -> void:
@@ -888,6 +901,8 @@ func _begin_overlay() -> bool:
 	):
 		return false
 	_on_detach_hold_changed(false)
+	if is_instance_valid(_pointer_router):
+		_pointer_router.set_blocked(true, &"modal_opened")
 	_overlay_was_paused = run_state.paused
 	run_state.paused = true
 	_overlay_open = true
@@ -914,6 +929,11 @@ func _close_overlay() -> void:
 		return
 	_overlay_open = false
 	run_state.paused = _overlay_was_paused
+	if is_instance_valid(_pointer_router):
+		_pointer_router.set_blocked(
+			not _gameplay_controls_enabled(),
+			&"modal_closed"
+		)
 	_hud.rebuild()
 	if _mode == RunMode.ROUTE_REVEAL:
 		_route_choice.rebuild()
@@ -1181,7 +1201,11 @@ func _automation_run() -> bool:
 
 
 func _input(event: InputEvent) -> void:
-	if event is InputEventMouseButton or event is InputEventKey:
+	if (
+		event is InputEventMouseButton
+		or event is InputEventKey
+		or event is InputEventScreenTouch
+	):
 		AudioManager.notify_user_gesture()
 	if event is InputEventKey and (event as InputEventKey).echo:
 		return
@@ -1287,6 +1311,11 @@ func _on_end_closed() -> void:
 
 func _set_mode(next_mode: RunMode) -> void:
 	_mode = next_mode
+	if is_instance_valid(_pointer_router):
+		_pointer_router.set_blocked(
+			next_mode != RunMode.TRAVEL and next_mode != RunMode.BOSS,
+			&"mode_transition"
+		)
 	if run_state != null:
 		run_state.simulation_enabled = (
 			next_mode == RunMode.TRAVEL
@@ -1299,6 +1328,26 @@ func _gameplay_controls_enabled() -> bool:
 		(_mode == RunMode.TRAVEL or _mode == RunMode.BOSS)
 		and not _overlay_open
 	)
+
+
+func _on_pointer_holds_cancelled(_reason: StringName) -> void:
+	_on_detach_hold_changed(false)
+
+
+func _notification(what: int) -> void:
+	if (
+		what != NOTIFICATION_APPLICATION_FOCUS_OUT
+		and what != NOTIFICATION_APPLICATION_PAUSED
+	):
+		return
+	if is_instance_valid(_pointer_router):
+		_pointer_router.cancel_all(&"application_suspended")
+	if run_state == null:
+		return
+	_on_detach_hold_changed(false)
+	if _mode == RunMode.TRAVEL or _mode == RunMode.BOSS:
+		run_state.paused = true
+		_save_checkpoint()
 
 
 func _audio_pan(screen_x: float) -> float:

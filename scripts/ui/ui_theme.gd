@@ -14,6 +14,13 @@ const COMPACT_WINDOW_HEIGHT: float = 620.0
 const COMPACT_SCALE_TARGET_HEIGHT: float = 680.0
 const COMPACT_SCALE_TARGET_WIDTH: float = 960.0
 const MAX_AUTOMATIC_TEXT_SCALE: float = 1.75
+const TOUCH_PHONE_MAX_WIDTH: float = 1000.0
+const TOUCH_PHONE_MAX_HEIGHT: float = 720.0
+const MIN_TOUCH_TARGET_PHYSICAL: float = 48.0
+const FOCUS_TOUCH_TARGET_PHYSICAL: float = 68.0
+const DETACH_TOUCH_TARGET_PHYSICAL: float = 56.0
+const TOUCH_SPACING_PHYSICAL: float = 8.0
+const COMFORT_GUTTER_PHYSICAL: float = 24.0
 
 static var _display_font: FontVariation
 
@@ -33,8 +40,137 @@ static func touch_target_scale() -> float:
 static func physical_window_size() -> Vector2:
 	if DisplayServer.get_name() == "headless":
 		return Vector2.ZERO
+	var web_size := WebPlatformBridge.css_viewport_size()
+	if not web_size.is_zero_approx():
+		return web_size
 	var window_size := Vector2(DisplayServer.window_get_size())
 	return window_size if window_size.x >= 100.0 and window_size.y >= 100.0 else Vector2.ZERO
+
+
+static func physical_to_viewport_scale(
+	viewport_size: Vector2,
+	physical_size: Vector2 = Vector2.ZERO
+) -> Vector2:
+	var source_size := physical_size
+	if source_size.x < 1.0 or source_size.y < 1.0:
+		source_size = physical_window_size()
+	if (
+		source_size.x < 1.0
+		or source_size.y < 1.0
+		or viewport_size.x < 1.0
+		or viewport_size.y < 1.0
+	):
+		return Vector2.ONE
+	return Vector2(
+		viewport_size.x / source_size.x,
+		viewport_size.y / source_size.y
+	)
+
+
+static func physical_size_to_viewport(
+	physical_pixels: Vector2,
+	viewport_size: Vector2,
+	physical_size: Vector2 = Vector2.ZERO
+) -> Vector2:
+	return physical_pixels * physical_to_viewport_scale(
+		viewport_size,
+		physical_size
+	)
+
+
+static func physical_insets_to_viewport(
+	physical_insets: Vector4,
+	viewport_size: Vector2,
+	physical_size: Vector2 = Vector2.ZERO
+) -> Vector4:
+	var scale := physical_to_viewport_scale(viewport_size, physical_size)
+	return Vector4(
+		physical_insets.x * scale.x,
+		physical_insets.y * scale.y,
+		physical_insets.z * scale.x,
+		physical_insets.w * scale.y
+	)
+
+
+static func safe_area_insets(
+	viewport_size: Vector2,
+	physical_size: Vector2 = Vector2.ZERO,
+	physical_insets: Vector4 = Vector4(-1.0, -1.0, -1.0, -1.0)
+) -> Vector4:
+	var resolved_insets := physical_insets
+	if resolved_insets.x < 0.0:
+		resolved_insets = WebPlatformBridge.safe_insets_physical()
+	return physical_insets_to_viewport(
+		resolved_insets,
+		viewport_size,
+		physical_size
+	)
+
+
+static func comfort_insets(
+	viewport_size: Vector2,
+	physical_size: Vector2 = Vector2.ZERO,
+	physical_insets: Vector4 = Vector4(-1.0, -1.0, -1.0, -1.0)
+) -> Vector4:
+	var safe := safe_area_insets(
+		viewport_size,
+		physical_size,
+		physical_insets
+	)
+	var gutter := physical_size_to_viewport(
+		Vector2(COMFORT_GUTTER_PHYSICAL, COMFORT_GUTTER_PHYSICAL),
+		viewport_size,
+		physical_size
+	)
+	return safe + Vector4(gutter.x, gutter.y, gutter.x, gutter.y)
+
+
+static func touch_target_size(
+	viewport_size: Vector2,
+	physical_pixels: float = MIN_TOUCH_TARGET_PHYSICAL,
+	physical_size: Vector2 = Vector2.ZERO
+) -> Vector2:
+	var scaled_pixels := physical_pixels * touch_target_scale()
+	return physical_size_to_viewport(
+		Vector2(scaled_pixels, scaled_pixels),
+		viewport_size,
+		physical_size
+	)
+
+
+static func touch_spacing(
+	viewport_size: Vector2,
+	physical_size: Vector2 = Vector2.ZERO
+) -> Vector2:
+	return physical_size_to_viewport(
+		Vector2(TOUCH_SPACING_PHYSICAL, TOUCH_SPACING_PHYSICAL),
+		viewport_size,
+		physical_size
+	)
+
+
+static func touch_layout(viewport_size: Vector2) -> bool:
+	var forced_touch := OS.get_environment("LANTERN_FORCE_TOUCH")
+	if not forced_touch.is_empty():
+		return forced_touch != "0"
+	if not WebPlatformBridge.touch_available():
+		return false
+	var window_size := physical_window_size()
+	if window_size.is_zero_approx():
+		window_size = viewport_size
+	return (
+		WebPlatformBridge.is_native_mobile()
+		or window_size.x <= TOUCH_PHONE_MAX_WIDTH
+		or window_size.y <= TOUCH_PHONE_MAX_HEIGHT
+	)
+
+
+static func layout_class(viewport_size: Vector2) -> StringName:
+	if touch_layout(viewport_size):
+		return &"phone_touch"
+	if compact_layout(viewport_size):
+		return &"compact_desktop"
+	return &"standard"
 
 
 static func automatic_text_scale_for_window(window_size: Vector2) -> float:
@@ -86,6 +222,11 @@ static func compact_layout(viewport_size: Vector2) -> bool:
 
 
 static func gameplay_hud_height(viewport_size: Vector2) -> float:
+	if touch_layout(viewport_size):
+		var target := touch_target_size(viewport_size)
+		var spacing := touch_spacing(viewport_size)
+		var insets := comfort_insets(viewport_size)
+		return target.y + spacing.y + insets.w
 	var scale_growth: float = maxf(0.0, effective_text_scale() - 1.0)
 	return (
 		164.0 + scale_growth * 105.0

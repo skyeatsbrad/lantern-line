@@ -22,6 +22,7 @@ const DEFAULT_SETTINGS: Dictionary = {
 	"short_holds": false,
 	"text_scale": 1.0,
 	"touch_target_scale": 1.0,
+	"touch_aim_mode": "absolute",
 	"presentation_profile": "auto",
 	"tutorial_seen": false,
 	"contextual_tutorial_seen": false
@@ -112,6 +113,11 @@ func presentation_features() -> Dictionary:
 
 
 func _save() -> void:
+	if (
+		not OS.get_environment("LANTERN_SMOKE").is_empty()
+		or not OS.get_environment("LANTERN_QA").is_empty()
+	):
+		return
 	var payload: Dictionary = {
 		"version": SAVE_VERSION,
 		"settings": settings,
@@ -209,6 +215,9 @@ func _normalize_setting(key: String, value: Variant) -> Variant:
 			return nearest
 		"presentation_profile":
 			return PresentationProfile.normalize(value)
+		"touch_aim_mode":
+			var mode := String(value).to_lower()
+			return mode if mode == "relative" else "absolute"
 		"screen_shake", "reduced_motion", "reduced_flashes", \
 		"high_contrast", "short_holds", "tutorial_seen", \
 		"contextual_tutorial_seen":

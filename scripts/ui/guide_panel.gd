@@ -45,6 +45,9 @@ var _body_label: Label
 var _controls_label: Label
 var _back_button: Button
 var _next_button: Button
+var _touch_layout: bool = false
+var _swipe_touch_index: int = -1
+var _swipe_start: Vector2 = Vector2.ZERO
 
 
 func present(
@@ -86,8 +89,18 @@ func _build() -> void:
 	add_child(backdrop)
 
 	var viewport_size := get_viewport_rect().size
-	var frame_width := minf(760.0, viewport_size.x - 32.0)
-	var frame_height := minf(520.0, viewport_size.y - 32.0)
+	_touch_layout = UITheme.touch_layout(viewport_size)
+	var comfort := UITheme.comfort_insets(viewport_size)
+	var frame_width := (
+		viewport_size.x - comfort.x - comfort.z
+		if _touch_layout
+		else minf(760.0, viewport_size.x - 32.0)
+	)
+	var frame_height := (
+		viewport_size.y - comfort.y - comfort.w
+		if _touch_layout
+		else minf(520.0, viewport_size.y - 32.0)
+	)
 	var frame := PanelContainer.new()
 	frame.anchor_left = 0.5
 	frame.anchor_right = 0.5
@@ -146,12 +159,20 @@ func _build() -> void:
 	root.add_child(actions)
 	_back_button = Button.new()
 	_back_button.text = "Previous"
-	_back_button.custom_minimum_size = Vector2(140.0, 44.0)
+	var target := UITheme.touch_target_size(viewport_size)
+	_back_button.custom_minimum_size = (
+		Vector2(target.x * 2.0, target.y)
+		if _touch_layout
+		else Vector2(140.0, 44.0)
+	)
 	_back_button.pressed.connect(_previous_page)
 	actions.add_child(_back_button)
 	_next_button = Button.new()
 	_next_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_next_button.custom_minimum_size = Vector2(0.0, 44.0)
+	_next_button.custom_minimum_size = Vector2(
+		0.0,
+		target.y if _touch_layout else 44.0
+	)
 	_next_button.pressed.connect(_next_page)
 	actions.add_child(_next_button)
 	_refresh_page()
@@ -166,8 +187,16 @@ func _refresh_page() -> void:
 		else "PAGE %d OF %d" % [_page_index + 1, _page_indices.size()]
 	)
 	_title_label.text = String(page.get("title", ""))
-	_body_label.text = String(page.get("body", ""))
-	_controls_label.text = String(page.get("controls", ""))
+	_body_label.text = (
+		_touch_body_for_page(_page_indices[_page_index])
+		if _touch_layout
+		else String(page.get("body", ""))
+	)
+	_controls_label.text = (
+		_touch_controls_for_page(_page_indices[_page_index])
+		if _touch_layout
+		else String(page.get("controls", ""))
+	)
 	_back_button.disabled = _page_index <= 0
 	_next_button.text = (
 		_completion_label
@@ -208,9 +237,67 @@ func _close() -> void:
 	emit_signal("closed")
 
 
+func _touch_controls_for_page(page_index: int) -> String:
+	match page_index:
+		0:
+			return "Drag on the world to aim  |  Left rail changes lens"
+		1:
+			return "Tap a power chip, then choose 0-3  |  Top strip changes pace"
+		2:
+			return "Right rail: Focus, Salvo, and the current field action"
+		_:
+			return "Tap route slabs, use station tabs, and hold DETACH when it appears"
+
+
+func _touch_body_for_page(page_index: int) -> String:
+	match page_index:
+		0:
+			return (
+				"Drag anywhere on the world to sweep the headlight across the track and sky. "
+				+ "Standard exposes roof boarders, Hearth burns rear pursuers, and Pale sears lumen drainers. "
+				+ "Enemy silhouettes remain distinct without relying on color."
+			)
+		1:
+			return (
+				"Engine, Light, Defense, and Repair priorities run from 0 to 3. "
+				+ "Tap a power chip and choose a level; low-priority systems throttle first during a shortage. "
+				+ "Use the top strip for travel speed and pause."
+			)
+		2:
+			return (
+				"Focus spends lumen on a narrow burst, while a Defense Salvo spends weapon power. "
+				+ "The right rail keeps both actions and the current field response within reach. "
+				+ "Either active response can break a Shadow Ward."
+			)
+		_:
+			return (
+				"Inspect each route slab before committing, then use the BUILD, CREW, and REFITS station tabs. "
+				+ "When the train is critical, the field slot becomes a protected hold-to-detach control."
+			)
+
+
 func _input(event: InputEvent) -> void:
 	if not _open:
 		return
+	if _touch_layout and event is InputEventScreenTouch:
+		var touch := event as InputEventScreenTouch
+		if touch.pressed and _swipe_touch_index < 0:
+			_swipe_touch_index = touch.index
+			_swipe_start = touch.position
+		elif not touch.pressed and touch.index == _swipe_touch_index:
+			var threshold := UITheme.physical_size_to_viewport(
+				Vector2(60.0, 0.0),
+				get_viewport_rect().size
+			).x
+			var delta_x := touch.position.x - _swipe_start.x
+			_swipe_touch_index = -1
+			if absf(delta_x) >= threshold:
+				get_viewport().set_input_as_handled()
+				if delta_x > 0.0:
+					_previous_page()
+				else:
+					_next_page()
+				return
 	if event is InputEventKey and (event as InputEventKey).echo:
 		return
 	if event.is_action_pressed("ui_cancel") or event.is_action_pressed("open_guide"):
