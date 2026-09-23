@@ -125,6 +125,53 @@ func _build() -> void:
 	)
 	text_row.add_child(text_size)
 
+	var presentation_card := _add_card(
+		body,
+		"VISUAL QUALITY",
+		"Automatic chooses a safe profile for this device. Vector fallback is a recovery and comparison mode."
+	)
+	var profile_row := HBoxContainer.new()
+	profile_row.add_theme_constant_override("separation", 12)
+	presentation_card.add_child(profile_row)
+	var profile_label := Label.new()
+	profile_label.text = "Presentation profile"
+	profile_label.custom_minimum_size = Vector2(190.0, 0.0)
+	profile_row.add_child(profile_label)
+	var profile_select := OptionButton.new()
+	var profile_values: Array[String] = [
+		PresentationProfile.AUTO,
+		PresentationProfile.HIGH,
+		PresentationProfile.MEDIUM,
+		PresentationProfile.LOW,
+		PresentationProfile.VECTOR_FALLBACK
+	]
+	var profile_names: Array[String] = [
+		"Automatic",
+		"High",
+		"Medium",
+		"Low / battery saver",
+		"Vector fallback"
+	]
+	var current_profile := PresentationProfile.normalize(
+		GameManager.get_setting(
+			"presentation_profile",
+			PresentationProfile.AUTO
+		)
+	)
+	for index in range(profile_values.size()):
+		profile_select.add_item(profile_names[index])
+		profile_select.set_item_metadata(index, profile_values[index])
+		if profile_values[index] == current_profile:
+			profile_select.select(index)
+	profile_select.item_selected.connect(func(index: int) -> void:
+		GameManager.set_setting(
+			"presentation_profile",
+			String(profile_select.get_item_metadata(index))
+		)
+		call_deferred("_build")
+	)
+	profile_row.add_child(profile_select)
+
 	var contrast_toggle := CheckBox.new()
 	contrast_toggle.text = "High contrast UI and labeled enemy roles"
 	contrast_toggle.button_pressed = bool(GameManager.get_setting("high_contrast", false))
@@ -179,6 +226,35 @@ func _build() -> void:
 		GameManager.set_setting("short_holds", enabled)
 	)
 	input_card.add_child(holds_toggle)
+
+	var touch_row := HBoxContainer.new()
+	touch_row.add_theme_constant_override("separation", 12)
+	input_card.add_child(touch_row)
+	var touch_label := Label.new()
+	touch_label.text = "Touch target size"
+	touch_label.custom_minimum_size = Vector2(190.0, 0.0)
+	touch_row.add_child(touch_label)
+	var touch_size := OptionButton.new()
+	var touch_scales: Array[float] = [1.0, 1.15, 1.3]
+	var touch_names: Array[String] = [
+		"100% - Standard",
+		"115% - Large",
+		"130% - Extra large"
+	]
+	var current_touch_scale := UITheme.touch_target_scale()
+	for index in range(touch_scales.size()):
+		touch_size.add_item(touch_names[index])
+		touch_size.set_item_metadata(index, touch_scales[index])
+		if is_equal_approx(touch_scales[index], current_touch_scale):
+			touch_size.select(index)
+	touch_size.item_selected.connect(func(index: int) -> void:
+		GameManager.set_setting(
+			"touch_target_scale",
+			float(touch_size.get_item_metadata(index))
+		)
+		call_deferred("_build")
+	)
+	touch_row.add_child(touch_size)
 
 	var guide_button := Button.new()
 	guide_button.text = "Replay Conductor's Guide"

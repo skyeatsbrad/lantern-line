@@ -22,6 +22,14 @@ static func text_scale() -> float:
 	return clampf(float(GameManager.get_setting("text_scale", 1.0)), 1.0, 1.3)
 
 
+static func touch_target_scale() -> float:
+	return clampf(
+		float(GameManager.get_setting("touch_target_scale", 1.0)),
+		1.0,
+		1.3
+	)
+
+
 static func physical_window_size() -> Vector2:
 	if DisplayServer.get_name() == "headless":
 		return Vector2.ZERO

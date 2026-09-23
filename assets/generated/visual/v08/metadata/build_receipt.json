@@ -1,0 +1,12 @@
+{
+  "artifacts": [],
+  "build_hash": "476ae0104643d3afca02ed84f1b21c94c369d2214b580513c42406a29fd273bf",
+  "categories": [],
+  "pipeline_version": "0.1.0",
+  "schema_version": 1,
+  "source_hash": "044257ded4d8e15d75b5934b339b889408ebd80cda4e0918f847af9bdee3648a",
+  "toolchain": {
+    "blender_pin": "tools/art/blender_pin.json",
+    "godot_version": "4.7.2"
+  }
+}

@@ -40,7 +40,21 @@ func _ready() -> void:
 	if _should_run_runtime_probe():
 		print("[main] running runtime probe")
 		var t2: Timer = Timer.new()
-		t2.wait_time = 20.0
+		var visual_mode := WebRuntimeQuery.environment_or_benchmark_parameter(
+			"LANTERN_VISUAL_BENCHMARK",
+			"benchmark"
+		)
+		var visual_duration := WebRuntimeQuery.environment_or_benchmark_parameter(
+			"LANTERN_VISUAL_BENCHMARK_SECONDS",
+			"benchmark_seconds"
+		)
+		t2.wait_time = (
+			maxf(20.0, float(visual_duration) + 30.0)
+			if visual_duration.is_valid_float()
+			else 62.0
+			if not visual_mode.is_empty()
+			else 20.0
+		)
 		t2.one_shot = true
 		t2.autostart = true
 		t2.timeout.connect(func() -> void:
@@ -88,6 +102,8 @@ func _should_run_runtime_probe() -> bool:
 		or not OS.get_environment("LANTERN_CAPTURE_UI_SHOWCASE").is_empty()
 		or OS.has_environment("LANTERN_PROBE_DENSE_COMBAT")
 		or OS.has_environment("LANTERN_PROBE_AUDIO")
+		or OS.has_environment("LANTERN_VISUAL_BENCHMARK")
+		or not WebRuntimeQuery.benchmark_parameter("benchmark").is_empty()
 	):
 		return true
 	var args: PackedStringArray = OS.get_cmdline_args()

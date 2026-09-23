@@ -24,6 +24,10 @@ var _capture_result: Error = ERR_BUSY
 var _capture_path: String = ""
 var _showcase_mode: String = ""
 var _benchmark_mode: String = ""
+var _visual_benchmark_mode: String = ""
+var _visual_benchmark_enemies: int = 12
+var _visual_benchmark_boss: bool = false
+var _visual_benchmark_layer: VisualArchitectureBenchmark
 var _finished: bool = false
 var _audio_stage: int = 0
 var _audio_max_voices: int = 0
@@ -36,6 +40,14 @@ func _ready() -> void:
 	_saved_settings = GameManager.settings.duplicate(true)
 	_saved_pending = GameManager.pending_run.duplicate(true)
 	_saved_has_pending = GameManager.has_pending_run
+	var requested_profile := OS.get_environment(
+		"LANTERN_PRESENTATION_PROFILE"
+	)
+	if not requested_profile.is_empty():
+		GameManager.settings["presentation_profile"] = (
+			PresentationProfile.normalize(requested_profile)
+		)
+		GameManager.emit_signal("settings_changed")
 	if not OS.get_environment("LANTERN_CAPTURE_TRAIN_SHOWCASE").is_empty():
 		_showcase_mode = "train"
 	elif not OS.get_environment("LANTERN_CAPTURE_ROUTE_SHOWCASE").is_empty():
@@ -65,6 +77,15 @@ func _ready() -> void:
 	elif OS.has_environment("LANTERN_PROBE_AUDIO"):
 		_benchmark_mode = "audio"
 		_duration = 11.0
+	else:
+		var requested_visual_mode := (
+			WebRuntimeQuery.environment_or_benchmark_parameter(
+				"LANTERN_VISUAL_BENCHMARK",
+				"benchmark"
+			).to_lower()
+		)
+		if not requested_visual_mode.is_empty():
+			_configure_visual_benchmark(requested_visual_mode)
 	if OS.has_environment("LANTERN_CAPTURE_ACCESSIBLE"):
 		GameManager.settings["text_scale"] = 1.3
 		GameManager.settings["high_contrast"] = true
@@ -90,12 +111,60 @@ func _ready() -> void:
 	get_tree().process_frame.connect(_maybe_bootstrap)
 
 
+func _configure_visual_benchmark(requested_mode: String) -> void:
+	_benchmark_mode = "visual"
+	_visual_benchmark_mode = (
+		requested_mode
+		if requested_mode in VisualArchitectureBenchmark.VALID_MODES
+		else VisualArchitectureBenchmark.MODE_SPRITE
+	)
+	var requested_enemies := WebRuntimeQuery.environment_or_benchmark_parameter(
+		"LANTERN_VISUAL_BENCHMARK_ENEMIES",
+		"benchmark_enemies"
+	)
+	_visual_benchmark_enemies = clampi(
+		int(requested_enemies)
+			if requested_enemies.is_valid_int()
+			else 12,
+		0,
+		16
+	)
+	var requested_boss := WebRuntimeQuery.environment_or_benchmark_parameter(
+		"LANTERN_VISUAL_BENCHMARK_BOSS",
+		"benchmark_boss"
+	)
+	_visual_benchmark_boss = requested_boss == "1"
+	var requested_duration := WebRuntimeQuery.environment_or_benchmark_parameter(
+		"LANTERN_VISUAL_BENCHMARK_SECONDS",
+		"benchmark_seconds"
+	)
+	_duration = (
+		maxf(4.0, float(requested_duration))
+		if requested_duration.is_valid_float()
+		else 32.0
+	)
+	GameManager.settings["presentation_profile"] = "high"
+	GameManager.emit_signal("settings_changed")
+
+
 func _maybe_bootstrap() -> void:
 	if _bootstrapped:
 		return
 	if _game_world.is_inside_tree():
 		_game_world.call("bootstrap", 42, {})
 		_bootstrapped = true
+		var metrics: PresentationMetrics = (
+			_game_world.get("_presentation_metrics") as PresentationMetrics
+		)
+		if metrics != null:
+			var requested_warmup := OS.get_environment(
+				"LANTERN_METRICS_WARMUP"
+			)
+			metrics.reset_measurement(
+				float(requested_warmup)
+				if requested_warmup.is_valid_float()
+				else PresentationMetrics.DEFAULT_WARMUP_SECONDS
+			)
 		if OS.has_environment("LANTERN_PROBE_HIDE_WORLD"):
 			var world_renderer: CanvasItem = (
 				_game_world.get("_world_renderer") as CanvasItem
@@ -136,6 +205,8 @@ func _maybe_bootstrap() -> void:
 			_prepare_dense_combat_benchmark()
 		elif _benchmark_mode == "audio":
 			_prepare_audio_benchmark()
+		elif _benchmark_mode == "visual":
+			_prepare_visual_benchmark()
 		if "run_state" in _game_world:
 			var prepared_state: RunState = _game_world.get("run_state") as RunState
 			if prepared_state != null:
@@ -161,6 +232,9 @@ func _process(delta: float) -> void:
 		return
 	if _benchmark_mode == "audio":
 		_process_audio_benchmark()
+		return
+	if _benchmark_mode == "visual":
+		_process_visual_benchmark()
 		return
 	if _game_world and "run_state" in _game_world:
 		var rs: Object = _game_world.get("run_state")
@@ -729,6 +803,75 @@ func _prepare_dense_combat_benchmark() -> void:
 		warded.ward_hp = 26.0
 
 
+func _prepare_visual_benchmark() -> void:
+	var rs: RunState = _game_world.get("run_state") as RunState
+	if rs == null:
+		return
+	rs.simulation_enabled = false
+	rs.slot_capacity = RunState.MAX_SLOT_CAPACITY
+	for type_key in ["Greenhouse", "Defense"]:
+		if not rs.has_car_type(type_key):
+			rs.add_car(type_key)
+	rs.distance = RunState.JOURNEY_TARGET * 0.78
+	rs.station_completed = true
+	rs.power = 12.0
+	rs.lumen = 14.0
+	rs.refresh_stats()
+	var hud: HUD = _game_world.get("_hud") as HUD
+	if hud != null:
+		hud.rebuild()
+	for property_name in [
+		"_world_renderer",
+		"_route_projection",
+		"_enemy_director",
+		"_train_renderer",
+		"_longshadow",
+		"_effects"
+	]:
+		var canvas_item: CanvasItem = _game_world.get(property_name) as CanvasItem
+		if canvas_item != null:
+			canvas_item.visible = false
+	var world_layer := _game_world.get_node_or_null("WorldLayer") as Node2D
+	if world_layer == null:
+		return
+	_visual_benchmark_layer = VisualArchitectureBenchmark.new()
+	_visual_benchmark_layer.name = "VisualArchitectureBenchmark"
+	world_layer.add_child(_visual_benchmark_layer)
+	_visual_benchmark_layer.setup(
+		get_viewport().get_visible_rect().size,
+		_visual_benchmark_mode,
+		_visual_benchmark_enemies,
+		_visual_benchmark_boss
+	)
+	_game_world.set_process(false)
+
+
+func _process_visual_benchmark() -> void:
+	var capture_path := OS.get_environment(
+		"LANTERN_VISUAL_BENCHMARK_CAPTURE"
+	)
+	if (
+		not capture_path.is_empty()
+		and not _capture_requested
+		and _elapsed >= 0.5
+	):
+		_request_capture(capture_path)
+	if _elapsed < _duration:
+		return
+	if _capture_requested and not _capture_complete:
+		return
+	if (
+		_capture_requested
+		and (
+			_capture_result != OK
+			or not FileAccess.file_exists(_capture_path)
+		)
+	):
+		_finish(18, "[probe] visual benchmark capture failed", true)
+		return
+	_finish(0, "[probe] visual benchmark OK")
+
+
 func _prepare_audio_benchmark() -> void:
 	var rs: RunState = _game_world.get("run_state") as RunState
 	if rs != null:
@@ -928,12 +1071,32 @@ func _finish(exit_code: int, message: String, is_error: bool = false) -> void:
 	if _finished:
 		return
 	_finished = true
+	var metrics_snapshot: Dictionary = {}
 	if _game_world != null and "_presentation_metrics" in _game_world:
 		var metrics: PresentationMetrics = (
 			_game_world.get("_presentation_metrics") as PresentationMetrics
 		)
 		if metrics != null:
+			metrics.sample_now()
+			metrics_snapshot = metrics.snapshot()
 			print("[probe] presentation ", metrics.summary_text())
+			print("[probe] presentation_json ", metrics.summary_json())
+	if _benchmark_mode == "visual":
+		var benchmark_record := {
+			"mode": _visual_benchmark_mode,
+			"enemy_count": _visual_benchmark_enemies,
+			"boss_active": _visual_benchmark_boss,
+			"duration_seconds": _duration,
+			"metrics": metrics_snapshot
+		}
+		print(
+			"[probe] visual_benchmark_json ",
+			JSON.stringify(benchmark_record)
+		)
+		WebRuntimeQuery.publish(
+			"__lanternBenchmarkResult",
+			benchmark_record
+		)
 	if _benchmark_mode == "audio":
 		AudioManager.stop_all_for_probe()
 	GameManager.meta = _saved_meta

@@ -21,6 +21,8 @@ const DEFAULT_SETTINGS: Dictionary = {
 	"high_contrast": false,
 	"short_holds": false,
 	"text_scale": 1.0,
+	"touch_target_scale": 1.0,
+	"presentation_profile": "auto",
 	"tutorial_seen": false,
 	"contextual_tutorial_seen": false
 }
@@ -95,6 +97,18 @@ func set_setting(key: String, value: Variant) -> void:
 
 func get_setting(key: String, default_value: Variant = null) -> Variant:
 	return settings.get(key, default_value)
+
+
+func resolved_presentation_profile() -> String:
+	return PresentationProfile.resolve(
+		get_setting("presentation_profile", PresentationProfile.AUTO),
+		DisplayServer.is_touchscreen_available(),
+		OS.get_name()
+	)
+
+
+func presentation_features() -> Dictionary:
+	return PresentationProfile.features(resolved_presentation_profile())
 
 
 func _save() -> void:
@@ -185,7 +199,7 @@ func _normalize_setting(key: String, value: Variant) -> Variant:
 		"master_volume", "music_volume", "ambience_volume", "sfx_volume", \
 		"ui_volume":
 			return clampf(float(value), 0.0, 1.0)
-		"text_scale":
+		"text_scale", "touch_target_scale":
 			var requested: float = clampf(float(value), 1.0, 1.3)
 			var options: Array[float] = [1.0, 1.15, 1.3]
 			var nearest: float = options[0]
@@ -193,6 +207,8 @@ func _normalize_setting(key: String, value: Variant) -> Variant:
 				if absf(option - requested) < absf(nearest - requested):
 					nearest = option
 			return nearest
+		"presentation_profile":
+			return PresentationProfile.normalize(value)
 		"screen_shake", "reduced_motion", "reduced_flashes", \
 		"high_contrast", "short_holds", "tutorial_seen", \
 		"contextual_tutorial_seen":

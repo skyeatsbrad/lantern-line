@@ -227,6 +227,33 @@ func _test_accessibility_settings(host: Node) -> void:
 		"text scale setting was not normalized"
 	)
 	_expect(UITheme.font_size(20) == 26, "text scale did not affect explicit font sizes")
+	GameManager.set_setting("touch_target_scale", 1.22)
+	_expect(
+		is_equal_approx(UITheme.touch_target_scale(), 1.15),
+		"touch target scale setting was not normalized"
+	)
+	GameManager.set_setting("presentation_profile", "HIGH")
+	_expect(
+		GameManager.resolved_presentation_profile() == PresentationProfile.HIGH,
+		"explicit presentation profile was not normalized"
+	)
+	var high_features := GameManager.presentation_features()
+	_expect(
+		bool(high_features.get("normal_maps", false))
+		and bool(high_features.get("live_3d", false)),
+		"high presentation profile lost its feature flags"
+	)
+	GameManager.set_setting("presentation_profile", "vector_fallback")
+	_expect(
+		bool(GameManager.presentation_features().get("vector_fallback", false)),
+		"vector fallback profile did not enable the fallback flag"
+	)
+	GameManager.set_setting("presentation_profile", "not-a-profile")
+	_expect(
+		String(GameManager.get_setting("presentation_profile", "")) ==
+		PresentationProfile.AUTO,
+		"invalid presentation profile did not normalize to automatic"
+	)
 	GameManager.set_setting("high_contrast", true)
 	_expect(UITheme.high_contrast(), "high contrast setting did not reach the theme")
 	GameManager.set_setting("reduced_flashes", true)
@@ -487,6 +514,16 @@ func _test_presentation_foundation(host: Node) -> void:
 
 	var metrics := PresentationMetrics.new()
 	host.add_child(metrics)
+	_expect(
+		not metrics.is_processing(),
+		"presentation metrics ran during normal gameplay without opt-in"
+	)
+	metrics.reset_measurement(0.0)
+	_expect(
+		metrics.is_processing(),
+		"presentation metrics did not start after explicit reset"
+	)
+	metrics.call("_process", 1.0 / 60.0)
 	metrics.sample_now()
 	var metrics_snapshot: Dictionary = metrics.snapshot()
 	_expect(metrics_snapshot.has("fps"), "presentation metrics omitted FPS")

@@ -1,0 +1,7 @@
+{
+  "version": "4.5.14",
+  "archive": "blender-4.5.14-windows-x64.zip",
+  "url": "https://download.blender.org/release/Blender4.5/blender-4.5.14-windows-x64.zip",
+  "sha256": "b9533d2397ac1984db4466fb23a7a4649391cca93f6e84209f9bcc60d071c8b9",
+  "install_subdirectory": "blender-4.5.14-windows-x64"
+}

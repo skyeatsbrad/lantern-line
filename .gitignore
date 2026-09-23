@@ -1,6 +1,11 @@
 .godot/
 .chrome-*/
 build/
+.tools/
+tools/art/.cache/
+__pycache__/
+*.pyc
+assets/generated/visual/v08/work/
 *.import
 *.log
 
