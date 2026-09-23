@@ -209,6 +209,17 @@ an asset manifest.
 
 ## Production constraints
 
+The 12 MB package value and v0.6 frame targets below describe the v0.6
+remaster. For v0.8, the measured baseline and cumulative ceilings in
+`design/v0.8-visual-mobile-overhaul-plan.md`,
+`design/v0.8-commercial-visual-readiness-plan.md`, and
+`design/audits/v0.8-package-budget.md` supersede those numeric values. The
+250-particle continuous-ambient limit remains a stricter sublimit inside
+v0.8's profile-specific total live-particle budgets.
+The art direction, motion grammar, accessibility, renderer, light, particle,
+and audio-voice constraints in this bible remain authoritative unless a later
+accepted decision record explicitly replaces them.
+
 - Godot 4.7.2 Compatibility renderer remains mandatory.
 - Web export remains single-threaded.
 - Added PCK budget: 12 MB maximum.
