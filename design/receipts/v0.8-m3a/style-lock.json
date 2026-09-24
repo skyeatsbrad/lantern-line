@@ -1,0 +1,767 @@
+{
+  "blender": {
+    "executable": "C:\\Users\\bradleywo\\Tools\\Blender-4.5.14\\blender-4.5.14-windows-x64\\blender.exe",
+    "version": "Blender 4.5.14 LTS"
+  },
+  "comparison_sheet": {
+    "bytes": 1421008,
+    "path": "design/receipts/v0.8-m3a/media/m3a-treatment-comparison.png",
+    "pixel_sha256": "4cb2c4809951a894ea0df1c969a9421cff92c592f9d5f6e5a3c36b0421bd9ca0",
+    "sha256": "f34bd94879834fb21c2afe825c5413255629695a4baee64273969c61789b7137"
+  },
+  "config": "assets/source/style/m3a_style_lock.json",
+  "config_sha256": "a2723d04ef7ac607df6e8c6b870a9b7cd402c8beaa0494c1d1996cc6e223959a",
+  "engine": "preview",
+  "generated_at_utc": "2026-09-24T17:15:40.812595+00:00",
+  "git_head": "780fd5adb51abbd8497fc71df64450637a7ada83",
+  "milestone": "v0.8-m3a",
+  "replay_verification": {
+    "artifact_count": 46,
+    "exact_artifacts": 44,
+    "mode": "strict_preview_tolerance",
+    "tolerance": {
+      "max_changed_pixel_ratio": 5e-05,
+      "max_changed_pixels": 8,
+      "max_channel_delta": 1,
+      "max_mean_abs_channel_delta": 1e-05
+    },
+    "tolerated_artifacts": [
+      {
+        "delta": {
+          "changed_pixel_ratio": 3.0380362133916637e-06,
+          "changed_pixels": 1,
+          "dimensions_match": true,
+          "max_channel_delta": 1,
+          "mean_abs_channel_delta": 7.595090533479159e-07,
+          "total_pixels": 329160
+        },
+        "path": "design/receipts/v0.8-m3a/media/signal_noir/final/high_contrast/mobile.png",
+        "primary_pixel_sha256": "a05992b09b17c5cb2c3e6fc1f112f30d0eb86ce661f9c16d8752d7d669c54281",
+        "replay_pixel_sha256": "17620799b9624310919dae79f1c1d1c9faa63cb5353b434cc4b06472816e23ab"
+      },
+      {
+        "delta": {
+          "changed_pixel_ratio": 3.382034632034632e-07,
+          "changed_pixels": 1,
+          "dimensions_match": true,
+          "max_channel_delta": 1,
+          "mean_abs_channel_delta": 8.45508658008658e-08,
+          "total_pixels": 2956800
+        },
+        "path": "design/receipts/v0.8-m3a/media/signal_noir/signal_noir-contact-sheet.png",
+        "primary_pixel_sha256": "98549a2ba6754d61606e76835d4416fb1f838d6fafbbed7816ffc7a961a63637",
+        "replay_pixel_sha256": "8b7a9657909bee4e9a895756053c3d21e01a30628bdb5a1e11dfc3e720438d8e"
+      }
+    ]
+  },
+  "replay_verified": true,
+  "schema_version": 1,
+  "selected_treatment": "lantern_diorama",
+  "treatments": [
+    {
+      "artifacts": [
+        {
+          "bytes": 2204065,
+          "path": "design/receipts/v0.8-m3a/media/etched_brass/etched_brass-contact-sheet.png",
+          "pixel_sha256": "0f386e17464164a7838df5d6d3426295419f24dc5f7775057dbedfc7b3843180",
+          "sha256": "c48e7021ad57c4dbc504499eab7027b17f9dc96f26f331179556990b44356662"
+        },
+        {
+          "bytes": 542082,
+          "path": "design/receipts/v0.8-m3a/media/etched_brass/final/default/compact.png",
+          "pixel_sha256": "de4545d8ae987e62b62f73b459f4e7c1c2c8cd3375e1a7333d7a7a0bb0cc7217",
+          "sha256": "73fe6e1962ef926b380e86ac79c0117a2439abf1d4ca28b261d46a23fb721e5e"
+        },
+        {
+          "bytes": 981623,
+          "path": "design/receipts/v0.8-m3a/media/etched_brass/final/default/desktop.png",
+          "pixel_sha256": "05722a079767aa30317f69144dc7ddefa578064d831eea60018f20f379c66cd1",
+          "sha256": "64ceb95830b1efbe46edd887e4011dbf6ab29f5dad16e428ece47ef61217f1cf"
+        },
+        {
+          "bytes": 360176,
+          "path": "design/receipts/v0.8-m3a/media/etched_brass/final/default/mobile.png",
+          "pixel_sha256": "2a59fb50b1d6ce82047c1f8d31ea28ef1ad0826a8ff4a1859cd3e2ef73804845",
+          "sha256": "3d9497f386a11400a1ed5374b85c8d4ea1a5183358e38c0d79d1421b0a78fb09"
+        },
+        {
+          "bytes": 49535,
+          "path": "design/receipts/v0.8-m3a/media/etched_brass/final/default/thumbnail.png",
+          "pixel_sha256": "00fbcdbb8fa0a6f7f7467070fd237ff15004d31ce598340b14b986172b3e5baa",
+          "sha256": "fbf0106b233e3ec0901e2083b05b833da138995ea91e6ea5035fe924bcb373f4"
+        },
+        {
+          "bytes": 535405,
+          "path": "design/receipts/v0.8-m3a/media/etched_brass/final/high_contrast/compact.png",
+          "pixel_sha256": "15fa2aab443c39d93cb2958d5570b0a879ce6f76046eedb185dc33ae322e4f3e",
+          "sha256": "cf912a3207cfe5c6145b1e813ecb6f5b942eb2c4b6035fcd5352fda5d3269372"
+        },
+        {
+          "bytes": 969174,
+          "path": "design/receipts/v0.8-m3a/media/etched_brass/final/high_contrast/desktop.png",
+          "pixel_sha256": "0453f97313f722b72a57d8e07f714edeb4134fe9f8f37ded2313f03a3567188a",
+          "sha256": "e7bca05fee25f78261d5159ed169f5102e5a1cf285e7470c9e005294e451389c"
+        },
+        {
+          "bytes": 357236,
+          "path": "design/receipts/v0.8-m3a/media/etched_brass/final/high_contrast/mobile.png",
+          "pixel_sha256": "d3df665584e23cd6196206ab976d79e033b323ec06252ec8e2ca08644e486cd3",
+          "sha256": "8385c0dd6260bdc4d55f7d9665702ca8235b1de3ab74a1c57e47b3dc30c5df7e"
+        },
+        {
+          "bytes": 49389,
+          "path": "design/receipts/v0.8-m3a/media/etched_brass/final/high_contrast/thumbnail.png",
+          "pixel_sha256": "eb71714f67e97120837e02ae5e2977d06b3719902b2ba0efb3879b1d344b3245",
+          "sha256": "6aa29d6daf67631cbab031259096c47b70b39411335bb37a7cbc75b74776afd1"
+        },
+        {
+          "bytes": 554295,
+          "path": "design/receipts/v0.8-m3a/media/etched_brass/passes/material.png",
+          "pixel_sha256": "4eba85a9ff30d71778731a6e2b73dbb7e9575ac46bfde468723107dcfa4d169d",
+          "sha256": "af706eef6489c88339638729386ad08f90b62d60489c2f8f2d55dca95c16d527"
+        },
+        {
+          "bytes": 624629,
+          "path": "design/receipts/v0.8-m3a/media/etched_brass/passes/normal.png",
+          "pixel_sha256": "a3ea959ca4c7b5ecdf6b3dc9e40b95cb71961a7bfc0aa92da75bf9a4eba3685b",
+          "sha256": "a5399c20cb75595e395b65007d41575a39ca4127f475e672dcec8efae9191008"
+        },
+        {
+          "bytes": 553740,
+          "path": "design/receipts/v0.8-m3a/media/etched_brass/passes/part_mask.png",
+          "pixel_sha256": "e3ad23640a36c9c7e02cb6a05bac24ef1e7d80b833fcf0c0c609606cf23b4afd",
+          "sha256": "2936072de1360aef856d3bc2c139eef2e775d779f6bb3d022ae45fbc0eac4eed"
+        },
+        {
+          "bytes": 456174,
+          "path": "design/receipts/v0.8-m3a/media/etched_brass/passes/silhouette.png",
+          "pixel_sha256": "385d09d171ec2b20ad3913f5c9e71348a8dcc43a8190fcbd42684a34a6bdd8cc",
+          "sha256": "174bbeb890af3814a885776e026a65a279176652382fea5483d88e1a0bdc73c0"
+        },
+        {
+          "bytes": 546031,
+          "path": "design/receipts/v0.8-m3a/media/etched_brass/passes/subject_mask.png",
+          "pixel_sha256": "5ece7403fbae537b80f6be5499885d557b99314dcd98999469da504b76fc627f",
+          "sha256": "05758cbeec60449a3652f53481a290769cc676aca14238aa27f48ed601928d4f"
+        },
+        {
+          "bytes": 199534,
+          "path": "design/receipts/v0.8-m3a/media/etched_brass/passes/subject_mask_mobile.png",
+          "pixel_sha256": "6b1cca12931ad474abc294e18a3c3d540dcf577bb3238b6c51f0d3f55116f4e3",
+          "sha256": "d05f84c0a474f6c47ff8cf5bf08b219e3830a41a12f0551b323e3b21e403bdbc"
+        }
+      ],
+      "blender_metadata": {
+        "blender_version": "4.5.14 LTS",
+        "camera": {
+          "location": [
+            0.15000000596046448,
+            -15.0,
+            2.049999952316284
+          ],
+          "ortho_scale": 11.5,
+          "rotation_euler": [
+            1.5707964897155762,
+            -0.0,
+            0.0
+          ]
+        },
+        "engine": "preview",
+        "mesh_objects": 185,
+        "polygons": 2267,
+        "screen_anchors": {
+          "compact": {
+            "headlight": [
+              0.61739129,
+              0.53391325
+            ],
+            "signal_lens": [
+              0.7636413,
+              0.47217417
+            ],
+            "track": [
+              0.49266306,
+              0.66260889
+            ]
+          },
+          "desktop": {
+            "headlight": [
+              0.61739129,
+              0.53391325
+            ],
+            "signal_lens": [
+              0.7636413,
+              0.47217417
+            ],
+            "track": [
+              0.49266306,
+              0.66260889
+            ]
+          },
+          "mobile": {
+            "headlight": [
+              0.59643519,
+              0.53391325
+            ],
+            "signal_lens": [
+              0.71657735,
+              0.47217417
+            ],
+            "track": [
+              0.49397281,
+              0.66260889
+            ]
+          },
+          "thumbnail": {
+            "headlight": [
+              0.61739129,
+              0.53391325
+            ],
+            "signal_lens": [
+              0.7636413,
+              0.47217417
+            ],
+            "track": [
+              0.49266306,
+              0.66260889
+            ]
+          }
+        },
+        "treatment": {
+          "background_separation": 0.26,
+          "beam_alpha": 0.31,
+          "beam_feather": 28.0,
+          "camera_pitch_degrees": 0.0,
+          "display_name": "Etched Brass",
+          "fill_strength": 0.18,
+          "grain_alpha": 0.035,
+          "id": "etched_brass",
+          "key_energy": 900.0,
+          "metallic_scale": 0.48,
+          "normal_strength": 0.55,
+          "outline_px": 2.8,
+          "rim_energy": 360.0,
+          "roughness_bias": 0.18,
+          "silhouette_outline_px": 3.4
+        },
+        "vertices": 3559
+      },
+      "contact_sheet": "design/receipts/v0.8-m3a/media/etched_brass/etched_brass-contact-sheet.png",
+      "display_name": "Etched Brass",
+      "id": "etched_brass",
+      "metrics": {
+        "desktop": {
+          "edge_density": 0.0257,
+          "global_contrast_ratio": 3.08,
+          "luminance_p10": 0.039,
+          "luminance_p90": 0.224
+        },
+        "mobile": {
+          "edge_density": 0.0313,
+          "global_contrast_ratio": 2.983,
+          "luminance_p10": 0.039,
+          "luminance_p90": 0.2153
+        },
+        "mobile_subjects": {
+          "pursuer_height_percent": 11.026,
+          "pursuer_width_percent": 10.664,
+          "train_height_percent": 24.103,
+          "train_width_percent": 38.981
+        },
+        "thumbnail": {
+          "edge_density": 0.0605,
+          "global_contrast_ratio": 3.082,
+          "luminance_p10": 0.0392,
+          "luminance_p90": 0.2251
+        }
+      },
+      "parameters": {
+        "background_separation": 0.26,
+        "beam_alpha": 0.31,
+        "beam_feather": 28.0,
+        "camera_pitch_degrees": 0.0,
+        "display_name": "Etched Brass",
+        "fill_strength": 0.18,
+        "grain_alpha": 0.035,
+        "id": "etched_brass",
+        "key_energy": 900.0,
+        "metallic_scale": 0.48,
+        "normal_strength": 0.55,
+        "outline_px": 2.8,
+        "rim_energy": 360.0,
+        "roughness_bias": 0.18,
+        "silhouette_outline_px": 3.4
+      }
+    },
+    {
+      "artifacts": [
+        {
+          "bytes": 531317,
+          "path": "design/receipts/v0.8-m3a/media/lantern_diorama/final/default/compact.png",
+          "pixel_sha256": "516e332bf0d4f204c1f4baf787aa754737477f11b5f69cbed5f032b3f0d9e0ca",
+          "sha256": "6ec52b5e95e11cdb838f65624c514fe0fce142f7443b714662aa36c07659cbca"
+        },
+        {
+          "bytes": 946334,
+          "path": "design/receipts/v0.8-m3a/media/lantern_diorama/final/default/desktop.png",
+          "pixel_sha256": "f4356cdc29e44cc1a1ff4ab61ec19e233e55d8c71639950d5ed4f9f623063a81",
+          "sha256": "079598d3edfa57c51bfcdcdaf1857bf04269f8e1dc25742ae0325746bc1d3c65"
+        },
+        {
+          "bytes": 349679,
+          "path": "design/receipts/v0.8-m3a/media/lantern_diorama/final/default/mobile.png",
+          "pixel_sha256": "32d84cd6a1abbab7025eed9b4654030bd196e4ecb098510dc9169f81c7e1f128",
+          "sha256": "b6286a1d6851729dfe5ab14627ee2dbda9b0f9256a14d3970fb89db254f9d9e7"
+        },
+        {
+          "bytes": 46901,
+          "path": "design/receipts/v0.8-m3a/media/lantern_diorama/final/default/thumbnail.png",
+          "pixel_sha256": "43a5782d36e5b11614fde3ab47ad0bb86c184976dc90140103b83bdaab27b141",
+          "sha256": "6856f127d3fd45c3e5d001ef7234f63ae1ee33304f0e6471ed3b9a577b6f1439"
+        },
+        {
+          "bytes": 530933,
+          "path": "design/receipts/v0.8-m3a/media/lantern_diorama/final/high_contrast/compact.png",
+          "pixel_sha256": "2e112295a100220964ba35b29c8dada2132ca853cfd363bd54ff4ada466ad94c",
+          "sha256": "2090b35a26bf6baae45e84b02878401dd5998eef40b6a048ca167ac93e71b9c0"
+        },
+        {
+          "bytes": 943010,
+          "path": "design/receipts/v0.8-m3a/media/lantern_diorama/final/high_contrast/desktop.png",
+          "pixel_sha256": "0c3615ad246cd36c5755a61f6891e9994b8e0aa80fd568f04f6df8ca1522fd88",
+          "sha256": "1c1d237036ab9d072408501cb7e8ba42afb373752c164f2014a5099abfc8c6b6"
+        },
+        {
+          "bytes": 348471,
+          "path": "design/receipts/v0.8-m3a/media/lantern_diorama/final/high_contrast/mobile.png",
+          "pixel_sha256": "a7f67a58be4c18d71d59ee66c34a0e18fc60b14825544a3d0736fff513bd5d0e",
+          "sha256": "21dede32ea9d519d482201da068cab8c791344838622d3af32d0e0657418f960"
+        },
+        {
+          "bytes": 47649,
+          "path": "design/receipts/v0.8-m3a/media/lantern_diorama/final/high_contrast/thumbnail.png",
+          "pixel_sha256": "b58345d7e972f5c1e4e0df1d1e2c76ba88697c2ea0420ccf6ef61d6157a2b769",
+          "sha256": "4a2bdefaedaa9b6ee3db7240ba81415a6442c0e15f284e3a80e74901627dba3d"
+        },
+        {
+          "bytes": 2162446,
+          "path": "design/receipts/v0.8-m3a/media/lantern_diorama/lantern_diorama-contact-sheet.png",
+          "pixel_sha256": "03211193b4087d6059d570bed1768caaf5cb0e845fbd071957fcbb971479d0ee",
+          "sha256": "47f0c6f621f645c41bb210601704d618a4929fb3fdd9c6389dce9f808ec14ab0"
+        },
+        {
+          "bytes": 554705,
+          "path": "design/receipts/v0.8-m3a/media/lantern_diorama/passes/material.png",
+          "pixel_sha256": "acaab440484b7b7264ae5a2303c2ec318fd4e67048ab577bdf648882f92e11c0",
+          "sha256": "f895ae94b58e15950da6c4f492d4ef480ab1d5614ccfd36603757acd89d0b5cf"
+        },
+        {
+          "bytes": 623783,
+          "path": "design/receipts/v0.8-m3a/media/lantern_diorama/passes/normal.png",
+          "pixel_sha256": "793f7d49d304fa71d5f9a1cc166bcaf28190af7626757565416373b7c9f74369",
+          "sha256": "939ee80da0ac33416cd49888cc5c22cfeb659e0d5034c78ed039cf34ac719022"
+        },
+        {
+          "bytes": 553386,
+          "path": "design/receipts/v0.8-m3a/media/lantern_diorama/passes/part_mask.png",
+          "pixel_sha256": "06d2e0b3f59b04a2bd5db553215ca5e3a40514a30a46c18f5f00a368bcc0d0bc",
+          "sha256": "3fb4ca194605f0636fb884d2fbf89ac620c02aa79244600e63cb31567baabdb5"
+        },
+        {
+          "bytes": 455638,
+          "path": "design/receipts/v0.8-m3a/media/lantern_diorama/passes/silhouette.png",
+          "pixel_sha256": "f7715661d7ce62832ff43f41fa733632e2358e9c25005e2bede95f56d27e082e",
+          "sha256": "507fc59d911e73b084c5ad33bf6b0e9e4dd1024ca8bd86549c0eb39478631ff0"
+        },
+        {
+          "bytes": 544851,
+          "path": "design/receipts/v0.8-m3a/media/lantern_diorama/passes/subject_mask.png",
+          "pixel_sha256": "bb81ba509fcb61ca923efe112187cf4f1d21b6abf01f0f579b22c9f9b4abe4b6",
+          "sha256": "964d72cdc525f42138317c1a34f46703780319133ec05134c9e9b98fd967b6b1"
+        },
+        {
+          "bytes": 199279,
+          "path": "design/receipts/v0.8-m3a/media/lantern_diorama/passes/subject_mask_mobile.png",
+          "pixel_sha256": "db681ea4901416926730003ccc4ba32f7364ccb85fda0d09d64679f6069a8111",
+          "sha256": "ab4d831e7da2e270ab7220f0da6aaac9756c831cba8f732603d5994fc365075b"
+        }
+      ],
+      "blender_metadata": {
+        "blender_version": "4.5.14 LTS",
+        "camera": {
+          "location": [
+            0.15000000596046448,
+            -14.917828559875488,
+            3.617927074432373
+          ],
+          "ortho_scale": 11.5,
+          "rotation_euler": [
+            1.4660766124725342,
+            -0.0,
+            0.0
+          ]
+        },
+        "engine": "preview",
+        "mesh_objects": 185,
+        "polygons": 2267,
+        "screen_anchors": {
+          "compact": {
+            "headlight": [
+              0.61739129,
+              0.53390911
+            ],
+            "signal_lens": [
+              0.7636413,
+              0.45932853
+            ],
+            "track": [
+              0.49266306,
+              0.66171798
+            ]
+          },
+          "desktop": {
+            "headlight": [
+              0.61739129,
+              0.53390911
+            ],
+            "signal_lens": [
+              0.7636413,
+              0.45932853
+            ],
+            "track": [
+              0.49266306,
+              0.66171798
+            ]
+          },
+          "mobile": {
+            "headlight": [
+              0.59643519,
+              0.53390911
+            ],
+            "signal_lens": [
+              0.71657735,
+              0.45932853
+            ],
+            "track": [
+              0.49397281,
+              0.66171798
+            ]
+          },
+          "thumbnail": {
+            "headlight": [
+              0.61739129,
+              0.53390911
+            ],
+            "signal_lens": [
+              0.7636413,
+              0.45932853
+            ],
+            "track": [
+              0.49266306,
+              0.66171798
+            ]
+          }
+        },
+        "treatment": {
+          "background_separation": 0.36,
+          "beam_alpha": 0.4,
+          "beam_feather": 32.0,
+          "camera_pitch_degrees": 6.0,
+          "display_name": "Lantern Diorama",
+          "fill_strength": 0.26,
+          "grain_alpha": 0.025,
+          "id": "lantern_diorama",
+          "key_energy": 1180.0,
+          "metallic_scale": 0.66,
+          "normal_strength": 0.82,
+          "outline_px": 1.8,
+          "rim_energy": 620.0,
+          "roughness_bias": 0.02,
+          "silhouette_outline_px": 2.4
+        },
+        "vertices": 3559
+      },
+      "contact_sheet": "design/receipts/v0.8-m3a/media/lantern_diorama/lantern_diorama-contact-sheet.png",
+      "display_name": "Lantern Diorama",
+      "id": "lantern_diorama",
+      "metrics": {
+        "desktop": {
+          "edge_density": 0.0323,
+          "global_contrast_ratio": 3.137,
+          "luminance_p10": 0.0527,
+          "luminance_p90": 0.2722
+        },
+        "mobile": {
+          "edge_density": 0.0405,
+          "global_contrast_ratio": 2.943,
+          "luminance_p10": 0.0527,
+          "luminance_p90": 0.2523
+        },
+        "mobile_subjects": {
+          "pursuer_height_percent": 11.795,
+          "pursuer_width_percent": 10.664,
+          "train_height_percent": 25.128,
+          "train_width_percent": 38.981
+        },
+        "thumbnail": {
+          "edge_density": 0.0662,
+          "global_contrast_ratio": 3.136,
+          "luminance_p10": 0.0535,
+          "luminance_p90": 0.2747
+        }
+      },
+      "parameters": {
+        "background_separation": 0.36,
+        "beam_alpha": 0.4,
+        "beam_feather": 32.0,
+        "camera_pitch_degrees": 6.0,
+        "display_name": "Lantern Diorama",
+        "fill_strength": 0.26,
+        "grain_alpha": 0.025,
+        "id": "lantern_diorama",
+        "key_energy": 1180.0,
+        "metallic_scale": 0.66,
+        "normal_strength": 0.82,
+        "outline_px": 1.8,
+        "rim_energy": 620.0,
+        "roughness_bias": 0.02,
+        "silhouette_outline_px": 2.4
+      }
+    },
+    {
+      "artifacts": [
+        {
+          "bytes": 470214,
+          "path": "design/receipts/v0.8-m3a/media/signal_noir/final/default/compact.png",
+          "pixel_sha256": "60562876f79165cc6af377149dff2e4d9fd2e5a89e2319f3e1f54defbb1ed1d5",
+          "sha256": "7ea86bb62c526a9d501e0e4cb1226d20e36f3400e42ee0f781156e7c7d66c660"
+        },
+        {
+          "bytes": 764044,
+          "path": "design/receipts/v0.8-m3a/media/signal_noir/final/default/desktop.png",
+          "pixel_sha256": "b7b885c59035b12975bacddab2a6b4f9be06eb19411871baa3acfd3f3fce6194",
+          "sha256": "1798510d20d782e5a0f2ad58187ee907445c0b6218b0a5a8f56ae61a7234bf27"
+        },
+        {
+          "bytes": 287723,
+          "path": "design/receipts/v0.8-m3a/media/signal_noir/final/default/mobile.png",
+          "pixel_sha256": "7bc24502c23974b84e8eb19945143eff80ee855326d49b502451f9a93065ffde",
+          "sha256": "10a083b1767c62136ea43ff61df609dae0039123711cbcfaef90eb7ce93da6a6"
+        },
+        {
+          "bytes": 38691,
+          "path": "design/receipts/v0.8-m3a/media/signal_noir/final/default/thumbnail.png",
+          "pixel_sha256": "6d27e86dfab72a0891338deba2f30400185855f2117266da6130a9d199269d85",
+          "sha256": "5fc4d9aed835967e36dc1bc63f089b66821cec020b6439f6b31a6f9ca60aab97"
+        },
+        {
+          "bytes": 465903,
+          "path": "design/receipts/v0.8-m3a/media/signal_noir/final/high_contrast/compact.png",
+          "pixel_sha256": "904e7cf92023074ac9cfe87b8e77f72d61a0718f59d64d94ef91b3813436d34b",
+          "sha256": "0d13a3346d0b570e0962c5d13edf1383ce8f082f69ad9a34921d6be844f25464"
+        },
+        {
+          "bytes": 755215,
+          "path": "design/receipts/v0.8-m3a/media/signal_noir/final/high_contrast/desktop.png",
+          "pixel_sha256": "2ad871f1968105053f31595d25c484f4fc015d2e6bdefaf78ff2f8ce9cee2354",
+          "sha256": "7fbc8ca87f137d25f753ee799affcbf58fe17ed1afb4981a3f1197fd1c0f3312"
+        },
+        {
+          "bytes": 284776,
+          "path": "design/receipts/v0.8-m3a/media/signal_noir/final/high_contrast/mobile.png",
+          "pixel_sha256": "a05992b09b17c5cb2c3e6fc1f112f30d0eb86ce661f9c16d8752d7d669c54281",
+          "sha256": "34b5ab13d4f649eda16578e2cad49695530f44f89b13b104041ccbff3f65aac7"
+        },
+        {
+          "bytes": 37620,
+          "path": "design/receipts/v0.8-m3a/media/signal_noir/final/high_contrast/thumbnail.png",
+          "pixel_sha256": "721d4c9cc8f6c74ba650523f11e8d5253c2a03e7ab2b4b229bc4de968b78f2f6",
+          "sha256": "88ce8598af63455151dd556d30a6e3c8055b9760bea10826f89295a19ced0a1c"
+        },
+        {
+          "bytes": 554995,
+          "path": "design/receipts/v0.8-m3a/media/signal_noir/passes/material.png",
+          "pixel_sha256": "ac81b70aabd019ebb7f0a809ea9985358a4348a9cb99ce832c06cedea8506c62",
+          "sha256": "8b6b719041dac487aa58dfbd7c1fa21244b08b6a62d1a5786aaf92820299cc17"
+        },
+        {
+          "bytes": 623898,
+          "path": "design/receipts/v0.8-m3a/media/signal_noir/passes/normal.png",
+          "pixel_sha256": "553c389694f9a84bdbc18a81bff57abce2bbf977d8e164dcf02c5e1893982540",
+          "sha256": "302153350a1bae4337f04034b439b53a50fecdf8feb55ac4eb6d1a9d52dadd98"
+        },
+        {
+          "bytes": 553630,
+          "path": "design/receipts/v0.8-m3a/media/signal_noir/passes/part_mask.png",
+          "pixel_sha256": "f7bcb3a331b0ebd723e50e35df89e60578e19bf0f9c63c802993a7c5e7cf3e20",
+          "sha256": "2f419d302ae181e82180ac78adfbe758deed4cf0d0259e5b4100d1ec69955446"
+        },
+        {
+          "bytes": 455822,
+          "path": "design/receipts/v0.8-m3a/media/signal_noir/passes/silhouette.png",
+          "pixel_sha256": "3a1b0c0647a9350a13d1d31cbcc2c1796bfeaf9c4648ec992f723749f574b72c",
+          "sha256": "1e9a46bcd80ad0b36cdb9b444204792c75eca6c2bd3ca64a92d3297c8f22b229"
+        },
+        {
+          "bytes": 545356,
+          "path": "design/receipts/v0.8-m3a/media/signal_noir/passes/subject_mask.png",
+          "pixel_sha256": "310ed087f6e23aa13caf5060aebfce245fa02ff7f83a213ff555d7021eed6b79",
+          "sha256": "fa7a4ce8f162333e12a71869a8e8b379a8e095f0247c63836ea24d25ee2b837c"
+        },
+        {
+          "bytes": 199431,
+          "path": "design/receipts/v0.8-m3a/media/signal_noir/passes/subject_mask_mobile.png",
+          "pixel_sha256": "10e2a320f4ec3802d81d7f3e3cb6c6142aa4c7876eb30d4ab9ae27f2262bd3a5",
+          "sha256": "d1387655d71451660a6b33ebd4f9107113aaac4a33a16f05dd4e9eb592512485"
+        },
+        {
+          "bytes": 1907975,
+          "path": "design/receipts/v0.8-m3a/media/signal_noir/signal_noir-contact-sheet.png",
+          "pixel_sha256": "98549a2ba6754d61606e76835d4416fb1f838d6fafbbed7816ffc7a961a63637",
+          "sha256": "b521e96ddd90d27cf4b294dae7f9ddf86e4ff898f2c3b4d491c5c3f315454428"
+        }
+      ],
+      "blender_metadata": {
+        "blender_version": "4.5.14 LTS",
+        "camera": {
+          "location": [
+            0.15000000596046448,
+            -14.772116661071777,
+            4.654722690582275
+          ],
+          "ortho_scale": 11.5,
+          "rotation_euler": [
+            1.3962633609771729,
+            -0.0,
+            0.0
+          ]
+        },
+        "engine": "preview",
+        "mesh_objects": 185,
+        "polygons": 2267,
+        "screen_anchors": {
+          "compact": {
+            "headlight": [
+              0.61739129,
+              0.53369975
+            ],
+            "signal_lens": [
+              0.7636413,
+              0.45100385
+            ],
+            "track": [
+              0.49266306,
+              0.66013822
+            ]
+          },
+          "desktop": {
+            "headlight": [
+              0.61739129,
+              0.53369975
+            ],
+            "signal_lens": [
+              0.7636413,
+              0.45100385
+            ],
+            "track": [
+              0.49266306,
+              0.66013822
+            ]
+          },
+          "mobile": {
+            "headlight": [
+              0.59643519,
+              0.53369975
+            ],
+            "signal_lens": [
+              0.71657735,
+              0.45100385
+            ],
+            "track": [
+              0.49397281,
+              0.66013822
+            ]
+          },
+          "thumbnail": {
+            "headlight": [
+              0.61739129,
+              0.53369975
+            ],
+            "signal_lens": [
+              0.7636413,
+              0.45100385
+            ],
+            "track": [
+              0.49266306,
+              0.66013822
+            ]
+          }
+        },
+        "treatment": {
+          "background_separation": 0.58,
+          "beam_alpha": 0.28,
+          "beam_feather": 22.0,
+          "camera_pitch_degrees": 10.0,
+          "display_name": "Signal Noir",
+          "fill_strength": 0.12,
+          "grain_alpha": 0.018,
+          "id": "signal_noir",
+          "key_energy": 1380.0,
+          "metallic_scale": 0.82,
+          "normal_strength": 1.0,
+          "outline_px": 1.1,
+          "rim_energy": 880.0,
+          "roughness_bias": -0.12,
+          "silhouette_outline_px": 1.8
+        },
+        "vertices": 3559
+      },
+      "contact_sheet": "design/receipts/v0.8-m3a/media/signal_noir/signal_noir-contact-sheet.png",
+      "display_name": "Signal Noir",
+      "id": "signal_noir",
+      "metrics": {
+        "desktop": {
+          "edge_density": 0.034,
+          "global_contrast_ratio": 4.463,
+          "luminance_p10": 0.0224,
+          "luminance_p90": 0.2733
+        },
+        "mobile": {
+          "edge_density": 0.0428,
+          "global_contrast_ratio": 4.157,
+          "luminance_p10": 0.0224,
+          "luminance_p90": 0.2511
+        },
+        "mobile_subjects": {
+          "pursuer_height_percent": 12.051,
+          "pursuer_width_percent": 10.664,
+          "train_height_percent": 25.385,
+          "train_width_percent": 38.981
+        },
+        "thumbnail": {
+          "edge_density": 0.0736,
+          "global_contrast_ratio": 4.445,
+          "luminance_p10": 0.0224,
+          "luminance_p90": 0.2719
+        }
+      },
+      "parameters": {
+        "background_separation": 0.58,
+        "beam_alpha": 0.28,
+        "beam_feather": 22.0,
+        "camera_pitch_degrees": 10.0,
+        "display_name": "Signal Noir",
+        "fill_strength": 0.12,
+        "grain_alpha": 0.018,
+        "id": "signal_noir",
+        "key_energy": 1380.0,
+        "metallic_scale": 0.82,
+        "normal_strength": 1.0,
+        "outline_px": 1.1,
+        "rim_energy": 880.0,
+        "roughness_bias": -0.12,
+        "silhouette_outline_px": 1.8
+      }
+    }
+  ]
+}

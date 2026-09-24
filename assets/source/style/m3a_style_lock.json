@@ -1,0 +1,107 @@
+{
+  "schema_version": 1,
+  "milestone": "v0.8-m3a",
+  "seed": 81173,
+  "selected_treatment": "lantern_diorama",
+  "palette": {
+    "night_void": "#080B11",
+    "coal": "#111721",
+    "iron": "#202A36",
+    "slate": "#354455",
+    "bone": "#E8DFC6",
+    "brass": "#D6A04F",
+    "ember": "#F2A24C",
+    "flame": "#DF6438",
+    "cold_signal": "#6CA6C6",
+    "shadow_veil": "#7C3C78",
+    "growth": "#7EA36B",
+    "danger": "#F0553D",
+    "pursuer_rust": "#A94C44"
+  },
+  "camera": {
+    "target": [0.15, 0.0, 2.05],
+    "distance": 15.0,
+    "ortho_scale": 11.5,
+    "approved_pitch_degrees": [0.0, 6.0, 10.0]
+  },
+  "composition": {
+    "locomotive_x": 0.75,
+    "defense_car_x": -2.7,
+    "pursuer_x": 4.35,
+    "signal_x": 5.2,
+    "ground_z": 0.0
+  },
+  "sizes": {
+    "desktop": [1280, 720],
+    "compact": [960, 540],
+    "mobile": [844, 390],
+    "thumbnail": [320, 180]
+  },
+  "treatments": [
+    {
+      "id": "etched_brass",
+      "display_name": "Etched Brass",
+      "camera_pitch_degrees": 0.0,
+      "outline_px": 2.8,
+      "silhouette_outline_px": 3.4,
+      "key_energy": 900.0,
+      "rim_energy": 360.0,
+      "fill_strength": 0.18,
+      "beam_alpha": 0.31,
+      "beam_feather": 28.0,
+      "metallic_scale": 0.48,
+      "roughness_bias": 0.18,
+      "background_separation": 0.26,
+      "normal_strength": 0.55,
+      "grain_alpha": 0.035
+    },
+    {
+      "id": "lantern_diorama",
+      "display_name": "Lantern Diorama",
+      "camera_pitch_degrees": 6.0,
+      "outline_px": 1.8,
+      "silhouette_outline_px": 2.4,
+      "key_energy": 1180.0,
+      "rim_energy": 620.0,
+      "fill_strength": 0.26,
+      "beam_alpha": 0.4,
+      "beam_feather": 32.0,
+      "metallic_scale": 0.66,
+      "roughness_bias": 0.02,
+      "background_separation": 0.36,
+      "normal_strength": 0.82,
+      "grain_alpha": 0.025
+    },
+    {
+      "id": "signal_noir",
+      "display_name": "Signal Noir",
+      "camera_pitch_degrees": 10.0,
+      "outline_px": 1.1,
+      "silhouette_outline_px": 1.8,
+      "key_energy": 1380.0,
+      "rim_energy": 880.0,
+      "fill_strength": 0.12,
+      "beam_alpha": 0.28,
+      "beam_feather": 22.0,
+      "metallic_scale": 0.82,
+      "roughness_bias": -0.12,
+      "background_separation": 0.58,
+      "normal_strength": 1.0,
+      "grain_alpha": 0.018
+    }
+  ],
+  "profile_relationship": {
+    "high": {
+      "atlas_max": 2048,
+      "normal_maps": true,
+      "material_masks": true,
+      "outline_scale": 1.0
+    },
+    "low": {
+      "atlas_max": 1024,
+      "normal_maps": false,
+      "material_masks": false,
+      "outline_scale": 1.15
+    }
+  }
+}

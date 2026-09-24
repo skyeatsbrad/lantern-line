@@ -1,9 +1,24 @@
 {
   "schema_version": 1,
-  "pipeline_version": "0.1.0",
+  "pipeline_version": "0.2.1",
   "toolchain": {
     "blender_pin": "tools/art/blender_pin.json",
     "godot_version": "4.7.2"
   },
-  "categories": []
+  "categories": [
+    {
+      "id": "style",
+      "subjects": [
+        "locomotive",
+        "defense_car",
+        "heavy_cannon",
+        "pursuer",
+        "headlight",
+        "dead_signal_environment",
+        "hud_fragment"
+      ],
+      "config": "assets/source/style/m3a_style_lock.json",
+      "generator": "tools/art/build_style_lock.py"
+    }
+  ]
 }

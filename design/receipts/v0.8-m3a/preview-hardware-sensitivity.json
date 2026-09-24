@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "milestone": "v0.8-m3a",
+  "observed_at": "2026-09-24",
+  "engine": "preview",
+  "renderer": "Blender 4.5.14 LTS Eevee Next",
+  "artifact": "etched_brass/default/mobile",
+  "raw_render_delta": {
+    "left_pixel_sha256": "8deb85a47216f29ae3ac9538a9498370ec81d05e09536baa91489bbbcfdbab7f",
+    "right_pixel_sha256": "656c7d307e9d65a83bca29961e52cc7b3b7a46289617269655583a4931c4245f",
+    "changed_pixels": 4,
+    "total_pixels": 329160,
+    "changed_pixel_ratio": 0.000012151,
+    "max_channel_delta": 1,
+    "mean_abs_channel_delta": 0.00000304,
+    "bounding_box": [456, 234, 460, 235]
+  },
+  "processed_artifact_delta": {
+    "left_pixel_sha256": "472fdc7fa41271842a62376e47c2f8d8759a1e72d700c7f2f3566632c610f7c5",
+    "right_pixel_sha256": "2a59fb50b1d6ce82047c1f8d31ea28ef1ad0826a8ff4a1859cd3e2ef73804845",
+    "changed_pixels": 1,
+    "total_pixels": 329160,
+    "changed_pixel_ratio": 0.000003038,
+    "max_channel_delta": 1,
+    "mean_abs_channel_delta": 0.00000076,
+    "bounding_box": [457, 235, 457, 235]
+  },
+  "preview_tolerance": {
+    "max_changed_pixels": 8,
+    "max_changed_pixel_ratio": 0.00005,
+    "max_channel_delta": 1,
+    "max_mean_abs_channel_delta": 0.00001
+  },
+  "canonical_policy": "Exact pixel hashes are required.",
+  "conclusion": "The preview difference is hardware-sensitive subpixel precision drift and is perceptually and structurally equivalent."
+}

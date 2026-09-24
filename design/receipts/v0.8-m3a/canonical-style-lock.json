@@ -1,0 +1,265 @@
+{
+  "blender": {
+    "executable": "C:\\Users\\bradleywo\\Tools\\Blender-4.5.14\\blender-4.5.14-windows-x64\\blender.exe",
+    "version": "Blender 4.5.14 LTS"
+  },
+  "comparison_sheet": {
+    "bytes": 579940,
+    "path": "design/receipts/v0.8-m3a/canonical-media/m3a-treatment-comparison.png",
+    "pixel_sha256": "e7a32992884d80c8166f8a6e019640efd169cda9ae6dc0aef95155a78cc7e489",
+    "sha256": "bea3e3ad8019331adf1ac1729ef745b43cd686c0434c83d8540e5562aa90f57d"
+  },
+  "config": "assets/source/style/m3a_style_lock.json",
+  "config_sha256": "a2723d04ef7ac607df6e8c6b870a9b7cd402c8beaa0494c1d1996cc6e223959a",
+  "engine": "canonical",
+  "generated_at_utc": "2026-09-24T16:33:18.895766+00:00",
+  "git_head": "780fd5adb51abbd8497fc71df64450637a7ada83",
+  "milestone": "v0.8-m3a",
+  "replay_verification": {
+    "artifact_count": 16,
+    "exact_artifacts": 16,
+    "mode": "exact",
+    "tolerance": null,
+    "tolerated_artifacts": []
+  },
+  "replay_verified": true,
+  "schema_version": 1,
+  "selected_treatment": "lantern_diorama",
+  "treatments": [
+    {
+      "artifacts": [
+        {
+          "bytes": 534715,
+          "path": "design/receipts/v0.8-m3a/canonical-media/lantern_diorama/final/default/compact.png",
+          "pixel_sha256": "933be53e86d38474fcbdb50a1a35ea69292c7e93f9926485b408efd4ce371f63",
+          "sha256": "500f730795a8d9ad02d4df2ef8313ba710acc260ed74035c400324a3929c9876"
+        },
+        {
+          "bytes": 951775,
+          "path": "design/receipts/v0.8-m3a/canonical-media/lantern_diorama/final/default/desktop.png",
+          "pixel_sha256": "1020b36ea7bb30e70968c35f2fa7b314e9c9e7d97b317b6543d9d4284876025d",
+          "sha256": "b82bc911944d09c83a92899c50a3646eabd123e3f5aef1d0b10f02d5434e1c3c"
+        },
+        {
+          "bytes": 353976,
+          "path": "design/receipts/v0.8-m3a/canonical-media/lantern_diorama/final/default/mobile.png",
+          "pixel_sha256": "c3d80970336b57d849e6e43b3aec383a30475296090c2cf9a364616cdd53d638",
+          "sha256": "93721c9a212e59e53bcc82f8bba45572ed4bdcf506099ef63a9916a4cbe7eb16"
+        },
+        {
+          "bytes": 47652,
+          "path": "design/receipts/v0.8-m3a/canonical-media/lantern_diorama/final/default/thumbnail.png",
+          "pixel_sha256": "bf3c39f878cdcfc43d623011efd562a1b1443a7f72479bb2cad175c638f2ec1f",
+          "sha256": "db9db696472f087ba13eb8b316ea4005af19f2792e0d48625a44e471a858d3df"
+        },
+        {
+          "bytes": 533211,
+          "path": "design/receipts/v0.8-m3a/canonical-media/lantern_diorama/final/high_contrast/compact.png",
+          "pixel_sha256": "c25021d9e6616ab6b588901b5c41c8a10285ada1a49acffe2f8c491bedb995f4",
+          "sha256": "24c4cb309bca3261818de0c6807824d5e928131ed20b037e3a1d637033c9a8f1"
+        },
+        {
+          "bytes": 946942,
+          "path": "design/receipts/v0.8-m3a/canonical-media/lantern_diorama/final/high_contrast/desktop.png",
+          "pixel_sha256": "3d6c0798ad43ad9d28f8acbc975b6e6351a7f8a9f0f5d715382cff6e0c66754c",
+          "sha256": "0f5f395877c5e8289f6c3f40b52f217a4e7789a98a2625ec98957f63899eab20"
+        },
+        {
+          "bytes": 351989,
+          "path": "design/receipts/v0.8-m3a/canonical-media/lantern_diorama/final/high_contrast/mobile.png",
+          "pixel_sha256": "d4ceab735aef2fc52cd17218f4ad639a158f2a47248b15a8cfd2bb20d3793ca2",
+          "sha256": "21d8c392e4f73925c557fd263dfb789466f622a1110dc6b6d2b7cd7d4de3f323"
+        },
+        {
+          "bytes": 48238,
+          "path": "design/receipts/v0.8-m3a/canonical-media/lantern_diorama/final/high_contrast/thumbnail.png",
+          "pixel_sha256": "a5fa0de9927bdf3861ac5aa07d5c22b0284df422c4605d5f606020c0d28a0a95",
+          "sha256": "8bb9097eec2a08680acadd7bb03c6e2d14304347695700344921ee7e39c54d7c"
+        },
+        {
+          "bytes": 2178808,
+          "path": "design/receipts/v0.8-m3a/canonical-media/lantern_diorama/lantern_diorama-contact-sheet.png",
+          "pixel_sha256": "e9fe12d5af2fab5c9a30776ae63a85a615e674e8f94cef18f4ab088e9ff554f0",
+          "sha256": "78173c98dbc610e1f45c5b89f13157b1e624ef16986ee4fbdaaba6a2c3c17a22"
+        },
+        {
+          "bytes": 581790,
+          "path": "design/receipts/v0.8-m3a/canonical-media/lantern_diorama/passes/material.png",
+          "pixel_sha256": "8f1e2fd0f44b9ad4b989ad71f04b5c5e9524d59cc6823b3170eb2bc35bae1bec",
+          "sha256": "614602e13410569728af086bd063f86a0a800986f5fbf6e59d0b415d0cdc7063"
+        },
+        {
+          "bytes": 636983,
+          "path": "design/receipts/v0.8-m3a/canonical-media/lantern_diorama/passes/normal.png",
+          "pixel_sha256": "aa1dd3962c8befbb726ff07750707d68edabf79f1cf60611c953cb8bd1029e6b",
+          "sha256": "6910dfb4a68c6b94a7109a93834976397119d826e00281564072342ba09a38bb"
+        },
+        {
+          "bytes": 578344,
+          "path": "design/receipts/v0.8-m3a/canonical-media/lantern_diorama/passes/part_mask.png",
+          "pixel_sha256": "92f299db7c3ae9cda57d5810e19024a430f8edbba9c085c42560dd17656be279",
+          "sha256": "c7770b38037a4a7f7f0eac8a1fcc6ab057238d924f03aeaf6793c0fbda1cc96b"
+        },
+        {
+          "bytes": 520112,
+          "path": "design/receipts/v0.8-m3a/canonical-media/lantern_diorama/passes/silhouette.png",
+          "pixel_sha256": "0339168671ee824216cf56ca0f2620b6c66f6332e2dd5877518193b15770ff36",
+          "sha256": "6dc6e4dde17f00213a8271b7059e3681b60250a0dd008cd78c3d56164ea38748"
+        },
+        {
+          "bytes": 567429,
+          "path": "design/receipts/v0.8-m3a/canonical-media/lantern_diorama/passes/subject_mask.png",
+          "pixel_sha256": "8101bcfe2c35ddcfd35238460b30dd88f4f415910d4f932a2a40c45b9a1a0939",
+          "sha256": "d499b2a9fb1c5588fe61f81a58b279f58a1648d3bd7e09f5a72a841748e35c09"
+        },
+        {
+          "bytes": 209421,
+          "path": "design/receipts/v0.8-m3a/canonical-media/lantern_diorama/passes/subject_mask_mobile.png",
+          "pixel_sha256": "1b4749b572641adeb95d67c458673e820ecd8e2c1758680bd4bbb8d8cd42cb41",
+          "sha256": "b1ff1d402852363521b1e22f3975bc2822a4478115866bb0fb95f51b4e3178eb"
+        }
+      ],
+      "blender_metadata": {
+        "blender_version": "4.5.14 LTS",
+        "camera": {
+          "location": [
+            0.15000000596046448,
+            -14.917828559875488,
+            3.617927074432373
+          ],
+          "ortho_scale": 11.5,
+          "rotation_euler": [
+            1.4660766124725342,
+            -0.0,
+            0.0
+          ]
+        },
+        "engine": "canonical",
+        "mesh_objects": 185,
+        "polygons": 2267,
+        "screen_anchors": {
+          "compact": {
+            "headlight": [
+              0.61739129,
+              0.53390911
+            ],
+            "signal_lens": [
+              0.7636413,
+              0.45932853
+            ],
+            "track": [
+              0.49266306,
+              0.66171798
+            ]
+          },
+          "desktop": {
+            "headlight": [
+              0.61739129,
+              0.53390911
+            ],
+            "signal_lens": [
+              0.7636413,
+              0.45932853
+            ],
+            "track": [
+              0.49266306,
+              0.66171798
+            ]
+          },
+          "mobile": {
+            "headlight": [
+              0.59643519,
+              0.53390911
+            ],
+            "signal_lens": [
+              0.71657735,
+              0.45932853
+            ],
+            "track": [
+              0.49397281,
+              0.66171798
+            ]
+          },
+          "thumbnail": {
+            "headlight": [
+              0.61739129,
+              0.53390911
+            ],
+            "signal_lens": [
+              0.7636413,
+              0.45932853
+            ],
+            "track": [
+              0.49266306,
+              0.66171798
+            ]
+          }
+        },
+        "treatment": {
+          "background_separation": 0.36,
+          "beam_alpha": 0.4,
+          "beam_feather": 32.0,
+          "camera_pitch_degrees": 6.0,
+          "display_name": "Lantern Diorama",
+          "fill_strength": 0.26,
+          "grain_alpha": 0.025,
+          "id": "lantern_diorama",
+          "key_energy": 1180.0,
+          "metallic_scale": 0.66,
+          "normal_strength": 0.82,
+          "outline_px": 1.8,
+          "rim_energy": 620.0,
+          "roughness_bias": 0.02,
+          "silhouette_outline_px": 2.4
+        },
+        "vertices": 3559
+      },
+      "contact_sheet": "design/receipts/v0.8-m3a/canonical-media/lantern_diorama/lantern_diorama-contact-sheet.png",
+      "display_name": "Lantern Diorama",
+      "id": "lantern_diorama",
+      "metrics": {
+        "desktop": {
+          "edge_density": 0.0319,
+          "global_contrast_ratio": 3.177,
+          "luminance_p10": 0.0527,
+          "luminance_p90": 0.2763
+        },
+        "mobile": {
+          "edge_density": 0.0401,
+          "global_contrast_ratio": 2.981,
+          "luminance_p10": 0.0527,
+          "luminance_p90": 0.2562
+        },
+        "mobile_subjects": {
+          "pursuer_height_percent": 11.795,
+          "pursuer_width_percent": 10.664,
+          "train_height_percent": 25.128,
+          "train_width_percent": 38.981
+        },
+        "thumbnail": {
+          "edge_density": 0.0681,
+          "global_contrast_ratio": 3.176,
+          "luminance_p10": 0.0535,
+          "luminance_p90": 0.2789
+        }
+      },
+      "parameters": {
+        "background_separation": 0.36,
+        "beam_alpha": 0.4,
+        "beam_feather": 32.0,
+        "camera_pitch_degrees": 6.0,
+        "display_name": "Lantern Diorama",
+        "fill_strength": 0.26,
+        "grain_alpha": 0.025,
+        "id": "lantern_diorama",
+        "key_energy": 1180.0,
+        "metallic_scale": 0.66,
+        "normal_strength": 0.82,
+        "outline_px": 1.8,
+        "rim_energy": 620.0,
+        "roughness_bias": 0.02,
+        "silhouette_outline_px": 2.4
+      }
+    }
+  ]
+}

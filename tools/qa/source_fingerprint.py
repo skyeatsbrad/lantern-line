@@ -20,6 +20,7 @@ EXCLUDED_FILES = {
     "design/audits/v0.8-m1-web-mobile.json",
     "design/audits/v0.8-m2-commercial-boundary-audit.md",
     "design/audits/v0.8-m2-reference-scorecard.md",
+    "design/audits/v0.8-m3a-style-lock-audit.md",
     "design/audits/v0.8-package-budget.md",
     "design/audits/v0.8-profile-matrix.json",
     "design/audits/v0.8-profile-matrix.md",

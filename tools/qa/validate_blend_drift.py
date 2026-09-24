@@ -1,9 +1,9 @@
-"""Validate controlled `.blend` source drift for the v0.8 M2 milestone.
+"""Validate controlled `.blend` source drift for a v0.8 milestone.
 
-M2 has no production art yet, so this script must succeed with zero manifests.
-Once controlled scene-first sources land, the same script emits a machine
-readable receipt describing which blends were verified, allowing later stages
-to detect drift by diffing receipts across builds.
+Milestones without controlled scene-first sources must succeed with zero
+manifests. Once controlled `.blend` sources land, the same script emits a
+machine-readable receipt describing which blends were verified, allowing later
+stages to detect drift by diffing receipts across builds.
 
 The script wraps `tools/qa/validate_blend.py` so it can be run as a stand-alone
 QA gate without a Blender install when no manifest exists. When Blender IS
@@ -35,6 +35,11 @@ VALIDATE_BLEND = REPO_ROOT / "tools" / "qa" / "validate_blend.py"
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--milestone",
+        default="v0.8-m2",
+        help="Milestone identifier recorded in the receipt.",
+    )
     parser.add_argument(
         "--blender",
         help=(
@@ -68,7 +73,11 @@ def sha256_bytes(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
-def build_receipt(manifests: list[Path], run_result: int) -> dict:
+def build_receipt(
+    manifests: list[Path],
+    run_result: int,
+    milestone: str,
+) -> dict:
     entries: list[dict] = []
     for manifest_path in manifests:
         try:
@@ -96,7 +105,7 @@ def build_receipt(manifests: list[Path], run_result: int) -> dict:
             }
         )
     return {
-        "milestone": "v0.8-m2",
+        "milestone": milestone,
         "manifest_count": len(manifests),
         "manifests": entries,
         "validate_blend_exit_code": run_result,
@@ -114,7 +123,11 @@ def main() -> int:
                 "provided; strict validation cannot run."
             )
             run_result = 2
-            receipt = build_receipt(manifests, run_result)
+            receipt = build_receipt(
+                manifests,
+                run_result,
+                args.milestone,
+            )
             _write_receipt(receipt, Path(args.receipt))
             return run_result
         else:
@@ -131,15 +144,23 @@ def main() -> int:
                     "[blend-drift] validate_blend.py failed with exit "
                     f"{result.returncode}; drift detected."
                 )
-                receipt = build_receipt(manifests, run_result)
+                receipt = build_receipt(
+                    manifests,
+                    run_result,
+                    args.milestone,
+                )
                 _write_receipt(receipt, Path(args.receipt))
                 return result.returncode
-    receipt = build_receipt(manifests, run_result)
+    receipt = build_receipt(
+        manifests,
+        run_result,
+        args.milestone,
+    )
     _write_receipt(receipt, Path(args.receipt))
     if not manifests:
         print(
-            "[blend-drift] no controlled .blend manifests (M2 baseline; "
-            "receipt written)."
+            "[blend-drift] no controlled .blend manifests "
+            f"({args.milestone}; receipt written)."
         )
     else:
         print(

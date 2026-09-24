@@ -27,30 +27,34 @@ def main() -> int:
     if not RECEIPT_PATH.is_file():
         raise FileNotFoundError(f"Missing build receipt: {RECEIPT_PATH}")
     receipt = json.loads(RECEIPT_PATH.read_text(encoding="utf-8"))
-    declared = {
-        str(item["path"]): str(item["sha256"])
-        for item in receipt.get("artifacts", [])
-    }
-    found: set[str] = set()
+    declared: dict[str, str] = {}
+    for item in receipt.get("artifacts", []):
+        relative = str(item["path"])
+        if relative in declared:
+            raise RuntimeError(f"Duplicate artifact provenance: {relative}")
+        declared[relative] = str(item["sha256"])
+        path = REPO_ROOT / relative
+        if not path.is_file():
+            raise RuntimeError(f"Receipt references missing artifact: {relative}")
+        actual_hash = sha256_file(path)
+        if actual_hash != declared[relative]:
+            raise RuntimeError(
+                f"Generated artifact hash differs from receipt: {relative}"
+            )
+    production_files: set[str] = set()
     for root in ARTIFACT_ROOTS:
         if not root.exists():
             continue
         for path in sorted(item for item in root.rglob("*") if item.is_file()):
             relative = path.relative_to(REPO_ROOT).as_posix()
-            found.add(relative)
+            production_files.add(relative)
             if relative not in declared:
                 raise RuntimeError(f"Generated artifact lacks provenance: {relative}")
-            actual_hash = sha256_file(path)
-            if actual_hash != declared[relative]:
-                raise RuntimeError(
-                    f"Generated artifact hash differs from receipt: {relative}"
-                )
-    undeclared_files = sorted(set(declared).difference(found))
-    if undeclared_files:
-        raise RuntimeError(
-            "Receipt references missing artifacts: " + ", ".join(undeclared_files)
-        )
-    print(f"[provenance] verified artifacts={len(found)}")
+    print(
+        "[provenance] "
+        f"verified artifacts={len(declared)} "
+        f"production_artifacts={len(production_files)}"
+    )
     return 0
 
 

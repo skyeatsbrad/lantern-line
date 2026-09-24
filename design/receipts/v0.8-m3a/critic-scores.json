@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "milestone": "v0.8-m3a",
+  "reviewed_at": "2026-09-24",
+  "selected_treatment": "lantern_diorama",
+  "gate": {
+    "minimum_category_score": 7.5,
+    "maximum_reviewer_spread": 1.5,
+    "passed": true
+  },
+  "reviewers": [
+    {
+      "id": "independent_visual_critic",
+      "scores": {
+        "art_direction": 7.9,
+        "train_desirability": 8.1,
+        "mobile_readability": 7.6,
+        "performance_suitability": 8.3
+      }
+    },
+    {
+      "id": "independent_commercial_critic",
+      "scores": {
+        "art_direction": 8.2,
+        "train_desirability": 8.0,
+        "mobile_readability": 7.6,
+        "performance_suitability": 8.6
+      }
+    }
+  ],
+  "category_results": {
+    "art_direction": {
+      "median": 8.05,
+      "spread": 0.3,
+      "passed": true
+    },
+    "train_desirability": {
+      "median": 8.05,
+      "spread": 0.1,
+      "passed": true
+    },
+    "mobile_readability": {
+      "median": 7.6,
+      "spread": 0.0,
+      "passed": true
+    },
+    "performance_suitability": {
+      "median": 8.45,
+      "spread": 0.3,
+      "passed": true
+    }
+  },
+  "silhouette_checks": {
+    "heavy_cannon_reads_as_weapon": true,
+    "pursuer_six_contacts_survive_mobile": true,
+    "pursuer_six_contacts_survive_thumbnail": true
+  }
+}
