@@ -79,6 +79,21 @@ func rebuild() -> void:
 	_refresh()
 
 
+func set_reference_capture_state(enabled: bool, _frame_time: float) -> void:
+	if not enabled:
+		return
+	_notification_timer = 0.0
+	_critical_timer = 0.0
+	_cinematic_timer = 0.0
+	if is_instance_valid(_notification_panel):
+		_notification_panel.visible = false
+	if is_instance_valid(_critical_panel):
+		_critical_panel.visible = false
+	if is_instance_valid(_cinematic_panel):
+		_cinematic_panel.visible = false
+		_cinematic_panel.modulate.a = 1.0
+
+
 func _build_ui() -> void:
 	theme = UITheme.build()
 	for child in get_children():

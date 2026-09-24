@@ -17,6 +17,7 @@ var _smoke: Array[Dictionary] = []
 var _sparks: Array[Dictionary] = []
 var _damage_flashes: Dictionary = {}
 var _reduced_motion: bool = false
+var _reference_capture_enabled: bool = false
 var _pos: Vector2 = Vector2(320, 460)
 var _visual_scale: float = 1.0
 var _presentation_state: Dictionary = {}
@@ -75,10 +76,29 @@ func flash_car(car_id: String, duration: float = 0.5) -> void:
 	)
 
 
+func set_reference_capture_state(enabled: bool, frame_time: float) -> void:
+	if enabled and not _reference_capture_enabled:
+		_smoke.clear()
+		_sparks.clear()
+		_damage_flashes.clear()
+		_rng.seed = int(_run_state.run_seed) ^ 0x1A17E2
+	_reference_capture_enabled = enabled
+	if enabled:
+		_time = maxf(0.0, frame_time)
+		_wheel_angle = fmod(
+			_time * _run_state.current_speed() * 0.05,
+			TAU
+		)
+	queue_redraw()
+
+
 func _process(delta: float) -> void:
 	if _run_state == null:
 		return
 	_reduced_motion = bool(GameManager.get_setting("reduced_motion", false))
+	if _reference_capture_enabled:
+		queue_redraw()
+		return
 	var scaled: float = (
 		0.0
 		if _run_state.is_simulation_paused()

@@ -60,6 +60,14 @@ func run(_host: Node) -> void:
 	_test_hold_to_detach(_host)
 	_test_boss_resume(_host)
 	_test_boss_phase_pacing()
+	_test_m2_stable_visual_ids()
+	_test_m2_sim_events_and_bus_audit()
+	_test_m2_snapshot_reuse_and_view_interfaces()
+	_test_m2_presentation_router_categories()
+	_test_m2_reference_scenarios_registry()
+	_test_m2_headless_no_render_assets()
+	_test_m2_profile_simulation_invariance()
+	_test_m2_save_visual_id_persistence()
 	_test_campaign_flow(_host)
 	_test_investment_pressure(_host)
 	_test_balance_archetypes(_host)
@@ -132,6 +140,17 @@ func _test_v1_save_migration() -> void:
 	_expect(
 		String(rs.crew[1].get("assigned_car_id", "")) == _first_car_id(rs, "Defense"),
 		"v1 Defense crew mapping changed"
+	)
+	var resaved: Dictionary = RunSnapshot.build(
+		rs.to_dict(),
+		RunSnapshot.world_state(pending)
+	)
+	var reloaded := RunState.new()
+	reloaded.setup(1, _mk_configs())
+	reloaded.apply_dict(RunSnapshot.run_state_data(resaved))
+	_expect(
+		JSON.stringify(reloaded.to_dict()) == JSON.stringify(rs.to_dict()),
+		"migrated v0.7-compatible save changed after v0.8 resave/reload"
 	)
 	_expect(RunSnapshot.normalize({"distance": 10.0}).is_empty(), "malformed legacy run was accepted")
 
@@ -2637,3 +2656,570 @@ func _test_end_states() -> void:
 	rs2.victory = true
 	if not rs2.victory:
 		_fail("victory flag not set")
+
+
+func _test_m2_stable_visual_ids() -> void:
+	_expect(
+		VisualStateIds.train() == "train:locomotive",
+		"train visual id is not stable"
+	)
+	_expect(
+		VisualStateIds.car("car-001") == "car:car-001",
+		"car visual id builder changed"
+	)
+	_expect(
+		VisualStateIds.enemy(42) == "enemy:000042",
+		"enemy visual id builder is not deterministic"
+	)
+	_expect(
+		VisualStateIds.enemy(-3) == "enemy:000000",
+		"enemy visual id builder did not clamp negatives"
+	)
+	_expect(
+		VisualStateIds.longshadow_phase(0) == "longshadow:veil"
+		and VisualStateIds.longshadow_phase(1) == "longshadow:tether"
+		and VisualStateIds.longshadow_phase(2) == "longshadow:charge",
+		"longshadow phase ids drifted"
+	)
+	_expect(
+		VisualStateIds.world_context("Danger") == "world:danger",
+		"world context id builder did not normalize casing"
+	)
+
+
+func _test_m2_sim_events_and_bus_audit() -> void:
+	var bus := PresentationEventBus.new()
+	bus._ready()
+	var captured: Dictionary = {}
+	var capture_callback := func(event: SimEvent) -> void:
+		captured.clear()
+		captured.merge(event.snapshot(), true)
+	var presentation_captured: Dictionary = {}
+	var presentation_callback := func(event: PresentationEvent) -> void:
+		presentation_captured.clear()
+		presentation_captured.merge(event.snapshot(), true)
+	bus.register_simulation_producer(
+		"sim.test", [SimEvent.TYPE_ENEMY_SPAWNED, SimEvent.TYPE_ENEMY_KILLED]
+	)
+	bus.register_presentation_consumer(
+		"view.test",
+		[SimEvent.TYPE_ENEMY_SPAWNED],
+		capture_callback
+	)
+	bus.register_presentation_producer(
+		"view.presentation_test",
+		[PresentationEvent.TYPE_PARTICLE_BURST]
+	)
+	bus.register_presentation_consumer(
+		"view.presentation_test_consumer",
+		[PresentationEvent.TYPE_PARTICLE_BURST],
+		presentation_callback
+	)
+	bus.register_simulation_consumer(
+		"sim.test_bad",
+		[PresentationEvent.TYPE_PARTICLE_BURST],
+		func(_event: Variant) -> void: pass
+	)
+	var issues := bus.run_startup_audit()
+	_expect(
+		issues.size() >= 1,
+		"role audit did not flag a simulation consumer of a presentation event"
+	)
+	var offending_found := false
+	for issue in issues:
+		if String(issue).contains("sim.test_bad"):
+			offending_found = true
+	_expect(offending_found, "role audit missed the invalid simulation consumer")
+
+	# Verify sim event fields.
+	var sequence: int = bus.emit_sim(
+		"sim.test",
+		SimEvent.TYPE_ENEMY_SPAWNED,
+		"enemy:000001",
+		"car:car-001",
+		12.25,
+		Vector2(100.0, 50.0),
+		Vector2.RIGHT,
+		12.5,
+		&"iron_hide",
+		{"kind": "Pursuer"}
+	)
+	_expect(sequence > 0, "sim event bus refused a valid emission")
+	_expect(
+		String(captured.get("type", "")) == String(SimEvent.TYPE_ENEMY_SPAWNED),
+		"sim event type lost"
+	)
+	_expect(
+		String(captured.get("producer_id", "")) == "sim.test",
+		"sim event producer id lost"
+	)
+	_expect(
+		String(captured.get("source_id", "")) == "enemy:000001",
+		"sim event source id lost"
+	)
+	_expect(
+		String(captured.get("target_id", "")) == "car:car-001",
+		"sim event target id lost"
+	)
+	_expect(int(captured.get("sequence", 0)) == sequence, "sequence mismatch")
+	_expect(
+		is_equal_approx(float(captured.get("timestamp", 0.0)), 12.25),
+		"deterministic sim timestamp lost"
+	)
+	_expect(
+		Vector2(
+			float((captured.get("position", []) as Array)[0]),
+			float((captured.get("position", []) as Array)[1])
+		) == Vector2(100.0, 50.0),
+		"sim event position lost"
+	)
+	_expect(
+		is_equal_approx(float(captured.get("strength", 0.0)), 12.5),
+		"sim event strength lost"
+	)
+	_expect(
+		String(captured.get("material", "")) == "iron_hide",
+		"sim event material lost"
+	)
+	_expect(
+		String((captured.get("payload", {}) as Dictionary).get("kind", ""))
+		== "Pursuer",
+		"sim event payload lost"
+	)
+	var presentation_sequence: int = bus.emit_presentation(
+		"view.presentation_test",
+		PresentationEvent.TYPE_PARTICLE_BURST,
+		"view.test",
+		12.4,
+		Vector2(20.0, 30.0),
+		Vector2.UP,
+		4.0,
+		&"spark",
+		{"label": "test"}
+	)
+	_expect(
+		presentation_sequence > 0,
+		"presentation event bus refused a valid emission"
+	)
+	_expect(
+		String(presentation_captured.get("producer_id", ""))
+		== "view.presentation_test",
+		"presentation event producer id lost"
+	)
+	_expect(
+		int(presentation_captured.get("sequence", 0))
+		== presentation_sequence,
+		"presentation event sequence mismatch"
+	)
+
+	# Emitting an unknown type should be rejected and recorded as an audit issue.
+	var reject: int = bus.emit_sim(
+		"sim.test",
+		&"unknown.type",
+		"",
+		"",
+		12.5,
+		Vector2.ZERO,
+		Vector2.RIGHT,
+		0.0,
+		&"none",
+		{}
+	)
+	_expect(reject == 0, "sim event bus accepted an unknown type")
+
+	# A presentation producer cannot spoof a simulation emission.
+	bus.register_presentation_producer(
+		"view.bad", [PresentationEvent.TYPE_PARTICLE_BURST]
+	)
+	var wrong_role: int = bus.emit_sim(
+		"view.bad",
+		SimEvent.TYPE_ENEMY_KILLED,
+		"enemy:000001",
+		"",
+		13.0,
+		Vector2.ZERO,
+		Vector2.RIGHT,
+		0.0,
+		&"none",
+		{}
+	)
+	_expect(wrong_role == 0, "presentation producer emitted a sim event")
+
+	# Synchronous dispatch must recycle the same fixed pool indefinitely.
+	for index in range(100):
+		bus.emit_sim(
+			"sim.test",
+			SimEvent.TYPE_ENEMY_SPAWNED,
+			"enemy:%06d" % index,
+			"",
+			20.0 + float(index) * 0.1,
+			Vector2.ZERO,
+			Vector2.RIGHT,
+			0.0,
+			&"none",
+			{}
+		)
+	var pool_stats: Dictionary = bus.pool_stats()
+	_expect(
+		int(pool_stats.get("sim_available", 0))
+		== int(pool_stats.get("sim_limit", -1)),
+		"sim event records were not returned to the pool"
+	)
+	_expect(
+		int(pool_stats.get("presentation_available", 0))
+		== int(pool_stats.get("presentation_limit", -1)),
+		"presentation event records were not returned to the pool"
+	)
+
+	bus.queue_free()
+
+
+func _test_m2_snapshot_reuse_and_view_interfaces() -> void:
+	var configs: Dictionary = _mk_configs()
+	var rs := RunState.new()
+	rs.setup(3131, configs)
+	var director := EnemyDirector.new()
+	director.setup(rs, Vector2(1280.0, 720.0))
+	director._spawn_wave()
+	_expect(director.active_count() > 0, "enemy director did not spawn a wave")
+	for enemy_variant in director.active_enemies():
+		var enemy: Enemy = enemy_variant
+		_expect(
+			enemy.visual_id > 0
+			and enemy.stable_id().begins_with("enemy:"),
+			"enemy did not receive a stable visual id"
+		)
+	var completed_elapsed: Array[float] = []
+	director.simulation_tick_completed.connect(
+		func() -> void: completed_elapsed.append(director.elapsed_time())
+	)
+	director._process(0.25)
+	_expect(
+		not completed_elapsed.is_empty()
+		and is_equal_approx(completed_elapsed.back(), director.elapsed_time()),
+		"enemy simulation completion signal did not fire after the tick"
+	)
+
+	# Populate the snapshot twice and verify the enemy slot object is reused.
+	var snapshot := PresentationSnapshot.new()
+	director.write_snapshot(snapshot)
+	_expect(snapshot.enemy_count > 0, "snapshot did not receive enemy states")
+	var first_state: EnemyViewState = snapshot.enemies[0]
+	var first_id := first_state.visual_id
+	snapshot.begin_frame()
+	director.write_snapshot(snapshot)
+	_expect(
+		snapshot.enemies[0] == first_state,
+		"snapshot allocated a new slot instead of reusing the pooled one"
+	)
+	_expect(
+		snapshot.enemies[0].visual_id == first_id,
+		"snapshot lost the stable visual id after reuse"
+	)
+	var first_car: CarViewState = snapshot.acquire_car_state()
+	first_car.populate(rs.cars[0])
+	snapshot.begin_frame()
+	var second_car: CarViewState = snapshot.acquire_car_state()
+	second_car.populate(rs.cars[0])
+	_expect(
+		second_car == first_car,
+		"snapshot allocated a new car record instead of reusing the pool"
+	)
+
+	# Every view exposes the M2 interface.
+	var enemy_view := EnemyViewPool.new()
+	var longshadow_view := LongshadowView.new()
+	var train_view := TrainSpriteView.new()
+	var world_view := WorldSpriteView.new()
+	var vfx_view := VfxPool.new()
+	var placeholder_features := {"baked_art": false}
+	snapshot.enemy_elapsed = 3.75
+	enemy_view.update_snapshot(snapshot)
+	_expect(
+		is_equal_approx(float(enemy_view.get("_elapsed")), 3.75),
+		"enemy view animation clock did not follow simulation time"
+	)
+	for view_variant in [
+		enemy_view,
+		longshadow_view,
+		train_view,
+		world_view,
+		vfx_view
+	]:
+		var view: Node2D = view_variant
+		_expect(
+			view.has_method("update_snapshot")
+			and view.has_method("attach_assets")
+			and view.has_method("detach_assets")
+			and view.has_method("apply_profile")
+			and view.has_method("set_baked_enabled"),
+			"a view is missing the M2 boundary interface"
+		)
+		view.apply_profile(PresentationProfile.HIGH, placeholder_features)
+		view.attach_assets(placeholder_features)
+		_expect(
+			view.call("has_assets"),
+			"attach_assets did not mark the view as ready"
+		)
+		view.detach_assets()
+		_expect(
+			not view.call("has_assets"),
+			"detach_assets did not clear the view state"
+		)
+		view.set_baked_enabled(false)
+		view.queue_free()
+	director.free()
+
+
+func _test_m2_presentation_router_categories() -> void:
+	var vector_router := PresentationRouter.new(
+		PresentationProfile.VECTOR_FALLBACK,
+		PresentationProfile.features(PresentationProfile.VECTOR_FALLBACK)
+	)
+	for category in PresentationRouter.ALL_CATEGORIES:
+		vector_router.set_category_enabled(category, true)
+	_expect(
+		not vector_router.is_category_baked(PresentationRouter.CATEGORY_TRAIN),
+		"vector fallback allowed the train category to remain baked"
+	)
+	_expect(
+		vector_router.is_vector_fallback(),
+		"vector fallback profile did not report itself"
+	)
+
+	var high_router := PresentationRouter.new(
+		PresentationProfile.HIGH,
+		PresentationProfile.features(PresentationProfile.HIGH)
+	)
+	for category in PresentationRouter.ALL_CATEGORIES:
+		_expect(
+			not high_router.is_category_baked(category),
+			"category %s defaulted to baked" % String(category)
+		)
+	# Categories can be toggled independently.
+	high_router.set_category_enabled(PresentationRouter.CATEGORY_ENEMIES, true)
+	_expect(
+		high_router.is_category_baked(PresentationRouter.CATEGORY_ENEMIES),
+		"toggling ENEMIES did not switch its route"
+	)
+	_expect(
+		not high_router.is_category_baked(PresentationRouter.CATEGORY_TRAIN),
+		"toggling ENEMIES leaked into TRAIN"
+	)
+	high_router.set_category_enabled(PresentationRouter.CATEGORY_TRAIN, true)
+	_expect(
+		high_router.is_category_baked(PresentationRouter.CATEGORY_TRAIN)
+		and high_router.is_category_baked(PresentationRouter.CATEGORY_ENEMIES),
+		"category toggles did not remain independent"
+	)
+	# Switching to vector fallback resets all categories to off.
+	high_router.apply_profile(
+		PresentationProfile.VECTOR_FALLBACK,
+		PresentationProfile.features(PresentationProfile.VECTOR_FALLBACK)
+	)
+	for category in PresentationRouter.ALL_CATEGORIES:
+		_expect(
+			not high_router.is_category_baked(category),
+			"vector fallback did not force %s off" % String(category)
+		)
+
+
+func _test_m2_reference_scenarios_registry() -> void:
+	var expected: Array[String] = [
+		"headlight_reveal",
+		"standard_defense",
+		"heavy_cannon",
+		"flak",
+		"focus",
+		"ward_shatter",
+		"repair",
+		"detachment",
+		"longshadow_veil",
+		"longshadow_tether",
+		"longshadow_charge",
+		"dawn"
+	]
+	_expect(
+		ReferenceScenarios.ORDERED_IDS.size() == expected.size(),
+		"reference scenario count is not exactly twelve"
+	)
+	for index in range(expected.size()):
+		_expect(
+			ReferenceScenarios.ORDERED_IDS[index] == expected[index],
+			"reference scenario id %s at position %d changed" % [
+				expected[index], index
+			]
+		)
+		_expect(
+			ReferenceScenarios.is_valid(expected[index]),
+			"reference scenario %s was not registered" % expected[index]
+		)
+		var points: Array[Dictionary] = ReferenceScenarios.capture_points(
+			expected[index]
+		)
+		_expect(
+			points.size() == 4,
+			"reference scenario %s does not have four exact capture points"
+			% expected[index]
+		)
+		var prior_time: float = -1.0
+		for point in points:
+			var point_time: float = float(point.get("time", -1.0))
+			_expect(
+				point_time >= prior_time,
+				"reference scenario %s capture points are out of order"
+				% expected[index]
+			)
+			_expect(
+				not String(point.get("label", "")).is_empty(),
+				"reference scenario %s has an unnamed capture point"
+				% expected[index]
+			)
+			prior_time = point_time
+		var cat := ReferenceScenarios.category(expected[index])
+		_expect(
+			cat in ["train", "enemies", "world", "longshadow", "effects"],
+			"reference scenario %s got an unknown category" % expected[index]
+		)
+
+
+func _test_m2_headless_no_render_assets() -> void:
+	# Headless tests must not depend on any production render asset.
+	var rs := RunState.new()
+	rs.setup(4242, _mk_configs())
+	var director := EnemyDirector.new()
+	director.setup(rs, Vector2(1280.0, 720.0))
+	director.spawn_threat_waves(3)
+	_expect(
+		director.active_count() > 0,
+		"deterministic enemy spawn requires render assets"
+	)
+	var encounter := LongshadowEncounter.new()
+	encounter.setup(rs, Vector2(1280.0, 720.0), Vector2(360.0, 500.0))
+	encounter.start()
+	var snapshot := PresentationSnapshot.new()
+	encounter.write_snapshot(snapshot)
+	_expect(
+		snapshot.longshadow_active,
+		"longshadow snapshot did not mark itself active"
+	)
+	# Views can be instantiated without any resource on disk.
+	var view_pool := EnemyViewPool.new()
+	view_pool.update_snapshot(snapshot)
+	var longshadow_view := LongshadowView.new()
+	longshadow_view.update_snapshot(snapshot)
+	var train_view := TrainSpriteView.new()
+	train_view.update_snapshot(snapshot)
+	var world_view := WorldSpriteView.new()
+	world_view.update_snapshot(snapshot)
+	var vfx_view := VfxPool.new()
+	vfx_view.update_snapshot(snapshot)
+	view_pool.queue_free()
+	longshadow_view.queue_free()
+	train_view.queue_free()
+	world_view.queue_free()
+	vfx_view.queue_free()
+	director.free()
+	encounter.free()
+
+
+func _test_m2_profile_simulation_invariance() -> void:
+	var configs: Dictionary = _mk_configs()
+	var baseline: Array = _simulate_deterministic_run(configs)
+	for profile in [
+		PresentationProfile.HIGH,
+		PresentationProfile.MEDIUM,
+		PresentationProfile.LOW,
+		PresentationProfile.VECTOR_FALLBACK
+	]:
+		var saved: String = String(
+			GameManager.get_setting("presentation_profile", "auto")
+		)
+		GameManager.settings["presentation_profile"] = profile
+		var result: Array = _simulate_deterministic_run(configs)
+		GameManager.settings["presentation_profile"] = saved
+		_expect(
+			result.size() == baseline.size(),
+			"profile %s changed deterministic run length" % profile
+		)
+		for index in range(mini(result.size(), baseline.size())):
+			var lhs: float = float(baseline[index])
+			var rhs: float = float(result[index])
+			_expect(
+				is_equal_approx(lhs, rhs),
+				"profile %s changed deterministic tick %d (%s vs %s)" % [
+					profile, index, lhs, rhs
+				]
+			)
+	# Category toggles must not affect simulation.
+	var category_baseline: Array = _simulate_deterministic_run(configs)
+	var router := PresentationRouter.new(
+		PresentationProfile.HIGH,
+		PresentationProfile.features(PresentationProfile.HIGH)
+	)
+	for category in PresentationRouter.ALL_CATEGORIES:
+		router.set_category_enabled(category, true)
+		var toggled: Array = _simulate_deterministic_run(configs)
+		_expect(
+			category_baseline.size() == toggled.size(),
+			"category %s toggle changed deterministic run length" % String(category)
+		)
+		for index in range(mini(toggled.size(), category_baseline.size())):
+			_expect(
+				is_equal_approx(
+					float(category_baseline[index]),
+					float(toggled[index])
+				),
+				"category %s toggle changed deterministic tick %d" % [
+					String(category), index
+				]
+			)
+		router.set_category_enabled(category, false)
+
+
+func _simulate_deterministic_run(configs: Dictionary) -> Array:
+	var rs := RunState.new()
+	rs.setup(8080, configs)
+	var director := EnemyDirector.new()
+	director.setup(rs, Vector2(1280.0, 720.0))
+	director.spawn_threat_waves(3)
+	var samples: Array = []
+	for step in range(30):
+		director._process(0.1)
+		samples.append(rs.distance)
+		samples.append(float(director.active_count()))
+		samples.append(rs.lumen)
+		samples.append(rs.locomotive_hp)
+	director.free()
+	return samples
+
+
+func _test_m2_save_visual_id_persistence() -> void:
+	var configs: Dictionary = _mk_configs()
+	var rs := RunState.new()
+	rs.setup(707, configs)
+	var director := EnemyDirector.new()
+	director.setup(rs, Vector2(1280.0, 720.0))
+	director._spawn_wave()
+	var state := director.checkpoint_state()
+	_expect(
+		int(state.get("visual_id_counter", 0)) > 0,
+		"checkpoint state did not persist the enemy visual id counter"
+	)
+	# Restore into a new director. The counter must advance monotonically so
+	# new enemies after resume never reuse ids assigned before the save.
+	var director_after := EnemyDirector.new()
+	director_after.setup(rs, Vector2(1280.0, 720.0))
+	director_after.apply_checkpoint_state(state)
+	director_after._spawn_wave()
+	var seen_ids: Dictionary = {}
+	for enemy_variant in director.active_enemies():
+		seen_ids[(enemy_variant as Enemy).visual_id] = true
+	for enemy_variant in director_after.active_enemies():
+		var restored_id: int = (enemy_variant as Enemy).visual_id
+		_expect(
+			not seen_ids.has(restored_id),
+			"enemy visual id %d was reissued after save/resume" % restored_id
+		)
+	director.free()
+	director_after.free()

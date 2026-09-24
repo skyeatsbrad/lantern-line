@@ -1,0 +1,3800 @@
+{
+  "capture_root": "external",
+  "generated_at_utc": "2026-09-24T14:03:19.886370+00:00",
+  "git_head": "499b0e8b7c967ed29a21ba2584260664f7606fe7",
+  "passed": true,
+  "records": [
+    {
+      "capture": {
+        "ab_variant": "vector",
+        "capture_points": [
+          {
+            "label": "dark",
+            "time": 0.0
+          },
+          {
+            "label": "cone_contact",
+            "time": 0.35
+          },
+          {
+            "label": "full_reveal",
+            "time": 0.7
+          },
+          {
+            "label": "hold",
+            "time": 1.0
+          }
+        ],
+        "final_receipt": {
+          "ab_variant": "vector",
+          "capture_points": [
+            {
+              "label": "dark",
+              "time": 0.0
+            },
+            {
+              "label": "cone_contact",
+              "time": 0.35
+            },
+            {
+              "label": "full_reveal",
+              "time": 0.7
+            },
+            {
+              "label": "hold",
+              "time": 1.0
+            }
+          ],
+          "cars": 3,
+          "category": "world",
+          "id": "headlight_reveal",
+          "profile": "high",
+          "router": {
+            "effects": false,
+            "enemies": false,
+            "forced_off": false,
+            "longshadow": false,
+            "profile": "high",
+            "train": false,
+            "vector_fallback": false,
+            "world": false
+          },
+          "stable_ids": {
+            "cars": [
+              "car:car-001",
+              "car:car-002",
+              "car:car-003"
+            ],
+            "enemies": [
+              "enemy:010753"
+            ],
+            "longshadow_root": "longshadow:root",
+            "train": "train:locomotive",
+            "world_root": "world:root"
+          },
+          "title": "Headlight reveal of a Pursuer",
+          "train_hp_ratio": 1.0,
+          "view_routes": {
+            "effects_baked": false,
+            "effects_vector": true,
+            "enemies_baked": false,
+            "longshadow_baked": false,
+            "train_baked": false,
+            "train_vector": true,
+            "world_baked": false,
+            "world_vector": true
+          }
+        },
+        "id": "headlight_reveal",
+        "paths": [
+          "vector/headlight_reveal-trigger-00-dark.png",
+          "vector/headlight_reveal-trigger.png",
+          "vector/headlight_reveal-trigger-02-full_reveal.png",
+          "vector/headlight_reveal-trigger-03-hold.png"
+        ],
+        "pixel_hashes": [
+          "ec3520cf44a2ce93534ce42954b1d892b70ad12ec2f846ecac1631e9c0a45aca",
+          "178489f518ac684be646a93af89a90fd106459a98cefb21f6d192dce9a574018",
+          "d25ef882aefd0326a3ec3425b5459099dfc2a00bcf9b00ab6d6eb12db11f9dd4",
+          "39956c8cb8ece8288415c62eee901612bc39a91a752b7b8b3c06cfb59e43808d"
+        ],
+        "replay_verified": true
+      },
+      "receipt": {
+        "ab_variant": "vector",
+        "capture_points": [
+          {
+            "label": "dark",
+            "time": 0.0
+          },
+          {
+            "label": "cone_contact",
+            "time": 0.35
+          },
+          {
+            "label": "full_reveal",
+            "time": 0.7
+          },
+          {
+            "label": "hold",
+            "time": 1.0
+          }
+        ],
+        "cars": 3,
+        "category": "world",
+        "id": "headlight_reveal",
+        "profile": "high",
+        "router": {
+          "effects": false,
+          "enemies": false,
+          "forced_off": false,
+          "longshadow": false,
+          "profile": "high",
+          "train": false,
+          "vector_fallback": false,
+          "world": false
+        },
+        "stable_ids": {
+          "cars": [
+            "car:car-001",
+            "car:car-002",
+            "car:car-003"
+          ],
+          "enemies": [
+            "enemy:010753"
+          ],
+          "longshadow_root": "longshadow:root",
+          "train": "train:locomotive",
+          "world_root": "world:root"
+        },
+        "title": "Headlight reveal of a Pursuer",
+        "train_hp_ratio": 1.0,
+        "view_routes": {
+          "effects_baked": false,
+          "effects_vector": true,
+          "enemies_baked": false,
+          "longshadow_baked": false,
+          "train_baked": false,
+          "train_vector": true,
+          "world_baked": false,
+          "world_vector": true
+        }
+      },
+      "scenario": "headlight_reveal",
+      "variant": "vector"
+    },
+    {
+      "capture": {
+        "ab_variant": "baked",
+        "capture_points": [
+          {
+            "label": "dark",
+            "time": 0.0
+          },
+          {
+            "label": "cone_contact",
+            "time": 0.35
+          },
+          {
+            "label": "full_reveal",
+            "time": 0.7
+          },
+          {
+            "label": "hold",
+            "time": 1.0
+          }
+        ],
+        "final_receipt": {
+          "ab_variant": "baked",
+          "capture_points": [
+            {
+              "label": "dark",
+              "time": 0.0
+            },
+            {
+              "label": "cone_contact",
+              "time": 0.35
+            },
+            {
+              "label": "full_reveal",
+              "time": 0.7
+            },
+            {
+              "label": "hold",
+              "time": 1.0
+            }
+          ],
+          "cars": 3,
+          "category": "world",
+          "id": "headlight_reveal",
+          "profile": "high",
+          "router": {
+            "effects": true,
+            "enemies": true,
+            "forced_off": false,
+            "longshadow": true,
+            "profile": "high",
+            "train": true,
+            "vector_fallback": false,
+            "world": true
+          },
+          "stable_ids": {
+            "cars": [
+              "car:car-001",
+              "car:car-002",
+              "car:car-003"
+            ],
+            "enemies": [
+              "enemy:010753"
+            ],
+            "longshadow_root": "longshadow:root",
+            "train": "train:locomotive",
+            "world_root": "world:root"
+          },
+          "title": "Headlight reveal of a Pursuer",
+          "train_hp_ratio": 1.0,
+          "view_routes": {
+            "effects_baked": true,
+            "effects_vector": false,
+            "enemies_baked": true,
+            "longshadow_baked": true,
+            "train_baked": true,
+            "train_vector": false,
+            "world_baked": true,
+            "world_vector": false
+          }
+        },
+        "id": "headlight_reveal",
+        "paths": [
+          "baked/headlight_reveal-trigger-00-dark.png",
+          "baked/headlight_reveal-trigger.png",
+          "baked/headlight_reveal-trigger-02-full_reveal.png",
+          "baked/headlight_reveal-trigger-03-hold.png"
+        ],
+        "pixel_hashes": [
+          "fcdf0dafc4099f7b97710ac2af8b1813a0dcd8344e60c95d751ad90583be036b",
+          "379be828e8b74cc6810cf7d2b36d805c8229378d3e3e9c0b15f816a77a3a1a45",
+          "5bbaaa26406e7cbc810a8c7ffa0e858f4c22894cc010b2fb5ee7bc1414402841",
+          "7ce09ebb26d77948693dc40c8a9fd52c2ca801db85e0f7a39b01cca4d289e28c"
+        ],
+        "replay_verified": true
+      },
+      "receipt": {
+        "ab_variant": "baked",
+        "capture_points": [
+          {
+            "label": "dark",
+            "time": 0.0
+          },
+          {
+            "label": "cone_contact",
+            "time": 0.35
+          },
+          {
+            "label": "full_reveal",
+            "time": 0.7
+          },
+          {
+            "label": "hold",
+            "time": 1.0
+          }
+        ],
+        "cars": 3,
+        "category": "world",
+        "id": "headlight_reveal",
+        "profile": "high",
+        "router": {
+          "effects": true,
+          "enemies": true,
+          "forced_off": false,
+          "longshadow": true,
+          "profile": "high",
+          "train": true,
+          "vector_fallback": false,
+          "world": true
+        },
+        "stable_ids": {
+          "cars": [
+            "car:car-001",
+            "car:car-002",
+            "car:car-003"
+          ],
+          "enemies": [
+            "enemy:010753"
+          ],
+          "longshadow_root": "longshadow:root",
+          "train": "train:locomotive",
+          "world_root": "world:root"
+        },
+        "title": "Headlight reveal of a Pursuer",
+        "train_hp_ratio": 1.0,
+        "view_routes": {
+          "effects_baked": true,
+          "effects_vector": false,
+          "enemies_baked": true,
+          "longshadow_baked": true,
+          "train_baked": true,
+          "train_vector": false,
+          "world_baked": true,
+          "world_vector": false
+        }
+      },
+      "scenario": "headlight_reveal",
+      "variant": "baked"
+    },
+    {
+      "capture": {
+        "ab_variant": "vector",
+        "capture_points": [
+          {
+            "label": "anticipation",
+            "time": 0.0
+          },
+          {
+            "label": "fire",
+            "time": 0.16
+          },
+          {
+            "label": "contact",
+            "time": 0.3
+          },
+          {
+            "label": "recovery",
+            "time": 0.58
+          }
+        ],
+        "final_receipt": {
+          "ab_variant": "vector",
+          "capture_points": [
+            {
+              "label": "anticipation",
+              "time": 0.0
+            },
+            {
+              "label": "fire",
+              "time": 0.16
+            },
+            {
+              "label": "contact",
+              "time": 0.3
+            },
+            {
+              "label": "recovery",
+              "time": 0.58
+            }
+          ],
+          "cars": 4,
+          "category": "enemies",
+          "id": "standard_defense",
+          "profile": "high",
+          "router": {
+            "effects": false,
+            "enemies": false,
+            "forced_off": false,
+            "longshadow": false,
+            "profile": "high",
+            "train": false,
+            "vector_fallback": false,
+            "world": false
+          },
+          "stable_ids": {
+            "cars": [
+              "car:car-001",
+              "car:car-002",
+              "car:car-003",
+              "car:car-004"
+            ],
+            "enemies": [
+              "enemy:010753"
+            ],
+            "longshadow_root": "longshadow:root",
+            "train": "train:locomotive",
+            "world_root": "world:root"
+          },
+          "title": "Standard Defense Platform firing",
+          "train_hp_ratio": 1.0,
+          "view_routes": {
+            "effects_baked": false,
+            "effects_vector": true,
+            "enemies_baked": false,
+            "longshadow_baked": false,
+            "train_baked": false,
+            "train_vector": true,
+            "world_baked": false,
+            "world_vector": true
+          }
+        },
+        "id": "standard_defense",
+        "paths": [
+          "vector/standard_defense-trigger-00-anticipation.png",
+          "vector/standard_defense-trigger.png",
+          "vector/standard_defense-trigger-02-contact.png",
+          "vector/standard_defense-trigger-03-recovery.png"
+        ],
+        "pixel_hashes": [
+          "be6f1b328620a7f83d7e8fe8480afdfbff34a1a3c102b257af41c873c19c65ff",
+          "ac502af8f966ff26bf3702b46c4892b776c7d6ad3cb19ef4de079158620d5201",
+          "19f89e9eaa90c9e4df844e587865578f889af7f840881201bd603cd7dbb0577b",
+          "2bac9106f23dd6776024c16598ab004ee53f980cd1f4a92049b81e82633bd8ba"
+        ],
+        "replay_verified": true
+      },
+      "receipt": {
+        "ab_variant": "vector",
+        "capture_points": [
+          {
+            "label": "anticipation",
+            "time": 0.0
+          },
+          {
+            "label": "fire",
+            "time": 0.16
+          },
+          {
+            "label": "contact",
+            "time": 0.3
+          },
+          {
+            "label": "recovery",
+            "time": 0.58
+          }
+        ],
+        "cars": 4,
+        "category": "enemies",
+        "id": "standard_defense",
+        "profile": "high",
+        "router": {
+          "effects": false,
+          "enemies": false,
+          "forced_off": false,
+          "longshadow": false,
+          "profile": "high",
+          "train": false,
+          "vector_fallback": false,
+          "world": false
+        },
+        "stable_ids": {
+          "cars": [
+            "car:car-001",
+            "car:car-002",
+            "car:car-003",
+            "car:car-004"
+          ],
+          "enemies": [
+            "enemy:010753"
+          ],
+          "longshadow_root": "longshadow:root",
+          "train": "train:locomotive",
+          "world_root": "world:root"
+        },
+        "title": "Standard Defense Platform firing",
+        "train_hp_ratio": 1.0,
+        "view_routes": {
+          "effects_baked": false,
+          "effects_vector": true,
+          "enemies_baked": false,
+          "longshadow_baked": false,
+          "train_baked": false,
+          "train_vector": true,
+          "world_baked": false,
+          "world_vector": true
+        }
+      },
+      "scenario": "standard_defense",
+      "variant": "vector"
+    },
+    {
+      "capture": {
+        "ab_variant": "baked",
+        "capture_points": [
+          {
+            "label": "anticipation",
+            "time": 0.0
+          },
+          {
+            "label": "fire",
+            "time": 0.16
+          },
+          {
+            "label": "contact",
+            "time": 0.3
+          },
+          {
+            "label": "recovery",
+            "time": 0.58
+          }
+        ],
+        "final_receipt": {
+          "ab_variant": "baked",
+          "capture_points": [
+            {
+              "label": "anticipation",
+              "time": 0.0
+            },
+            {
+              "label": "fire",
+              "time": 0.16
+            },
+            {
+              "label": "contact",
+              "time": 0.3
+            },
+            {
+              "label": "recovery",
+              "time": 0.58
+            }
+          ],
+          "cars": 4,
+          "category": "enemies",
+          "id": "standard_defense",
+          "profile": "high",
+          "router": {
+            "effects": true,
+            "enemies": true,
+            "forced_off": false,
+            "longshadow": true,
+            "profile": "high",
+            "train": true,
+            "vector_fallback": false,
+            "world": true
+          },
+          "stable_ids": {
+            "cars": [
+              "car:car-001",
+              "car:car-002",
+              "car:car-003",
+              "car:car-004"
+            ],
+            "enemies": [
+              "enemy:010753"
+            ],
+            "longshadow_root": "longshadow:root",
+            "train": "train:locomotive",
+            "world_root": "world:root"
+          },
+          "title": "Standard Defense Platform firing",
+          "train_hp_ratio": 1.0,
+          "view_routes": {
+            "effects_baked": true,
+            "effects_vector": false,
+            "enemies_baked": true,
+            "longshadow_baked": true,
+            "train_baked": true,
+            "train_vector": false,
+            "world_baked": true,
+            "world_vector": false
+          }
+        },
+        "id": "standard_defense",
+        "paths": [
+          "baked/standard_defense-trigger-00-anticipation.png",
+          "baked/standard_defense-trigger.png",
+          "baked/standard_defense-trigger-02-contact.png",
+          "baked/standard_defense-trigger-03-recovery.png"
+        ],
+        "pixel_hashes": [
+          "fe159c60d596fbabc3739f5d7289b471d020134a43f0d64e963be2dbdbc38836",
+          "16e73297698eeeb2884391345ffddba010f9d0f27d8f9d9aebe5becd57c58d4f",
+          "6be34041c33ea63fbd83e2176a0b91d4c65a61693829f90e0ec495e0e23f7d95",
+          "7010bdf53749cb6ea835afa1c3bb4a0e9c60063b7027536f28d42df6949f1e0d"
+        ],
+        "replay_verified": true
+      },
+      "receipt": {
+        "ab_variant": "baked",
+        "capture_points": [
+          {
+            "label": "anticipation",
+            "time": 0.0
+          },
+          {
+            "label": "fire",
+            "time": 0.16
+          },
+          {
+            "label": "contact",
+            "time": 0.3
+          },
+          {
+            "label": "recovery",
+            "time": 0.58
+          }
+        ],
+        "cars": 4,
+        "category": "enemies",
+        "id": "standard_defense",
+        "profile": "high",
+        "router": {
+          "effects": true,
+          "enemies": true,
+          "forced_off": false,
+          "longshadow": true,
+          "profile": "high",
+          "train": true,
+          "vector_fallback": false,
+          "world": true
+        },
+        "stable_ids": {
+          "cars": [
+            "car:car-001",
+            "car:car-002",
+            "car:car-003",
+            "car:car-004"
+          ],
+          "enemies": [
+            "enemy:010753"
+          ],
+          "longshadow_root": "longshadow:root",
+          "train": "train:locomotive",
+          "world_root": "world:root"
+        },
+        "title": "Standard Defense Platform firing",
+        "train_hp_ratio": 1.0,
+        "view_routes": {
+          "effects_baked": true,
+          "effects_vector": false,
+          "enemies_baked": true,
+          "longshadow_baked": true,
+          "train_baked": true,
+          "train_vector": false,
+          "world_baked": true,
+          "world_vector": false
+        }
+      },
+      "scenario": "standard_defense",
+      "variant": "baked"
+    },
+    {
+      "capture": {
+        "ab_variant": "vector",
+        "capture_points": [
+          {
+            "label": "anticipation",
+            "time": 0.0
+          },
+          {
+            "label": "muzzle",
+            "time": 0.22
+          },
+          {
+            "label": "impact",
+            "time": 0.42
+          },
+          {
+            "label": "recoil_recovery",
+            "time": 0.82
+          }
+        ],
+        "final_receipt": {
+          "ab_variant": "vector",
+          "capture_points": [
+            {
+              "label": "anticipation",
+              "time": 0.0
+            },
+            {
+              "label": "muzzle",
+              "time": 0.22
+            },
+            {
+              "label": "impact",
+              "time": 0.42
+            },
+            {
+              "label": "recoil_recovery",
+              "time": 0.82
+            }
+          ],
+          "cars": 4,
+          "category": "enemies",
+          "id": "heavy_cannon",
+          "profile": "high",
+          "router": {
+            "effects": false,
+            "enemies": false,
+            "forced_off": false,
+            "longshadow": false,
+            "profile": "high",
+            "train": false,
+            "vector_fallback": false,
+            "world": false
+          },
+          "stable_ids": {
+            "cars": [
+              "car:car-001",
+              "car:car-002",
+              "car:car-003",
+              "car:car-004"
+            ],
+            "enemies": [
+              "enemy:010753"
+            ],
+            "longshadow_root": "longshadow:root",
+            "train": "train:locomotive",
+            "world_root": "world:root"
+          },
+          "title": "Heavy Cannon recoil and impact",
+          "train_hp_ratio": 1.0,
+          "view_routes": {
+            "effects_baked": false,
+            "effects_vector": true,
+            "enemies_baked": false,
+            "longshadow_baked": false,
+            "train_baked": false,
+            "train_vector": true,
+            "world_baked": false,
+            "world_vector": true
+          }
+        },
+        "id": "heavy_cannon",
+        "paths": [
+          "vector/heavy_cannon-trigger-00-anticipation.png",
+          "vector/heavy_cannon-trigger.png",
+          "vector/heavy_cannon-trigger-02-impact.png",
+          "vector/heavy_cannon-trigger-03-recoil_recovery.png"
+        ],
+        "pixel_hashes": [
+          "c2fc26e2e538dace5534165d46c15ea46ad663c3a32c0a8a7785f416e848ef78",
+          "6584cd90ad50ae4d23fae06fe5c5d0ddd4fffdd804721bd3cf394d0afd1ae5ee",
+          "5266eb96c501de0d5c6e6ea1c36b4e7f1ddc06f0e13439c2831c178b8e263ead",
+          "874a5a491a84bad33e14630b5e5c5d37da919d4074a115b3d2589c03d493b22b"
+        ],
+        "replay_verified": true
+      },
+      "receipt": {
+        "ab_variant": "vector",
+        "capture_points": [
+          {
+            "label": "anticipation",
+            "time": 0.0
+          },
+          {
+            "label": "muzzle",
+            "time": 0.22
+          },
+          {
+            "label": "impact",
+            "time": 0.42
+          },
+          {
+            "label": "recoil_recovery",
+            "time": 0.82
+          }
+        ],
+        "cars": 4,
+        "category": "enemies",
+        "id": "heavy_cannon",
+        "profile": "high",
+        "router": {
+          "effects": false,
+          "enemies": false,
+          "forced_off": false,
+          "longshadow": false,
+          "profile": "high",
+          "train": false,
+          "vector_fallback": false,
+          "world": false
+        },
+        "stable_ids": {
+          "cars": [
+            "car:car-001",
+            "car:car-002",
+            "car:car-003",
+            "car:car-004"
+          ],
+          "enemies": [
+            "enemy:010753"
+          ],
+          "longshadow_root": "longshadow:root",
+          "train": "train:locomotive",
+          "world_root": "world:root"
+        },
+        "title": "Heavy Cannon recoil and impact",
+        "train_hp_ratio": 1.0,
+        "view_routes": {
+          "effects_baked": false,
+          "effects_vector": true,
+          "enemies_baked": false,
+          "longshadow_baked": false,
+          "train_baked": false,
+          "train_vector": true,
+          "world_baked": false,
+          "world_vector": true
+        }
+      },
+      "scenario": "heavy_cannon",
+      "variant": "vector"
+    },
+    {
+      "capture": {
+        "ab_variant": "baked",
+        "capture_points": [
+          {
+            "label": "anticipation",
+            "time": 0.0
+          },
+          {
+            "label": "muzzle",
+            "time": 0.22
+          },
+          {
+            "label": "impact",
+            "time": 0.42
+          },
+          {
+            "label": "recoil_recovery",
+            "time": 0.82
+          }
+        ],
+        "final_receipt": {
+          "ab_variant": "baked",
+          "capture_points": [
+            {
+              "label": "anticipation",
+              "time": 0.0
+            },
+            {
+              "label": "muzzle",
+              "time": 0.22
+            },
+            {
+              "label": "impact",
+              "time": 0.42
+            },
+            {
+              "label": "recoil_recovery",
+              "time": 0.82
+            }
+          ],
+          "cars": 4,
+          "category": "enemies",
+          "id": "heavy_cannon",
+          "profile": "high",
+          "router": {
+            "effects": true,
+            "enemies": true,
+            "forced_off": false,
+            "longshadow": true,
+            "profile": "high",
+            "train": true,
+            "vector_fallback": false,
+            "world": true
+          },
+          "stable_ids": {
+            "cars": [
+              "car:car-001",
+              "car:car-002",
+              "car:car-003",
+              "car:car-004"
+            ],
+            "enemies": [
+              "enemy:010753"
+            ],
+            "longshadow_root": "longshadow:root",
+            "train": "train:locomotive",
+            "world_root": "world:root"
+          },
+          "title": "Heavy Cannon recoil and impact",
+          "train_hp_ratio": 1.0,
+          "view_routes": {
+            "effects_baked": true,
+            "effects_vector": false,
+            "enemies_baked": true,
+            "longshadow_baked": true,
+            "train_baked": true,
+            "train_vector": false,
+            "world_baked": true,
+            "world_vector": false
+          }
+        },
+        "id": "heavy_cannon",
+        "paths": [
+          "baked/heavy_cannon-trigger-00-anticipation.png",
+          "baked/heavy_cannon-trigger.png",
+          "baked/heavy_cannon-trigger-02-impact.png",
+          "baked/heavy_cannon-trigger-03-recoil_recovery.png"
+        ],
+        "pixel_hashes": [
+          "635181e1c21829e84114a554cfeee3a1ee62e741f477af2ed5f2a07982430ae1",
+          "590e125b58c130d08462960ac74bb29bc61036981d102dd658a323608f29b82d",
+          "5f8ace499bd258d7db90b5292716e8b8ec6e73a7bf0ffdbf9380c79d05cb50ed",
+          "59b9eceb5e5b294bd78091e6eb90109e00bcb28cd95f762977385b98aba791c1"
+        ],
+        "replay_verified": true
+      },
+      "receipt": {
+        "ab_variant": "baked",
+        "capture_points": [
+          {
+            "label": "anticipation",
+            "time": 0.0
+          },
+          {
+            "label": "muzzle",
+            "time": 0.22
+          },
+          {
+            "label": "impact",
+            "time": 0.42
+          },
+          {
+            "label": "recoil_recovery",
+            "time": 0.82
+          }
+        ],
+        "cars": 4,
+        "category": "enemies",
+        "id": "heavy_cannon",
+        "profile": "high",
+        "router": {
+          "effects": true,
+          "enemies": true,
+          "forced_off": false,
+          "longshadow": true,
+          "profile": "high",
+          "train": true,
+          "vector_fallback": false,
+          "world": true
+        },
+        "stable_ids": {
+          "cars": [
+            "car:car-001",
+            "car:car-002",
+            "car:car-003",
+            "car:car-004"
+          ],
+          "enemies": [
+            "enemy:010753"
+          ],
+          "longshadow_root": "longshadow:root",
+          "train": "train:locomotive",
+          "world_root": "world:root"
+        },
+        "title": "Heavy Cannon recoil and impact",
+        "train_hp_ratio": 1.0,
+        "view_routes": {
+          "effects_baked": true,
+          "effects_vector": false,
+          "enemies_baked": true,
+          "longshadow_baked": true,
+          "train_baked": true,
+          "train_vector": false,
+          "world_baked": true,
+          "world_vector": false
+        }
+      },
+      "scenario": "heavy_cannon",
+      "variant": "baked"
+    },
+    {
+      "capture": {
+        "ab_variant": "vector",
+        "capture_points": [
+          {
+            "label": "tracking",
+            "time": 0.0
+          },
+          {
+            "label": "burst",
+            "time": 0.22
+          },
+          {
+            "label": "contact",
+            "time": 0.44
+          },
+          {
+            "label": "settle",
+            "time": 0.72
+          }
+        ],
+        "final_receipt": {
+          "ab_variant": "vector",
+          "capture_points": [
+            {
+              "label": "tracking",
+              "time": 0.0
+            },
+            {
+              "label": "burst",
+              "time": 0.22
+            },
+            {
+              "label": "contact",
+              "time": 0.44
+            },
+            {
+              "label": "settle",
+              "time": 0.72
+            }
+          ],
+          "cars": 4,
+          "category": "enemies",
+          "id": "flak",
+          "profile": "high",
+          "router": {
+            "effects": false,
+            "enemies": false,
+            "forced_off": false,
+            "longshadow": false,
+            "profile": "high",
+            "train": false,
+            "vector_fallback": false,
+            "world": false
+          },
+          "stable_ids": {
+            "cars": [
+              "car:car-001",
+              "car:car-002",
+              "car:car-003",
+              "car:car-004"
+            ],
+            "enemies": [
+              "enemy:010753"
+            ],
+            "longshadow_root": "longshadow:root",
+            "train": "train:locomotive",
+            "world_root": "world:root"
+          },
+          "title": "Flak tracking and aerial burst",
+          "train_hp_ratio": 1.0,
+          "view_routes": {
+            "effects_baked": false,
+            "effects_vector": true,
+            "enemies_baked": false,
+            "longshadow_baked": false,
+            "train_baked": false,
+            "train_vector": true,
+            "world_baked": false,
+            "world_vector": true
+          }
+        },
+        "id": "flak",
+        "paths": [
+          "vector/flak-trigger-00-tracking.png",
+          "vector/flak-trigger.png",
+          "vector/flak-trigger-02-contact.png",
+          "vector/flak-trigger-03-settle.png"
+        ],
+        "pixel_hashes": [
+          "2d36d21d6d6b02821aebc32a2088b5b109bab4494b60c65656401c4538e9a294",
+          "a3949337397c6a3d4b9a3ea44c2a5ef5e9b2cd32acac927f78e84bd47e171d84",
+          "367ff83aaf054a13f579874a6d0c737e62b9fde546ed3d765c65eaf29879403b",
+          "04f569d933f92be26adcf4f7e7a23aee26c2bc342ab9e5233424df40a31f1bb5"
+        ],
+        "replay_verified": true
+      },
+      "receipt": {
+        "ab_variant": "vector",
+        "capture_points": [
+          {
+            "label": "tracking",
+            "time": 0.0
+          },
+          {
+            "label": "burst",
+            "time": 0.22
+          },
+          {
+            "label": "contact",
+            "time": 0.44
+          },
+          {
+            "label": "settle",
+            "time": 0.72
+          }
+        ],
+        "cars": 4,
+        "category": "enemies",
+        "id": "flak",
+        "profile": "high",
+        "router": {
+          "effects": false,
+          "enemies": false,
+          "forced_off": false,
+          "longshadow": false,
+          "profile": "high",
+          "train": false,
+          "vector_fallback": false,
+          "world": false
+        },
+        "stable_ids": {
+          "cars": [
+            "car:car-001",
+            "car:car-002",
+            "car:car-003",
+            "car:car-004"
+          ],
+          "enemies": [
+            "enemy:010753"
+          ],
+          "longshadow_root": "longshadow:root",
+          "train": "train:locomotive",
+          "world_root": "world:root"
+        },
+        "title": "Flak tracking and aerial burst",
+        "train_hp_ratio": 1.0,
+        "view_routes": {
+          "effects_baked": false,
+          "effects_vector": true,
+          "enemies_baked": false,
+          "longshadow_baked": false,
+          "train_baked": false,
+          "train_vector": true,
+          "world_baked": false,
+          "world_vector": true
+        }
+      },
+      "scenario": "flak",
+      "variant": "vector"
+    },
+    {
+      "capture": {
+        "ab_variant": "baked",
+        "capture_points": [
+          {
+            "label": "tracking",
+            "time": 0.0
+          },
+          {
+            "label": "burst",
+            "time": 0.22
+          },
+          {
+            "label": "contact",
+            "time": 0.44
+          },
+          {
+            "label": "settle",
+            "time": 0.72
+          }
+        ],
+        "final_receipt": {
+          "ab_variant": "baked",
+          "capture_points": [
+            {
+              "label": "tracking",
+              "time": 0.0
+            },
+            {
+              "label": "burst",
+              "time": 0.22
+            },
+            {
+              "label": "contact",
+              "time": 0.44
+            },
+            {
+              "label": "settle",
+              "time": 0.72
+            }
+          ],
+          "cars": 4,
+          "category": "enemies",
+          "id": "flak",
+          "profile": "high",
+          "router": {
+            "effects": true,
+            "enemies": true,
+            "forced_off": false,
+            "longshadow": true,
+            "profile": "high",
+            "train": true,
+            "vector_fallback": false,
+            "world": true
+          },
+          "stable_ids": {
+            "cars": [
+              "car:car-001",
+              "car:car-002",
+              "car:car-003",
+              "car:car-004"
+            ],
+            "enemies": [
+              "enemy:010753"
+            ],
+            "longshadow_root": "longshadow:root",
+            "train": "train:locomotive",
+            "world_root": "world:root"
+          },
+          "title": "Flak tracking and aerial burst",
+          "train_hp_ratio": 1.0,
+          "view_routes": {
+            "effects_baked": true,
+            "effects_vector": false,
+            "enemies_baked": true,
+            "longshadow_baked": true,
+            "train_baked": true,
+            "train_vector": false,
+            "world_baked": true,
+            "world_vector": false
+          }
+        },
+        "id": "flak",
+        "paths": [
+          "baked/flak-trigger-00-tracking.png",
+          "baked/flak-trigger.png",
+          "baked/flak-trigger-02-contact.png",
+          "baked/flak-trigger-03-settle.png"
+        ],
+        "pixel_hashes": [
+          "877affc2580db4641905131a2ab893d2feb6cce403fd95516445e91fde549366",
+          "d9f7207b00547dde89ae35291a500f3fdd7a97392c263209a21a0dba3802231a",
+          "33726651e8e3fbeea80ad9faa8a70afbf009d645e21b1187b9dcf0cb6366ccb9",
+          "13dd4bdc25f017b25f922f4ae78f1c9979bbb6a112c18c4feef04c02b17da8ce"
+        ],
+        "replay_verified": true
+      },
+      "receipt": {
+        "ab_variant": "baked",
+        "capture_points": [
+          {
+            "label": "tracking",
+            "time": 0.0
+          },
+          {
+            "label": "burst",
+            "time": 0.22
+          },
+          {
+            "label": "contact",
+            "time": 0.44
+          },
+          {
+            "label": "settle",
+            "time": 0.72
+          }
+        ],
+        "cars": 4,
+        "category": "enemies",
+        "id": "flak",
+        "profile": "high",
+        "router": {
+          "effects": true,
+          "enemies": true,
+          "forced_off": false,
+          "longshadow": true,
+          "profile": "high",
+          "train": true,
+          "vector_fallback": false,
+          "world": true
+        },
+        "stable_ids": {
+          "cars": [
+            "car:car-001",
+            "car:car-002",
+            "car:car-003",
+            "car:car-004"
+          ],
+          "enemies": [
+            "enemy:010753"
+          ],
+          "longshadow_root": "longshadow:root",
+          "train": "train:locomotive",
+          "world_root": "world:root"
+        },
+        "title": "Flak tracking and aerial burst",
+        "train_hp_ratio": 1.0,
+        "view_routes": {
+          "effects_baked": true,
+          "effects_vector": false,
+          "enemies_baked": true,
+          "longshadow_baked": true,
+          "train_baked": true,
+          "train_vector": false,
+          "world_baked": true,
+          "world_vector": false
+        }
+      },
+      "scenario": "flak",
+      "variant": "baked"
+    },
+    {
+      "capture": {
+        "ab_variant": "vector",
+        "capture_points": [
+          {
+            "label": "charge",
+            "time": 0.0
+          },
+          {
+            "label": "compression",
+            "time": 0.35
+          },
+          {
+            "label": "contact",
+            "time": 0.7
+          },
+          {
+            "label": "recovery",
+            "time": 1.15
+          }
+        ],
+        "final_receipt": {
+          "ab_variant": "vector",
+          "capture_points": [
+            {
+              "label": "charge",
+              "time": 0.0
+            },
+            {
+              "label": "compression",
+              "time": 0.35
+            },
+            {
+              "label": "contact",
+              "time": 0.7
+            },
+            {
+              "label": "recovery",
+              "time": 1.15
+            }
+          ],
+          "cars": 3,
+          "category": "world",
+          "id": "focus",
+          "profile": "high",
+          "router": {
+            "effects": false,
+            "enemies": false,
+            "forced_off": false,
+            "longshadow": false,
+            "profile": "high",
+            "train": false,
+            "vector_fallback": false,
+            "world": false
+          },
+          "stable_ids": {
+            "cars": [
+              "car:car-001",
+              "car:car-002",
+              "car:car-003"
+            ],
+            "enemies": [
+              "enemy:010753"
+            ],
+            "longshadow_root": "longshadow:root",
+            "train": "train:locomotive",
+            "world_root": "world:root"
+          },
+          "title": "Focus charge, compression, contact, and recovery",
+          "train_hp_ratio": 1.0,
+          "view_routes": {
+            "effects_baked": false,
+            "effects_vector": true,
+            "enemies_baked": false,
+            "longshadow_baked": false,
+            "train_baked": false,
+            "train_vector": true,
+            "world_baked": false,
+            "world_vector": true
+          }
+        },
+        "id": "focus",
+        "paths": [
+          "vector/focus-trigger-00-charge.png",
+          "vector/focus-trigger.png",
+          "vector/focus-trigger-02-contact.png",
+          "vector/focus-trigger-03-recovery.png"
+        ],
+        "pixel_hashes": [
+          "56f1b99b41978938aa96eb6f9376da109435dccb4e5ccbf240bd53f05d59952b",
+          "39f670a8d01d2f972448b78d455a69d9797daa89fe4e4c7eba66baf4ea5d8413",
+          "af6ba0100ae8dc66ad3f745d84628e829f1481292b0dfe24287a00a3e1fdcb27",
+          "1e7a553e2b5d7cd3f2762c9c8592a61cfd8ccabc949c69b63571cdac22bee2ab"
+        ],
+        "replay_verified": true
+      },
+      "receipt": {
+        "ab_variant": "vector",
+        "capture_points": [
+          {
+            "label": "charge",
+            "time": 0.0
+          },
+          {
+            "label": "compression",
+            "time": 0.35
+          },
+          {
+            "label": "contact",
+            "time": 0.7
+          },
+          {
+            "label": "recovery",
+            "time": 1.15
+          }
+        ],
+        "cars": 3,
+        "category": "world",
+        "id": "focus",
+        "profile": "high",
+        "router": {
+          "effects": false,
+          "enemies": false,
+          "forced_off": false,
+          "longshadow": false,
+          "profile": "high",
+          "train": false,
+          "vector_fallback": false,
+          "world": false
+        },
+        "stable_ids": {
+          "cars": [
+            "car:car-001",
+            "car:car-002",
+            "car:car-003"
+          ],
+          "enemies": [
+            "enemy:010753"
+          ],
+          "longshadow_root": "longshadow:root",
+          "train": "train:locomotive",
+          "world_root": "world:root"
+        },
+        "title": "Focus charge, compression, contact, and recovery",
+        "train_hp_ratio": 1.0,
+        "view_routes": {
+          "effects_baked": false,
+          "effects_vector": true,
+          "enemies_baked": false,
+          "longshadow_baked": false,
+          "train_baked": false,
+          "train_vector": true,
+          "world_baked": false,
+          "world_vector": true
+        }
+      },
+      "scenario": "focus",
+      "variant": "vector"
+    },
+    {
+      "capture": {
+        "ab_variant": "baked",
+        "capture_points": [
+          {
+            "label": "charge",
+            "time": 0.0
+          },
+          {
+            "label": "compression",
+            "time": 0.35
+          },
+          {
+            "label": "contact",
+            "time": 0.7
+          },
+          {
+            "label": "recovery",
+            "time": 1.15
+          }
+        ],
+        "final_receipt": {
+          "ab_variant": "baked",
+          "capture_points": [
+            {
+              "label": "charge",
+              "time": 0.0
+            },
+            {
+              "label": "compression",
+              "time": 0.35
+            },
+            {
+              "label": "contact",
+              "time": 0.7
+            },
+            {
+              "label": "recovery",
+              "time": 1.15
+            }
+          ],
+          "cars": 3,
+          "category": "world",
+          "id": "focus",
+          "profile": "high",
+          "router": {
+            "effects": true,
+            "enemies": true,
+            "forced_off": false,
+            "longshadow": true,
+            "profile": "high",
+            "train": true,
+            "vector_fallback": false,
+            "world": true
+          },
+          "stable_ids": {
+            "cars": [
+              "car:car-001",
+              "car:car-002",
+              "car:car-003"
+            ],
+            "enemies": [
+              "enemy:010753"
+            ],
+            "longshadow_root": "longshadow:root",
+            "train": "train:locomotive",
+            "world_root": "world:root"
+          },
+          "title": "Focus charge, compression, contact, and recovery",
+          "train_hp_ratio": 1.0,
+          "view_routes": {
+            "effects_baked": true,
+            "effects_vector": false,
+            "enemies_baked": true,
+            "longshadow_baked": true,
+            "train_baked": true,
+            "train_vector": false,
+            "world_baked": true,
+            "world_vector": false
+          }
+        },
+        "id": "focus",
+        "paths": [
+          "baked/focus-trigger-00-charge.png",
+          "baked/focus-trigger.png",
+          "baked/focus-trigger-02-contact.png",
+          "baked/focus-trigger-03-recovery.png"
+        ],
+        "pixel_hashes": [
+          "7b74964ddd4f5dfdccd83cca742b373bdee6e3972f16f308414026f3b288839c",
+          "dabbe555e55b23790232506a8356031d8782d2e4aa8f72055c74ce54069726ac",
+          "d170a10e509355e816e59989eb76977c91ac14ea5755ef1847ebdd38ed2c55d6",
+          "b93f6ae92cf3fdec0b0160839ef6d6c1ecb506453a896db11df4bb8cc1c95b37"
+        ],
+        "replay_verified": true
+      },
+      "receipt": {
+        "ab_variant": "baked",
+        "capture_points": [
+          {
+            "label": "charge",
+            "time": 0.0
+          },
+          {
+            "label": "compression",
+            "time": 0.35
+          },
+          {
+            "label": "contact",
+            "time": 0.7
+          },
+          {
+            "label": "recovery",
+            "time": 1.15
+          }
+        ],
+        "cars": 3,
+        "category": "world",
+        "id": "focus",
+        "profile": "high",
+        "router": {
+          "effects": true,
+          "enemies": true,
+          "forced_off": false,
+          "longshadow": true,
+          "profile": "high",
+          "train": true,
+          "vector_fallback": false,
+          "world": true
+        },
+        "stable_ids": {
+          "cars": [
+            "car:car-001",
+            "car:car-002",
+            "car:car-003"
+          ],
+          "enemies": [
+            "enemy:010753"
+          ],
+          "longshadow_root": "longshadow:root",
+          "train": "train:locomotive",
+          "world_root": "world:root"
+        },
+        "title": "Focus charge, compression, contact, and recovery",
+        "train_hp_ratio": 1.0,
+        "view_routes": {
+          "effects_baked": true,
+          "effects_vector": false,
+          "enemies_baked": true,
+          "longshadow_baked": true,
+          "train_baked": true,
+          "train_vector": false,
+          "world_baked": true,
+          "world_vector": false
+        }
+      },
+      "scenario": "focus",
+      "variant": "baked"
+    },
+    {
+      "capture": {
+        "ab_variant": "vector",
+        "capture_points": [
+          {
+            "label": "intact",
+            "time": 0.0
+          },
+          {
+            "label": "crack",
+            "time": 0.16
+          },
+          {
+            "label": "shatter",
+            "time": 0.32
+          },
+          {
+            "label": "fragments",
+            "time": 0.64
+          }
+        ],
+        "final_receipt": {
+          "ab_variant": "vector",
+          "capture_points": [
+            {
+              "label": "intact",
+              "time": 0.0
+            },
+            {
+              "label": "crack",
+              "time": 0.16
+            },
+            {
+              "label": "shatter",
+              "time": 0.32
+            },
+            {
+              "label": "fragments",
+              "time": 0.64
+            }
+          ],
+          "cars": 3,
+          "category": "enemies",
+          "id": "ward_shatter",
+          "profile": "high",
+          "router": {
+            "effects": false,
+            "enemies": false,
+            "forced_off": false,
+            "longshadow": false,
+            "profile": "high",
+            "train": false,
+            "vector_fallback": false,
+            "world": false
+          },
+          "stable_ids": {
+            "cars": [
+              "car:car-001",
+              "car:car-002",
+              "car:car-003"
+            ],
+            "enemies": [
+              "enemy:010753"
+            ],
+            "longshadow_root": "longshadow:root",
+            "train": "train:locomotive",
+            "world_root": "world:root"
+          },
+          "title": "Shadow Ward fracture and shatter",
+          "train_hp_ratio": 1.0,
+          "view_routes": {
+            "effects_baked": false,
+            "effects_vector": true,
+            "enemies_baked": false,
+            "longshadow_baked": false,
+            "train_baked": false,
+            "train_vector": true,
+            "world_baked": false,
+            "world_vector": true
+          }
+        },
+        "id": "ward_shatter",
+        "paths": [
+          "vector/ward_shatter-trigger-00-intact.png",
+          "vector/ward_shatter-trigger.png",
+          "vector/ward_shatter-trigger-02-shatter.png",
+          "vector/ward_shatter-trigger-03-fragments.png"
+        ],
+        "pixel_hashes": [
+          "85596d2d09b7fd92cc7ee7c61e4890d70bf53df1ccb4c39f6b5f7110652bbd8a",
+          "bfec7ce2d21fdb30455722179504888b0c7c6b7bcbb27038d625c451d896cc43",
+          "71052e33c04be4d43df0782eae28ee44b4a2547add323904a87f6121e609bada",
+          "81afad21ddb8ddd625d22c581c7632744c467ff80e37a5a7e8723f57877210da"
+        ],
+        "replay_verified": true
+      },
+      "receipt": {
+        "ab_variant": "vector",
+        "capture_points": [
+          {
+            "label": "intact",
+            "time": 0.0
+          },
+          {
+            "label": "crack",
+            "time": 0.16
+          },
+          {
+            "label": "shatter",
+            "time": 0.32
+          },
+          {
+            "label": "fragments",
+            "time": 0.64
+          }
+        ],
+        "cars": 3,
+        "category": "enemies",
+        "id": "ward_shatter",
+        "profile": "high",
+        "router": {
+          "effects": false,
+          "enemies": false,
+          "forced_off": false,
+          "longshadow": false,
+          "profile": "high",
+          "train": false,
+          "vector_fallback": false,
+          "world": false
+        },
+        "stable_ids": {
+          "cars": [
+            "car:car-001",
+            "car:car-002",
+            "car:car-003"
+          ],
+          "enemies": [
+            "enemy:010753"
+          ],
+          "longshadow_root": "longshadow:root",
+          "train": "train:locomotive",
+          "world_root": "world:root"
+        },
+        "title": "Shadow Ward fracture and shatter",
+        "train_hp_ratio": 1.0,
+        "view_routes": {
+          "effects_baked": false,
+          "effects_vector": true,
+          "enemies_baked": false,
+          "longshadow_baked": false,
+          "train_baked": false,
+          "train_vector": true,
+          "world_baked": false,
+          "world_vector": true
+        }
+      },
+      "scenario": "ward_shatter",
+      "variant": "vector"
+    },
+    {
+      "capture": {
+        "ab_variant": "baked",
+        "capture_points": [
+          {
+            "label": "intact",
+            "time": 0.0
+          },
+          {
+            "label": "crack",
+            "time": 0.16
+          },
+          {
+            "label": "shatter",
+            "time": 0.32
+          },
+          {
+            "label": "fragments",
+            "time": 0.64
+          }
+        ],
+        "final_receipt": {
+          "ab_variant": "baked",
+          "capture_points": [
+            {
+              "label": "intact",
+              "time": 0.0
+            },
+            {
+              "label": "crack",
+              "time": 0.16
+            },
+            {
+              "label": "shatter",
+              "time": 0.32
+            },
+            {
+              "label": "fragments",
+              "time": 0.64
+            }
+          ],
+          "cars": 3,
+          "category": "enemies",
+          "id": "ward_shatter",
+          "profile": "high",
+          "router": {
+            "effects": true,
+            "enemies": true,
+            "forced_off": false,
+            "longshadow": true,
+            "profile": "high",
+            "train": true,
+            "vector_fallback": false,
+            "world": true
+          },
+          "stable_ids": {
+            "cars": [
+              "car:car-001",
+              "car:car-002",
+              "car:car-003"
+            ],
+            "enemies": [
+              "enemy:010753"
+            ],
+            "longshadow_root": "longshadow:root",
+            "train": "train:locomotive",
+            "world_root": "world:root"
+          },
+          "title": "Shadow Ward fracture and shatter",
+          "train_hp_ratio": 1.0,
+          "view_routes": {
+            "effects_baked": true,
+            "effects_vector": false,
+            "enemies_baked": true,
+            "longshadow_baked": true,
+            "train_baked": true,
+            "train_vector": false,
+            "world_baked": true,
+            "world_vector": false
+          }
+        },
+        "id": "ward_shatter",
+        "paths": [
+          "baked/ward_shatter-trigger-00-intact.png",
+          "baked/ward_shatter-trigger.png",
+          "baked/ward_shatter-trigger-02-shatter.png",
+          "baked/ward_shatter-trigger-03-fragments.png"
+        ],
+        "pixel_hashes": [
+          "e72446d21d13bf38e4bdcedc507514927d798eb9ebaac2e1ab4c1477b1b11284",
+          "e26743fdc9f66235653462f17fdd8c32114f59af9a0c0469d4833b89f31a12eb",
+          "3f5934d864863288b47aa985c1892bae7f9cd1151bb300e18ca3c2905ba5aac0",
+          "70d2fd60ce1f72d2726fdcff4cd05ee376a655199821d8d6187e6998eed40509"
+        ],
+        "replay_verified": true
+      },
+      "receipt": {
+        "ab_variant": "baked",
+        "capture_points": [
+          {
+            "label": "intact",
+            "time": 0.0
+          },
+          {
+            "label": "crack",
+            "time": 0.16
+          },
+          {
+            "label": "shatter",
+            "time": 0.32
+          },
+          {
+            "label": "fragments",
+            "time": 0.64
+          }
+        ],
+        "cars": 3,
+        "category": "enemies",
+        "id": "ward_shatter",
+        "profile": "high",
+        "router": {
+          "effects": true,
+          "enemies": true,
+          "forced_off": false,
+          "longshadow": true,
+          "profile": "high",
+          "train": true,
+          "vector_fallback": false,
+          "world": true
+        },
+        "stable_ids": {
+          "cars": [
+            "car:car-001",
+            "car:car-002",
+            "car:car-003"
+          ],
+          "enemies": [
+            "enemy:010753"
+          ],
+          "longshadow_root": "longshadow:root",
+          "train": "train:locomotive",
+          "world_root": "world:root"
+        },
+        "title": "Shadow Ward fracture and shatter",
+        "train_hp_ratio": 1.0,
+        "view_routes": {
+          "effects_baked": true,
+          "effects_vector": false,
+          "enemies_baked": true,
+          "longshadow_baked": true,
+          "train_baked": true,
+          "train_vector": false,
+          "world_baked": true,
+          "world_vector": false
+        }
+      },
+      "scenario": "ward_shatter",
+      "variant": "baked"
+    },
+    {
+      "capture": {
+        "ab_variant": "vector",
+        "capture_points": [
+          {
+            "label": "damaged",
+            "time": 0.0
+          },
+          {
+            "label": "tool_contact",
+            "time": 0.25
+          },
+          {
+            "label": "restore",
+            "time": 0.55
+          },
+          {
+            "label": "settle",
+            "time": 0.9
+          }
+        ],
+        "final_receipt": {
+          "ab_variant": "vector",
+          "capture_points": [
+            {
+              "label": "damaged",
+              "time": 0.0
+            },
+            {
+              "label": "tool_contact",
+              "time": 0.25
+            },
+            {
+              "label": "restore",
+              "time": 0.55
+            },
+            {
+              "label": "settle",
+              "time": 0.9
+            }
+          ],
+          "cars": 3,
+          "category": "train",
+          "id": "repair",
+          "profile": "high",
+          "router": {
+            "effects": false,
+            "enemies": false,
+            "forced_off": false,
+            "longshadow": false,
+            "profile": "high",
+            "train": false,
+            "vector_fallback": false,
+            "world": false
+          },
+          "stable_ids": {
+            "cars": [
+              "car:car-001",
+              "car:car-002",
+              "car:car-003"
+            ],
+            "enemies": [],
+            "longshadow_root": "longshadow:root",
+            "train": "train:locomotive",
+            "world_root": "world:root"
+          },
+          "title": "Workshop repair and train recovery",
+          "train_hp_ratio": 0.92,
+          "view_routes": {
+            "effects_baked": false,
+            "effects_vector": true,
+            "enemies_baked": false,
+            "longshadow_baked": false,
+            "train_baked": false,
+            "train_vector": true,
+            "world_baked": false,
+            "world_vector": true
+          }
+        },
+        "id": "repair",
+        "paths": [
+          "vector/repair-trigger-00-damaged.png",
+          "vector/repair-trigger.png",
+          "vector/repair-trigger-02-restore.png",
+          "vector/repair-trigger-03-settle.png"
+        ],
+        "pixel_hashes": [
+          "5eb044427ae13a9dc1f05c7552106aabac221cdfb997f188749313a37505bd80",
+          "6227b96917ded27e5c689f1b13879f49da5fdacaec498231c458e6435726ad78",
+          "d90e042ab525e517c562a6082f204170002fbae89ca1641e4e5d9de6af5971ab",
+          "0aed98ad5100645a7fce54a6f4a3e0e9b740227bc9483f74947be2d67c879eb1"
+        ],
+        "replay_verified": true
+      },
+      "receipt": {
+        "ab_variant": "vector",
+        "capture_points": [
+          {
+            "label": "damaged",
+            "time": 0.0
+          },
+          {
+            "label": "tool_contact",
+            "time": 0.25
+          },
+          {
+            "label": "restore",
+            "time": 0.55
+          },
+          {
+            "label": "settle",
+            "time": 0.9
+          }
+        ],
+        "cars": 3,
+        "category": "train",
+        "id": "repair",
+        "profile": "high",
+        "router": {
+          "effects": false,
+          "enemies": false,
+          "forced_off": false,
+          "longshadow": false,
+          "profile": "high",
+          "train": false,
+          "vector_fallback": false,
+          "world": false
+        },
+        "stable_ids": {
+          "cars": [
+            "car:car-001",
+            "car:car-002",
+            "car:car-003"
+          ],
+          "enemies": [],
+          "longshadow_root": "longshadow:root",
+          "train": "train:locomotive",
+          "world_root": "world:root"
+        },
+        "title": "Workshop repair and train recovery",
+        "train_hp_ratio": 0.55,
+        "view_routes": {
+          "effects_baked": false,
+          "effects_vector": true,
+          "enemies_baked": false,
+          "longshadow_baked": false,
+          "train_baked": false,
+          "train_vector": true,
+          "world_baked": false,
+          "world_vector": true
+        }
+      },
+      "scenario": "repair",
+      "variant": "vector"
+    },
+    {
+      "capture": {
+        "ab_variant": "baked",
+        "capture_points": [
+          {
+            "label": "damaged",
+            "time": 0.0
+          },
+          {
+            "label": "tool_contact",
+            "time": 0.25
+          },
+          {
+            "label": "restore",
+            "time": 0.55
+          },
+          {
+            "label": "settle",
+            "time": 0.9
+          }
+        ],
+        "final_receipt": {
+          "ab_variant": "baked",
+          "capture_points": [
+            {
+              "label": "damaged",
+              "time": 0.0
+            },
+            {
+              "label": "tool_contact",
+              "time": 0.25
+            },
+            {
+              "label": "restore",
+              "time": 0.55
+            },
+            {
+              "label": "settle",
+              "time": 0.9
+            }
+          ],
+          "cars": 3,
+          "category": "train",
+          "id": "repair",
+          "profile": "high",
+          "router": {
+            "effects": true,
+            "enemies": true,
+            "forced_off": false,
+            "longshadow": true,
+            "profile": "high",
+            "train": true,
+            "vector_fallback": false,
+            "world": true
+          },
+          "stable_ids": {
+            "cars": [
+              "car:car-001",
+              "car:car-002",
+              "car:car-003"
+            ],
+            "enemies": [],
+            "longshadow_root": "longshadow:root",
+            "train": "train:locomotive",
+            "world_root": "world:root"
+          },
+          "title": "Workshop repair and train recovery",
+          "train_hp_ratio": 0.92,
+          "view_routes": {
+            "effects_baked": true,
+            "effects_vector": false,
+            "enemies_baked": true,
+            "longshadow_baked": true,
+            "train_baked": true,
+            "train_vector": false,
+            "world_baked": true,
+            "world_vector": false
+          }
+        },
+        "id": "repair",
+        "paths": [
+          "baked/repair-trigger-00-damaged.png",
+          "baked/repair-trigger.png",
+          "baked/repair-trigger-02-restore.png",
+          "baked/repair-trigger-03-settle.png"
+        ],
+        "pixel_hashes": [
+          "a1d03e666dfd0bbedc1ca6ca809848e5b167ded0e1a5614a33a31b47ced97786",
+          "c5291aa2e06049236325e0b52bd58992ca98650686b9a1c5aa675998ec5f0851",
+          "b4631e08f792ca3a4faea9a39d76d7722f202183b52ac76a27cc3743f42a9a4d",
+          "a6e8a7ce9463293c3a1f94fb06e6ce71e41bf32beb9349eeee9979aeb72654da"
+        ],
+        "replay_verified": true
+      },
+      "receipt": {
+        "ab_variant": "baked",
+        "capture_points": [
+          {
+            "label": "damaged",
+            "time": 0.0
+          },
+          {
+            "label": "tool_contact",
+            "time": 0.25
+          },
+          {
+            "label": "restore",
+            "time": 0.55
+          },
+          {
+            "label": "settle",
+            "time": 0.9
+          }
+        ],
+        "cars": 3,
+        "category": "train",
+        "id": "repair",
+        "profile": "high",
+        "router": {
+          "effects": true,
+          "enemies": true,
+          "forced_off": false,
+          "longshadow": true,
+          "profile": "high",
+          "train": true,
+          "vector_fallback": false,
+          "world": true
+        },
+        "stable_ids": {
+          "cars": [
+            "car:car-001",
+            "car:car-002",
+            "car:car-003"
+          ],
+          "enemies": [],
+          "longshadow_root": "longshadow:root",
+          "train": "train:locomotive",
+          "world_root": "world:root"
+        },
+        "title": "Workshop repair and train recovery",
+        "train_hp_ratio": 0.55,
+        "view_routes": {
+          "effects_baked": true,
+          "effects_vector": false,
+          "enemies_baked": true,
+          "longshadow_baked": true,
+          "train_baked": true,
+          "train_vector": false,
+          "world_baked": true,
+          "world_vector": false
+        }
+      },
+      "scenario": "repair",
+      "variant": "baked"
+    },
+    {
+      "capture": {
+        "ab_variant": "vector",
+        "capture_points": [
+          {
+            "label": "coupled",
+            "time": 0.0
+          },
+          {
+            "label": "release",
+            "time": 0.12
+          },
+          {
+            "label": "separation",
+            "time": 0.4
+          },
+          {
+            "label": "clear",
+            "time": 0.9
+          }
+        ],
+        "final_receipt": {
+          "ab_variant": "vector",
+          "capture_points": [
+            {
+              "label": "coupled",
+              "time": 0.0
+            },
+            {
+              "label": "release",
+              "time": 0.12
+            },
+            {
+              "label": "separation",
+              "time": 0.4
+            },
+            {
+              "label": "clear",
+              "time": 0.9
+            }
+          ],
+          "cars": 2,
+          "category": "train",
+          "id": "detachment",
+          "profile": "high",
+          "router": {
+            "effects": false,
+            "enemies": false,
+            "forced_off": false,
+            "longshadow": false,
+            "profile": "high",
+            "train": false,
+            "vector_fallback": false,
+            "world": false
+          },
+          "stable_ids": {
+            "cars": [
+              "car:car-001",
+              "car:car-002"
+            ],
+            "enemies": [],
+            "longshadow_root": "longshadow:root",
+            "train": "train:locomotive",
+            "world_root": "world:root"
+          },
+          "title": "Real-car coupling break and detachment",
+          "train_hp_ratio": 1.0,
+          "view_routes": {
+            "effects_baked": false,
+            "effects_vector": true,
+            "enemies_baked": false,
+            "longshadow_baked": false,
+            "train_baked": false,
+            "train_vector": true,
+            "world_baked": false,
+            "world_vector": true
+          }
+        },
+        "id": "detachment",
+        "paths": [
+          "vector/detachment-trigger-00-coupled.png",
+          "vector/detachment-trigger.png",
+          "vector/detachment-trigger-02-separation.png",
+          "vector/detachment-trigger-03-clear.png"
+        ],
+        "pixel_hashes": [
+          "474987c5fcece990ca74b47bbe35e6de13d5c2ea9492b7ead5665a74aa1642bc",
+          "b06ccd0c83b8c75b7eca54acee8ec9f02934f01a5bc4edc7e83e586948ab749d",
+          "cafe1ff5de64cf8805792e647057272ebd867f65a8226bef244728e193ccb24e",
+          "ead12768c3fabb119bd098cac2d34355967d55752a847973fc15dd718df3f6ee"
+        ],
+        "replay_verified": true
+      },
+      "receipt": {
+        "ab_variant": "vector",
+        "capture_points": [
+          {
+            "label": "coupled",
+            "time": 0.0
+          },
+          {
+            "label": "release",
+            "time": 0.12
+          },
+          {
+            "label": "separation",
+            "time": 0.4
+          },
+          {
+            "label": "clear",
+            "time": 0.9
+          }
+        ],
+        "cars": 3,
+        "category": "train",
+        "id": "detachment",
+        "profile": "high",
+        "router": {
+          "effects": false,
+          "enemies": false,
+          "forced_off": false,
+          "longshadow": false,
+          "profile": "high",
+          "train": false,
+          "vector_fallback": false,
+          "world": false
+        },
+        "stable_ids": {
+          "cars": [
+            "car:car-001",
+            "car:car-002",
+            "car:car-003"
+          ],
+          "enemies": [],
+          "longshadow_root": "longshadow:root",
+          "train": "train:locomotive",
+          "world_root": "world:root"
+        },
+        "title": "Real-car coupling break and detachment",
+        "train_hp_ratio": 1.0,
+        "view_routes": {
+          "effects_baked": false,
+          "effects_vector": true,
+          "enemies_baked": false,
+          "longshadow_baked": false,
+          "train_baked": false,
+          "train_vector": true,
+          "world_baked": false,
+          "world_vector": true
+        }
+      },
+      "scenario": "detachment",
+      "variant": "vector"
+    },
+    {
+      "capture": {
+        "ab_variant": "baked",
+        "capture_points": [
+          {
+            "label": "coupled",
+            "time": 0.0
+          },
+          {
+            "label": "release",
+            "time": 0.12
+          },
+          {
+            "label": "separation",
+            "time": 0.4
+          },
+          {
+            "label": "clear",
+            "time": 0.9
+          }
+        ],
+        "final_receipt": {
+          "ab_variant": "baked",
+          "capture_points": [
+            {
+              "label": "coupled",
+              "time": 0.0
+            },
+            {
+              "label": "release",
+              "time": 0.12
+            },
+            {
+              "label": "separation",
+              "time": 0.4
+            },
+            {
+              "label": "clear",
+              "time": 0.9
+            }
+          ],
+          "cars": 2,
+          "category": "train",
+          "id": "detachment",
+          "profile": "high",
+          "router": {
+            "effects": true,
+            "enemies": true,
+            "forced_off": false,
+            "longshadow": true,
+            "profile": "high",
+            "train": true,
+            "vector_fallback": false,
+            "world": true
+          },
+          "stable_ids": {
+            "cars": [
+              "car:car-001",
+              "car:car-002"
+            ],
+            "enemies": [],
+            "longshadow_root": "longshadow:root",
+            "train": "train:locomotive",
+            "world_root": "world:root"
+          },
+          "title": "Real-car coupling break and detachment",
+          "train_hp_ratio": 1.0,
+          "view_routes": {
+            "effects_baked": true,
+            "effects_vector": false,
+            "enemies_baked": true,
+            "longshadow_baked": true,
+            "train_baked": true,
+            "train_vector": false,
+            "world_baked": true,
+            "world_vector": false
+          }
+        },
+        "id": "detachment",
+        "paths": [
+          "baked/detachment-trigger-00-coupled.png",
+          "baked/detachment-trigger.png",
+          "baked/detachment-trigger-02-separation.png",
+          "baked/detachment-trigger-03-clear.png"
+        ],
+        "pixel_hashes": [
+          "80a287164fb64624c0ed2bc8fe7dbb16a385e88cce3cf3a98d19026f75f5aa9f",
+          "c090727074274efcd406d5894e65d2f8a4d4d0fe1732812b19c9e8ac6f92211d",
+          "ec68b43bff15c96dca29170bedf9fac8e8af791a0b75cf7a963af0fc15b00615",
+          "d955bda319d7ffa89f5d0e41ec876616140a2f8e3ba565d96f655daf85af96a7"
+        ],
+        "replay_verified": true
+      },
+      "receipt": {
+        "ab_variant": "baked",
+        "capture_points": [
+          {
+            "label": "coupled",
+            "time": 0.0
+          },
+          {
+            "label": "release",
+            "time": 0.12
+          },
+          {
+            "label": "separation",
+            "time": 0.4
+          },
+          {
+            "label": "clear",
+            "time": 0.9
+          }
+        ],
+        "cars": 3,
+        "category": "train",
+        "id": "detachment",
+        "profile": "high",
+        "router": {
+          "effects": true,
+          "enemies": true,
+          "forced_off": false,
+          "longshadow": true,
+          "profile": "high",
+          "train": true,
+          "vector_fallback": false,
+          "world": true
+        },
+        "stable_ids": {
+          "cars": [
+            "car:car-001",
+            "car:car-002",
+            "car:car-003"
+          ],
+          "enemies": [],
+          "longshadow_root": "longshadow:root",
+          "train": "train:locomotive",
+          "world_root": "world:root"
+        },
+        "title": "Real-car coupling break and detachment",
+        "train_hp_ratio": 1.0,
+        "view_routes": {
+          "effects_baked": true,
+          "effects_vector": false,
+          "enemies_baked": true,
+          "longshadow_baked": true,
+          "train_baked": true,
+          "train_vector": false,
+          "world_baked": true,
+          "world_vector": false
+        }
+      },
+      "scenario": "detachment",
+      "variant": "baked"
+    },
+    {
+      "capture": {
+        "ab_variant": "vector",
+        "capture_points": [
+          {
+            "label": "pre_entry",
+            "time": 0.0
+          },
+          {
+            "label": "form",
+            "time": 0.75
+          },
+          {
+            "label": "silhouette",
+            "time": 1.5
+          },
+          {
+            "label": "lock",
+            "time": 3.0
+          }
+        ],
+        "final_receipt": {
+          "ab_variant": "vector",
+          "capture_points": [
+            {
+              "label": "pre_entry",
+              "time": 0.0
+            },
+            {
+              "label": "form",
+              "time": 0.75
+            },
+            {
+              "label": "silhouette",
+              "time": 1.5
+            },
+            {
+              "label": "lock",
+              "time": 3.0
+            }
+          ],
+          "cars": 3,
+          "category": "longshadow",
+          "id": "longshadow_veil",
+          "profile": "high",
+          "router": {
+            "effects": false,
+            "enemies": false,
+            "forced_off": false,
+            "longshadow": false,
+            "profile": "high",
+            "train": false,
+            "vector_fallback": false,
+            "world": false
+          },
+          "stable_ids": {
+            "cars": [
+              "car:car-001",
+              "car:car-002",
+              "car:car-003"
+            ],
+            "enemies": [],
+            "longshadow_phase": "longshadow:veil",
+            "longshadow_root": "longshadow:root",
+            "train": "train:locomotive",
+            "world_root": "world:root"
+          },
+          "title": "Longshadow Veil transformation",
+          "train_hp_ratio": 1.0,
+          "view_routes": {
+            "effects_baked": false,
+            "effects_vector": true,
+            "enemies_baked": false,
+            "longshadow_baked": false,
+            "train_baked": false,
+            "train_vector": true,
+            "world_baked": false,
+            "world_vector": true
+          }
+        },
+        "id": "longshadow_veil",
+        "paths": [
+          "vector/longshadow_veil-trigger-00-pre_entry.png",
+          "vector/longshadow_veil-trigger.png",
+          "vector/longshadow_veil-trigger-02-silhouette.png",
+          "vector/longshadow_veil-trigger-03-lock.png"
+        ],
+        "pixel_hashes": [
+          "8162dae1758da37a0b0050aa41faa6fde328b40ae7a7f2feb5c081786f7ca39f",
+          "7bc5b2818d63d170c4da44752d6acd3856408948401a516eed38c14e814123dd",
+          "c861dc0cf3a512df1b209d10e400cd751d0b2b063762307f4446ab0f97591e31",
+          "17a74e0a4c83d04883512e7bbe7eb6fdedc60bdd9bfecff227e7a3e0fab62c9d"
+        ],
+        "replay_verified": true
+      },
+      "receipt": {
+        "ab_variant": "vector",
+        "capture_points": [
+          {
+            "label": "pre_entry",
+            "time": 0.0
+          },
+          {
+            "label": "form",
+            "time": 0.75
+          },
+          {
+            "label": "silhouette",
+            "time": 1.5
+          },
+          {
+            "label": "lock",
+            "time": 3.0
+          }
+        ],
+        "cars": 3,
+        "category": "longshadow",
+        "id": "longshadow_veil",
+        "profile": "high",
+        "router": {
+          "effects": false,
+          "enemies": false,
+          "forced_off": false,
+          "longshadow": false,
+          "profile": "high",
+          "train": false,
+          "vector_fallback": false,
+          "world": false
+        },
+        "stable_ids": {
+          "cars": [
+            "car:car-001",
+            "car:car-002",
+            "car:car-003"
+          ],
+          "enemies": [],
+          "longshadow_phase": "longshadow:veil",
+          "longshadow_root": "longshadow:root",
+          "train": "train:locomotive",
+          "world_root": "world:root"
+        },
+        "title": "Longshadow Veil transformation",
+        "train_hp_ratio": 1.0,
+        "view_routes": {
+          "effects_baked": false,
+          "effects_vector": true,
+          "enemies_baked": false,
+          "longshadow_baked": false,
+          "train_baked": false,
+          "train_vector": true,
+          "world_baked": false,
+          "world_vector": true
+        }
+      },
+      "scenario": "longshadow_veil",
+      "variant": "vector"
+    },
+    {
+      "capture": {
+        "ab_variant": "baked",
+        "capture_points": [
+          {
+            "label": "pre_entry",
+            "time": 0.0
+          },
+          {
+            "label": "form",
+            "time": 0.75
+          },
+          {
+            "label": "silhouette",
+            "time": 1.5
+          },
+          {
+            "label": "lock",
+            "time": 3.0
+          }
+        ],
+        "final_receipt": {
+          "ab_variant": "baked",
+          "capture_points": [
+            {
+              "label": "pre_entry",
+              "time": 0.0
+            },
+            {
+              "label": "form",
+              "time": 0.75
+            },
+            {
+              "label": "silhouette",
+              "time": 1.5
+            },
+            {
+              "label": "lock",
+              "time": 3.0
+            }
+          ],
+          "cars": 3,
+          "category": "longshadow",
+          "id": "longshadow_veil",
+          "profile": "high",
+          "router": {
+            "effects": true,
+            "enemies": true,
+            "forced_off": false,
+            "longshadow": true,
+            "profile": "high",
+            "train": true,
+            "vector_fallback": false,
+            "world": true
+          },
+          "stable_ids": {
+            "cars": [
+              "car:car-001",
+              "car:car-002",
+              "car:car-003"
+            ],
+            "enemies": [],
+            "longshadow_phase": "longshadow:veil",
+            "longshadow_root": "longshadow:root",
+            "train": "train:locomotive",
+            "world_root": "world:root"
+          },
+          "title": "Longshadow Veil transformation",
+          "train_hp_ratio": 1.0,
+          "view_routes": {
+            "effects_baked": true,
+            "effects_vector": false,
+            "enemies_baked": true,
+            "longshadow_baked": true,
+            "train_baked": true,
+            "train_vector": false,
+            "world_baked": true,
+            "world_vector": false
+          }
+        },
+        "id": "longshadow_veil",
+        "paths": [
+          "baked/longshadow_veil-trigger-00-pre_entry.png",
+          "baked/longshadow_veil-trigger.png",
+          "baked/longshadow_veil-trigger-02-silhouette.png",
+          "baked/longshadow_veil-trigger-03-lock.png"
+        ],
+        "pixel_hashes": [
+          "9fefe0e84c1cb7a62e1d5524af948fe183853469168a410cdfb8fa185dae7c47",
+          "57d3cfd4290f3cfe1606ac7a0695eed8b5f295a4bc8d9c8a1f02ffed8e1164ab",
+          "2128db3fafcaeabf84e7e646776b17e52c5767ab3b53f25a22ddb6e5b01d0045",
+          "6f9cc532a6c41bdcf383af2226b1618050b9da017118320c383891a6b4c92de1"
+        ],
+        "replay_verified": true
+      },
+      "receipt": {
+        "ab_variant": "baked",
+        "capture_points": [
+          {
+            "label": "pre_entry",
+            "time": 0.0
+          },
+          {
+            "label": "form",
+            "time": 0.75
+          },
+          {
+            "label": "silhouette",
+            "time": 1.5
+          },
+          {
+            "label": "lock",
+            "time": 3.0
+          }
+        ],
+        "cars": 3,
+        "category": "longshadow",
+        "id": "longshadow_veil",
+        "profile": "high",
+        "router": {
+          "effects": true,
+          "enemies": true,
+          "forced_off": false,
+          "longshadow": true,
+          "profile": "high",
+          "train": true,
+          "vector_fallback": false,
+          "world": true
+        },
+        "stable_ids": {
+          "cars": [
+            "car:car-001",
+            "car:car-002",
+            "car:car-003"
+          ],
+          "enemies": [],
+          "longshadow_phase": "longshadow:veil",
+          "longshadow_root": "longshadow:root",
+          "train": "train:locomotive",
+          "world_root": "world:root"
+        },
+        "title": "Longshadow Veil transformation",
+        "train_hp_ratio": 1.0,
+        "view_routes": {
+          "effects_baked": true,
+          "effects_vector": false,
+          "enemies_baked": true,
+          "longshadow_baked": true,
+          "train_baked": true,
+          "train_vector": false,
+          "world_baked": true,
+          "world_vector": false
+        }
+      },
+      "scenario": "longshadow_veil",
+      "variant": "baked"
+    },
+    {
+      "capture": {
+        "ab_variant": "vector",
+        "capture_points": [
+          {
+            "label": "pre_shift",
+            "time": 0.0
+          },
+          {
+            "label": "transform_start",
+            "time": 0.25
+          },
+          {
+            "label": "midpoint",
+            "time": 1.25
+          },
+          {
+            "label": "lock",
+            "time": 2.5
+          }
+        ],
+        "final_receipt": {
+          "ab_variant": "vector",
+          "capture_points": [
+            {
+              "label": "pre_shift",
+              "time": 0.0
+            },
+            {
+              "label": "transform_start",
+              "time": 0.25
+            },
+            {
+              "label": "midpoint",
+              "time": 1.25
+            },
+            {
+              "label": "lock",
+              "time": 2.5
+            }
+          ],
+          "cars": 3,
+          "category": "longshadow",
+          "id": "longshadow_tether",
+          "profile": "high",
+          "router": {
+            "effects": false,
+            "enemies": false,
+            "forced_off": false,
+            "longshadow": false,
+            "profile": "high",
+            "train": false,
+            "vector_fallback": false,
+            "world": false
+          },
+          "stable_ids": {
+            "cars": [
+              "car:car-001",
+              "car:car-002",
+              "car:car-003"
+            ],
+            "enemies": [],
+            "longshadow_phase": "longshadow:tether",
+            "longshadow_root": "longshadow:root",
+            "train": "train:locomotive",
+            "world_root": "world:root"
+          },
+          "title": "Longshadow Tether transformation",
+          "train_hp_ratio": 1.0,
+          "view_routes": {
+            "effects_baked": false,
+            "effects_vector": true,
+            "enemies_baked": false,
+            "longshadow_baked": false,
+            "train_baked": false,
+            "train_vector": true,
+            "world_baked": false,
+            "world_vector": true
+          }
+        },
+        "id": "longshadow_tether",
+        "paths": [
+          "vector/longshadow_tether-trigger-00-pre_shift.png",
+          "vector/longshadow_tether-trigger.png",
+          "vector/longshadow_tether-trigger-02-midpoint.png",
+          "vector/longshadow_tether-trigger-03-lock.png"
+        ],
+        "pixel_hashes": [
+          "8fb496380210d17230e1e51dbc34ea1b5f9ad2e0d0da6b88b71f74355b843fe8",
+          "9016fc2520ce185b1c4dd57a175a6d549122672ddde612acc7aeacaf05572e73",
+          "e67fb0b24459abe0bf74b563a69d261a921cb3ea1e28acb310514f7ab7aaad28",
+          "eef228a78223e305b7d9f4e7a9950209ba362cfa0e3fcf6949780e82547701db"
+        ],
+        "replay_verified": true
+      },
+      "receipt": {
+        "ab_variant": "vector",
+        "capture_points": [
+          {
+            "label": "pre_shift",
+            "time": 0.0
+          },
+          {
+            "label": "transform_start",
+            "time": 0.25
+          },
+          {
+            "label": "midpoint",
+            "time": 1.25
+          },
+          {
+            "label": "lock",
+            "time": 2.5
+          }
+        ],
+        "cars": 3,
+        "category": "longshadow",
+        "id": "longshadow_tether",
+        "profile": "high",
+        "router": {
+          "effects": false,
+          "enemies": false,
+          "forced_off": false,
+          "longshadow": false,
+          "profile": "high",
+          "train": false,
+          "vector_fallback": false,
+          "world": false
+        },
+        "stable_ids": {
+          "cars": [
+            "car:car-001",
+            "car:car-002",
+            "car:car-003"
+          ],
+          "enemies": [],
+          "longshadow_phase": "longshadow:tether",
+          "longshadow_root": "longshadow:root",
+          "train": "train:locomotive",
+          "world_root": "world:root"
+        },
+        "title": "Longshadow Tether transformation",
+        "train_hp_ratio": 1.0,
+        "view_routes": {
+          "effects_baked": false,
+          "effects_vector": true,
+          "enemies_baked": false,
+          "longshadow_baked": false,
+          "train_baked": false,
+          "train_vector": true,
+          "world_baked": false,
+          "world_vector": true
+        }
+      },
+      "scenario": "longshadow_tether",
+      "variant": "vector"
+    },
+    {
+      "capture": {
+        "ab_variant": "baked",
+        "capture_points": [
+          {
+            "label": "pre_shift",
+            "time": 0.0
+          },
+          {
+            "label": "transform_start",
+            "time": 0.25
+          },
+          {
+            "label": "midpoint",
+            "time": 1.25
+          },
+          {
+            "label": "lock",
+            "time": 2.5
+          }
+        ],
+        "final_receipt": {
+          "ab_variant": "baked",
+          "capture_points": [
+            {
+              "label": "pre_shift",
+              "time": 0.0
+            },
+            {
+              "label": "transform_start",
+              "time": 0.25
+            },
+            {
+              "label": "midpoint",
+              "time": 1.25
+            },
+            {
+              "label": "lock",
+              "time": 2.5
+            }
+          ],
+          "cars": 3,
+          "category": "longshadow",
+          "id": "longshadow_tether",
+          "profile": "high",
+          "router": {
+            "effects": true,
+            "enemies": true,
+            "forced_off": false,
+            "longshadow": true,
+            "profile": "high",
+            "train": true,
+            "vector_fallback": false,
+            "world": true
+          },
+          "stable_ids": {
+            "cars": [
+              "car:car-001",
+              "car:car-002",
+              "car:car-003"
+            ],
+            "enemies": [],
+            "longshadow_phase": "longshadow:tether",
+            "longshadow_root": "longshadow:root",
+            "train": "train:locomotive",
+            "world_root": "world:root"
+          },
+          "title": "Longshadow Tether transformation",
+          "train_hp_ratio": 1.0,
+          "view_routes": {
+            "effects_baked": true,
+            "effects_vector": false,
+            "enemies_baked": true,
+            "longshadow_baked": true,
+            "train_baked": true,
+            "train_vector": false,
+            "world_baked": true,
+            "world_vector": false
+          }
+        },
+        "id": "longshadow_tether",
+        "paths": [
+          "baked/longshadow_tether-trigger-00-pre_shift.png",
+          "baked/longshadow_tether-trigger.png",
+          "baked/longshadow_tether-trigger-02-midpoint.png",
+          "baked/longshadow_tether-trigger-03-lock.png"
+        ],
+        "pixel_hashes": [
+          "f1c82d18d379b7c0bb868d387128fb4504182c665d4d727f99a4d6b1ff77ae3f",
+          "69589cdb36f9f225ea331c1630f83aacb4a345da86486e6053d7c7f221b68926",
+          "acad4113752af4d49af414e6434d810bf3643e539af1f5e2d22165b18e023811",
+          "2e7762d77592b468dd59aee2a8641c4f3d40ecedd840e3aaa90dbcc14308bf57"
+        ],
+        "replay_verified": true
+      },
+      "receipt": {
+        "ab_variant": "baked",
+        "capture_points": [
+          {
+            "label": "pre_shift",
+            "time": 0.0
+          },
+          {
+            "label": "transform_start",
+            "time": 0.25
+          },
+          {
+            "label": "midpoint",
+            "time": 1.25
+          },
+          {
+            "label": "lock",
+            "time": 2.5
+          }
+        ],
+        "cars": 3,
+        "category": "longshadow",
+        "id": "longshadow_tether",
+        "profile": "high",
+        "router": {
+          "effects": true,
+          "enemies": true,
+          "forced_off": false,
+          "longshadow": true,
+          "profile": "high",
+          "train": true,
+          "vector_fallback": false,
+          "world": true
+        },
+        "stable_ids": {
+          "cars": [
+            "car:car-001",
+            "car:car-002",
+            "car:car-003"
+          ],
+          "enemies": [],
+          "longshadow_phase": "longshadow:tether",
+          "longshadow_root": "longshadow:root",
+          "train": "train:locomotive",
+          "world_root": "world:root"
+        },
+        "title": "Longshadow Tether transformation",
+        "train_hp_ratio": 1.0,
+        "view_routes": {
+          "effects_baked": true,
+          "effects_vector": false,
+          "enemies_baked": true,
+          "longshadow_baked": true,
+          "train_baked": true,
+          "train_vector": false,
+          "world_baked": true,
+          "world_vector": false
+        }
+      },
+      "scenario": "longshadow_tether",
+      "variant": "baked"
+    },
+    {
+      "capture": {
+        "ab_variant": "vector",
+        "capture_points": [
+          {
+            "label": "pre_shift",
+            "time": 0.0
+          },
+          {
+            "label": "transform_start",
+            "time": 0.25
+          },
+          {
+            "label": "midpoint",
+            "time": 1.25
+          },
+          {
+            "label": "lock",
+            "time": 2.5
+          }
+        ],
+        "final_receipt": {
+          "ab_variant": "vector",
+          "capture_points": [
+            {
+              "label": "pre_shift",
+              "time": 0.0
+            },
+            {
+              "label": "transform_start",
+              "time": 0.25
+            },
+            {
+              "label": "midpoint",
+              "time": 1.25
+            },
+            {
+              "label": "lock",
+              "time": 2.5
+            }
+          ],
+          "cars": 3,
+          "category": "longshadow",
+          "id": "longshadow_charge",
+          "profile": "high",
+          "router": {
+            "effects": false,
+            "enemies": false,
+            "forced_off": false,
+            "longshadow": false,
+            "profile": "high",
+            "train": false,
+            "vector_fallback": false,
+            "world": false
+          },
+          "stable_ids": {
+            "cars": [
+              "car:car-001",
+              "car:car-002",
+              "car:car-003"
+            ],
+            "enemies": [],
+            "longshadow_phase": "longshadow:charge",
+            "longshadow_root": "longshadow:root",
+            "train": "train:locomotive",
+            "world_root": "world:root"
+          },
+          "title": "Longshadow Charge transformation",
+          "train_hp_ratio": 1.0,
+          "view_routes": {
+            "effects_baked": false,
+            "effects_vector": true,
+            "enemies_baked": false,
+            "longshadow_baked": false,
+            "train_baked": false,
+            "train_vector": true,
+            "world_baked": false,
+            "world_vector": true
+          }
+        },
+        "id": "longshadow_charge",
+        "paths": [
+          "vector/longshadow_charge-trigger-00-pre_shift.png",
+          "vector/longshadow_charge-trigger.png",
+          "vector/longshadow_charge-trigger-02-midpoint.png",
+          "vector/longshadow_charge-trigger-03-lock.png"
+        ],
+        "pixel_hashes": [
+          "ff42a28a8a49c1764f92eb2dabcd676e557e0e7178e42037b175745606fc0954",
+          "4f60d96a5928b7bddcea1bcc9e8483abe727df83eb89473f17661730163d3ed5",
+          "9ad4aac2525f7e075421664d0e22f9c9bce32c7609ef1757c317bb022f95a0c5",
+          "263a8fd66f79276b072617bb465c129427381ef3acfa12fb1eb825f1cb2d3aa9"
+        ],
+        "replay_verified": true
+      },
+      "receipt": {
+        "ab_variant": "vector",
+        "capture_points": [
+          {
+            "label": "pre_shift",
+            "time": 0.0
+          },
+          {
+            "label": "transform_start",
+            "time": 0.25
+          },
+          {
+            "label": "midpoint",
+            "time": 1.25
+          },
+          {
+            "label": "lock",
+            "time": 2.5
+          }
+        ],
+        "cars": 3,
+        "category": "longshadow",
+        "id": "longshadow_charge",
+        "profile": "high",
+        "router": {
+          "effects": false,
+          "enemies": false,
+          "forced_off": false,
+          "longshadow": false,
+          "profile": "high",
+          "train": false,
+          "vector_fallback": false,
+          "world": false
+        },
+        "stable_ids": {
+          "cars": [
+            "car:car-001",
+            "car:car-002",
+            "car:car-003"
+          ],
+          "enemies": [],
+          "longshadow_phase": "longshadow:charge",
+          "longshadow_root": "longshadow:root",
+          "train": "train:locomotive",
+          "world_root": "world:root"
+        },
+        "title": "Longshadow Charge transformation",
+        "train_hp_ratio": 1.0,
+        "view_routes": {
+          "effects_baked": false,
+          "effects_vector": true,
+          "enemies_baked": false,
+          "longshadow_baked": false,
+          "train_baked": false,
+          "train_vector": true,
+          "world_baked": false,
+          "world_vector": true
+        }
+      },
+      "scenario": "longshadow_charge",
+      "variant": "vector"
+    },
+    {
+      "capture": {
+        "ab_variant": "baked",
+        "capture_points": [
+          {
+            "label": "pre_shift",
+            "time": 0.0
+          },
+          {
+            "label": "transform_start",
+            "time": 0.25
+          },
+          {
+            "label": "midpoint",
+            "time": 1.25
+          },
+          {
+            "label": "lock",
+            "time": 2.5
+          }
+        ],
+        "final_receipt": {
+          "ab_variant": "baked",
+          "capture_points": [
+            {
+              "label": "pre_shift",
+              "time": 0.0
+            },
+            {
+              "label": "transform_start",
+              "time": 0.25
+            },
+            {
+              "label": "midpoint",
+              "time": 1.25
+            },
+            {
+              "label": "lock",
+              "time": 2.5
+            }
+          ],
+          "cars": 3,
+          "category": "longshadow",
+          "id": "longshadow_charge",
+          "profile": "high",
+          "router": {
+            "effects": true,
+            "enemies": true,
+            "forced_off": false,
+            "longshadow": true,
+            "profile": "high",
+            "train": true,
+            "vector_fallback": false,
+            "world": true
+          },
+          "stable_ids": {
+            "cars": [
+              "car:car-001",
+              "car:car-002",
+              "car:car-003"
+            ],
+            "enemies": [],
+            "longshadow_phase": "longshadow:charge",
+            "longshadow_root": "longshadow:root",
+            "train": "train:locomotive",
+            "world_root": "world:root"
+          },
+          "title": "Longshadow Charge transformation",
+          "train_hp_ratio": 1.0,
+          "view_routes": {
+            "effects_baked": true,
+            "effects_vector": false,
+            "enemies_baked": true,
+            "longshadow_baked": true,
+            "train_baked": true,
+            "train_vector": false,
+            "world_baked": true,
+            "world_vector": false
+          }
+        },
+        "id": "longshadow_charge",
+        "paths": [
+          "baked/longshadow_charge-trigger-00-pre_shift.png",
+          "baked/longshadow_charge-trigger.png",
+          "baked/longshadow_charge-trigger-02-midpoint.png",
+          "baked/longshadow_charge-trigger-03-lock.png"
+        ],
+        "pixel_hashes": [
+          "abb4d9bd73197bb9c4c3a5f5a7a1b949c58d703d39b71b4faddea55063488201",
+          "9fe28f939ae6c393663f6d299901e259ef7a962cef4996199d99f8f8c018f2c3",
+          "2e0c8f68f364aa510a447fdcb569e946677dcb065e77bc2076b05f144150ced7",
+          "d01cf114eb2eea716d64daa0a90ba050a8b2d0398a7f50829d33f8ba3eccbefb"
+        ],
+        "replay_verified": true
+      },
+      "receipt": {
+        "ab_variant": "baked",
+        "capture_points": [
+          {
+            "label": "pre_shift",
+            "time": 0.0
+          },
+          {
+            "label": "transform_start",
+            "time": 0.25
+          },
+          {
+            "label": "midpoint",
+            "time": 1.25
+          },
+          {
+            "label": "lock",
+            "time": 2.5
+          }
+        ],
+        "cars": 3,
+        "category": "longshadow",
+        "id": "longshadow_charge",
+        "profile": "high",
+        "router": {
+          "effects": true,
+          "enemies": true,
+          "forced_off": false,
+          "longshadow": true,
+          "profile": "high",
+          "train": true,
+          "vector_fallback": false,
+          "world": true
+        },
+        "stable_ids": {
+          "cars": [
+            "car:car-001",
+            "car:car-002",
+            "car:car-003"
+          ],
+          "enemies": [],
+          "longshadow_phase": "longshadow:charge",
+          "longshadow_root": "longshadow:root",
+          "train": "train:locomotive",
+          "world_root": "world:root"
+        },
+        "title": "Longshadow Charge transformation",
+        "train_hp_ratio": 1.0,
+        "view_routes": {
+          "effects_baked": true,
+          "effects_vector": false,
+          "enemies_baked": true,
+          "longshadow_baked": true,
+          "train_baked": true,
+          "train_vector": false,
+          "world_baked": true,
+          "world_vector": false
+        }
+      },
+      "scenario": "longshadow_charge",
+      "variant": "baked"
+    },
+    {
+      "capture": {
+        "ab_variant": "vector",
+        "capture_points": [
+          {
+            "label": "night",
+            "time": 0.0
+          },
+          {
+            "label": "first_light",
+            "time": 0.5
+          },
+          {
+            "label": "beacon",
+            "time": 1.2
+          },
+          {
+            "label": "release",
+            "time": 2.0
+          }
+        ],
+        "final_receipt": {
+          "ab_variant": "vector",
+          "capture_points": [
+            {
+              "label": "night",
+              "time": 0.0
+            },
+            {
+              "label": "first_light",
+              "time": 0.5
+            },
+            {
+              "label": "beacon",
+              "time": 1.2
+            },
+            {
+              "label": "release",
+              "time": 2.0
+            }
+          ],
+          "cars": 3,
+          "category": "world",
+          "id": "dawn",
+          "profile": "high",
+          "router": {
+            "effects": false,
+            "enemies": false,
+            "forced_off": false,
+            "longshadow": false,
+            "profile": "high",
+            "train": false,
+            "vector_fallback": false,
+            "world": false
+          },
+          "stable_ids": {
+            "cars": [
+              "car:car-001",
+              "car:car-002",
+              "car:car-003"
+            ],
+            "enemies": [],
+            "longshadow_root": "longshadow:root",
+            "train": "train:locomotive",
+            "world_root": "world:root"
+          },
+          "title": "Dawn Beacon arrival and release",
+          "train_hp_ratio": 1.0,
+          "view_routes": {
+            "effects_baked": false,
+            "effects_vector": true,
+            "enemies_baked": false,
+            "longshadow_baked": false,
+            "train_baked": false,
+            "train_vector": true,
+            "world_baked": false,
+            "world_vector": true
+          }
+        },
+        "id": "dawn",
+        "paths": [
+          "vector/dawn-trigger-00-night.png",
+          "vector/dawn-trigger.png",
+          "vector/dawn-trigger-02-beacon.png",
+          "vector/dawn-trigger-03-release.png"
+        ],
+        "pixel_hashes": [
+          "d6568907cc8786e378bdaa660a80b05c817049b33e742dbdb15b3f432eea6ee6",
+          "7b7b727db72b8c2011701057336ebb3086f006f90a1d1eb4c1619f84afb801c3",
+          "3a95e3f86e4c2a67832d9133d0df80a07d1df31292bdab9272685f0d391d10e3",
+          "cfc108d5111fc97545a5f6b0a42de5edbf475c984b8d47cae6e64989dcec0c02"
+        ],
+        "replay_verified": true
+      },
+      "receipt": {
+        "ab_variant": "vector",
+        "capture_points": [
+          {
+            "label": "night",
+            "time": 0.0
+          },
+          {
+            "label": "first_light",
+            "time": 0.5
+          },
+          {
+            "label": "beacon",
+            "time": 1.2
+          },
+          {
+            "label": "release",
+            "time": 2.0
+          }
+        ],
+        "cars": 3,
+        "category": "world",
+        "id": "dawn",
+        "profile": "high",
+        "router": {
+          "effects": false,
+          "enemies": false,
+          "forced_off": false,
+          "longshadow": false,
+          "profile": "high",
+          "train": false,
+          "vector_fallback": false,
+          "world": false
+        },
+        "stable_ids": {
+          "cars": [
+            "car:car-001",
+            "car:car-002",
+            "car:car-003"
+          ],
+          "enemies": [],
+          "longshadow_root": "longshadow:root",
+          "train": "train:locomotive",
+          "world_root": "world:root"
+        },
+        "title": "Dawn Beacon arrival and release",
+        "train_hp_ratio": 1.0,
+        "view_routes": {
+          "effects_baked": false,
+          "effects_vector": true,
+          "enemies_baked": false,
+          "longshadow_baked": false,
+          "train_baked": false,
+          "train_vector": true,
+          "world_baked": false,
+          "world_vector": true
+        }
+      },
+      "scenario": "dawn",
+      "variant": "vector"
+    },
+    {
+      "capture": {
+        "ab_variant": "baked",
+        "capture_points": [
+          {
+            "label": "night",
+            "time": 0.0
+          },
+          {
+            "label": "first_light",
+            "time": 0.5
+          },
+          {
+            "label": "beacon",
+            "time": 1.2
+          },
+          {
+            "label": "release",
+            "time": 2.0
+          }
+        ],
+        "final_receipt": {
+          "ab_variant": "baked",
+          "capture_points": [
+            {
+              "label": "night",
+              "time": 0.0
+            },
+            {
+              "label": "first_light",
+              "time": 0.5
+            },
+            {
+              "label": "beacon",
+              "time": 1.2
+            },
+            {
+              "label": "release",
+              "time": 2.0
+            }
+          ],
+          "cars": 3,
+          "category": "world",
+          "id": "dawn",
+          "profile": "high",
+          "router": {
+            "effects": true,
+            "enemies": true,
+            "forced_off": false,
+            "longshadow": true,
+            "profile": "high",
+            "train": true,
+            "vector_fallback": false,
+            "world": true
+          },
+          "stable_ids": {
+            "cars": [
+              "car:car-001",
+              "car:car-002",
+              "car:car-003"
+            ],
+            "enemies": [],
+            "longshadow_root": "longshadow:root",
+            "train": "train:locomotive",
+            "world_root": "world:root"
+          },
+          "title": "Dawn Beacon arrival and release",
+          "train_hp_ratio": 1.0,
+          "view_routes": {
+            "effects_baked": true,
+            "effects_vector": false,
+            "enemies_baked": true,
+            "longshadow_baked": true,
+            "train_baked": true,
+            "train_vector": false,
+            "world_baked": true,
+            "world_vector": false
+          }
+        },
+        "id": "dawn",
+        "paths": [
+          "baked/dawn-trigger-00-night.png",
+          "baked/dawn-trigger.png",
+          "baked/dawn-trigger-02-beacon.png",
+          "baked/dawn-trigger-03-release.png"
+        ],
+        "pixel_hashes": [
+          "9bff149fc77f0621a1c4dd988ae5870afabbbf99afdebb5a8aa9c72ce86863cc",
+          "16ad9888302742c9e06e4d69bab623382f809b9a9085266301b3084f1df18382",
+          "a2fa6fcaa9bfa17e814a431cef5d07aba8500a72fe9d95d8292ea3ee3999d6a9",
+          "c78fea5f7c415bbcb584ae66c78af43ac46b3ade32b0b1c77dc5e909b7c90137"
+        ],
+        "replay_verified": true
+      },
+      "receipt": {
+        "ab_variant": "baked",
+        "capture_points": [
+          {
+            "label": "night",
+            "time": 0.0
+          },
+          {
+            "label": "first_light",
+            "time": 0.5
+          },
+          {
+            "label": "beacon",
+            "time": 1.2
+          },
+          {
+            "label": "release",
+            "time": 2.0
+          }
+        ],
+        "cars": 3,
+        "category": "world",
+        "id": "dawn",
+        "profile": "high",
+        "router": {
+          "effects": true,
+          "enemies": true,
+          "forced_off": false,
+          "longshadow": true,
+          "profile": "high",
+          "train": true,
+          "vector_fallback": false,
+          "world": true
+        },
+        "stable_ids": {
+          "cars": [
+            "car:car-001",
+            "car:car-002",
+            "car:car-003"
+          ],
+          "enemies": [],
+          "longshadow_root": "longshadow:root",
+          "train": "train:locomotive",
+          "world_root": "world:root"
+        },
+        "title": "Dawn Beacon arrival and release",
+        "train_hp_ratio": 1.0,
+        "view_routes": {
+          "effects_baked": true,
+          "effects_vector": false,
+          "enemies_baked": true,
+          "longshadow_baked": true,
+          "train_baked": true,
+          "train_vector": false,
+          "world_baked": true,
+          "world_vector": false
+        }
+      },
+      "scenario": "dawn",
+      "variant": "baked"
+    }
+  ],
+  "schema": 2,
+  "source_fingerprint": "4c470e4a25622aaa1e901970ac71f5842b9a65262c0556ead51143d302047b5d"
+}

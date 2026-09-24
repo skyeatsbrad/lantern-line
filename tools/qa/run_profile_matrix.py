@@ -38,6 +38,9 @@ def run_profile(godot: Path, profile: str) -> dict[str, Any]:
             "windows",
             "--audio-driver",
             "Dummy",
+            "--disable-vsync",
+            "--max-fps",
+            "60",
         ],
         cwd=REPO_ROOT,
         env=env,
@@ -71,7 +74,8 @@ def markdown_report(payload: dict[str, Any]) -> str:
         f"- Generated: `{payload['generated_at_utc']}`",
         f"- Git HEAD: `{payload['git_head']}`",
         f"- Source fingerprint: `{payload['source_fingerprint']}`",
-        "- Scenario: normal real-renderer gameplay probe after a two-second warm-up",
+        "- Scenario: normal real-renderer gameplay probe after a two-second "
+        "warm-up, with V-Sync disabled and the QA rate pinned to 60 FPS",
         "",
         "| Profile | FPS | Frame p95 | Frame p99 | Draw p95 | Draw max | Video MiB | Texture MiB |",
         "|---|---:|---:|---:|---:|---:|---:|---:|",
@@ -96,10 +100,10 @@ def markdown_report(payload: dict[str, Any]) -> str:
     lines.extend(
         [
             "",
-            "The renderer remains the v0.7 vector implementation during M0, so "
-            "matching cost is expected. This gate proves explicit profile "
-            "selection, persistence normalization, scene boot, and metrics "
-            "reporting before profile-specific views are introduced.",
+            "The v0.7 vector renderers remain the default M2 route, with "
+            "placeholder baked views disabled unless a QA category flag is "
+            "enabled. This gate proves explicit profile selection, scene "
+            "boot, metrics reporting, and fallback cost stability.",
             "",
         ]
     )

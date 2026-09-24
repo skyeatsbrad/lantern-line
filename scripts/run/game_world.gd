@@ -22,18 +22,24 @@ const DETACH_HOLD_SECONDS: float = 0.85
 const ACCESSIBLE_DETACH_HOLD_SECONDS: float = 0.45
 const VICTORY_REVEAL_SECONDS: float = 4.5
 const DEFEAT_REVEAL_SECONDS: float = 1.6
+const EVENT_PRODUCER_ID: String = "sim.game_world"
 
 var run_state: RunState
 var route_director: RouteDirector
 
 var _world_renderer: WorldRenderer
+var _world_sprite_view: WorldSpriteView
 var _route_projection: RouteProjection
 var _train_renderer: TrainRenderer
+var _train_sprite_view: TrainSpriteView
 var _train_controller: TrainController
 var _pointer_router: PointerRouter
 var _enemy_director: EnemyDirector
+var _enemy_view_pool: EnemyViewPool
 var _longshadow: LongshadowEncounter
+var _longshadow_view: LongshadowView
 var _effects: EffectsLayer
+var _vfx_pool: VfxPool
 var _hud: HUD
 var _route_choice: RouteChoice
 var _station_panel: StationPanel
@@ -42,6 +48,9 @@ var _settings_panel: SettingsPanel
 var _guide_panel: GuidePanel
 var _presentation_director: PresentationDirector
 var _presentation_metrics: PresentationMetrics
+var _presentation_snapshot: PresentationSnapshot
+var _event_bus: PresentationEventBus
+var _presentation_router: PresentationRouter
 
 var _view_size: Vector2 = Vector2(1280, 720)
 var _mode: RunMode = RunMode.TRAVEL
@@ -69,6 +78,16 @@ var _route_context: Dictionary = {
 }
 var _contextual_tutorial_active: bool = false
 var _contextual_tutorial_stage: int = 0
+var _boss_defeat_emitted: bool = false
+var _dawn_arrival_emitted: bool = false
+var _last_route_reveal_sequence: int = 0
+var _last_route_context_id: String = ""
+var _startup_audit_issues: Array[String] = []
+var _current_dawn_progress: float = 0.0
+var _reference_scenario_id: String = ""
+var _reference_frame_label: String = ""
+var _reference_frame_time: float = 0.0
+var _reference_frame_index: int = 0
 
 # Compatibility read-only properties for the v0.1 probes.
 var _reveal_open: bool:
@@ -125,6 +144,32 @@ func bootstrap(run_seed: int, resume: Dictionary) -> void:
 	route_director = RouteDirector.new()
 	route_director.setup(run_state.run_seed, configs["events"], configs["lenses"])
 
+	_presentation_snapshot = PresentationSnapshot.new()
+
+	_event_bus = PresentationEventBus.new()
+	_event_bus.name = "PresentationEventBus"
+	add_child(_event_bus)
+	_event_bus.register_simulation_producer(
+		EVENT_PRODUCER_ID,
+		[
+			SimEvent.TYPE_TRAIN_HIT,
+			SimEvent.TYPE_CAR_HIT,
+			SimEvent.TYPE_CAR_CRITICAL,
+			SimEvent.TYPE_CAR_DESTROYED,
+			SimEvent.TYPE_ROUTE_REVEAL,
+			SimEvent.TYPE_ROUTE_COMMIT,
+			SimEvent.TYPE_STATION_ARRIVAL,
+			SimEvent.TYPE_STATION_DEPARTURE,
+			SimEvent.TYPE_DETACH_RELEASED,
+			SimEvent.TYPE_DAWN_ARRIVAL
+		]
+	)
+
+	_presentation_router = PresentationRouter.new(
+		GameManager.resolved_presentation_profile(),
+		GameManager.presentation_features()
+	)
+
 	_presentation_metrics = PresentationMetrics.new()
 	_presentation_metrics.name = "PresentationMetrics"
 	add_child(_presentation_metrics)
@@ -143,6 +188,10 @@ func bootstrap(run_seed: int, resume: Dictionary) -> void:
 	_world_renderer.set_route_context(_route_context)
 	world_layer.add_child(_world_renderer)
 
+	_world_sprite_view = WorldSpriteView.new()
+	_world_sprite_view.name = "WorldSpriteView"
+	world_layer.add_child(_world_sprite_view)
+
 	_route_projection = RouteProjection.new()
 	_route_projection.setup(
 		_view_size,
@@ -153,6 +202,7 @@ func bootstrap(run_seed: int, resume: Dictionary) -> void:
 
 	_enemy_director = EnemyDirector.new()
 	_enemy_director.setup(run_state, _view_size)
+	_enemy_director.attach_event_bus(_event_bus)
 	_enemy_director.set_world_layout(
 		_view_size,
 		_train_screen_pos,
@@ -161,19 +211,32 @@ func bootstrap(run_seed: int, resume: Dictionary) -> void:
 	_enemy_director.apply_checkpoint_state(world_resume.get("enemy_state", {}))
 	world_layer.add_child(_enemy_director)
 
+	_enemy_view_pool = EnemyViewPool.new()
+	_enemy_view_pool.name = "EnemyViewPool"
+	world_layer.add_child(_enemy_view_pool)
+
 	_train_renderer = TrainRenderer.new()
 	_train_renderer.setup(run_state)
 	_train_renderer.set_layout(_train_screen_pos, _train_visual_scale)
 	world_layer.add_child(_train_renderer)
 
+	_train_sprite_view = TrainSpriteView.new()
+	_train_sprite_view.name = "TrainSpriteView"
+	world_layer.add_child(_train_sprite_view)
+
 	_longshadow = LongshadowEncounter.new()
 	_longshadow.setup(run_state, _view_size, _train_screen_pos)
+	_longshadow.attach_event_bus(_event_bus)
 	_longshadow.set_world_layout(
 		_view_size,
 		_train_screen_pos,
 		_train_visual_scale
 	)
 	world_layer.add_child(_longshadow)
+
+	_longshadow_view = LongshadowView.new()
+	_longshadow_view.name = "LongshadowView"
+	world_layer.add_child(_longshadow_view)
 
 	_train_controller = TrainController.new()
 	_train_controller.set_origin_screen(_train_lamp_position())
@@ -186,6 +249,10 @@ func bootstrap(run_seed: int, resume: Dictionary) -> void:
 	_effects = EffectsLayer.new()
 	_effects.setup(run_state.run_seed)
 	world_layer.add_child(_effects)
+
+	_vfx_pool = VfxPool.new()
+	_vfx_pool.name = "VfxPool"
+	world_layer.add_child(_vfx_pool)
 	_presentation_director.state_changed.connect(
 		_world_renderer.set_presentation_state
 	)
@@ -231,11 +298,19 @@ func bootstrap(run_seed: int, resume: Dictionary) -> void:
 	_guide_panel.anchor_bottom = 1.0
 	ui_layer.add_child(_guide_panel)
 
+	_register_presentation_consumers()
 	_wire_signals()
+	_apply_presentation_router()
+	_startup_audit_issues = _event_bus.run_startup_audit()
+	if not _startup_audit_issues.is_empty():
+		for issue in _startup_audit_issues:
+			push_error("[event_bus] audit: %s" % issue)
 	if not get_viewport().size_changed.is_connected(_on_viewport_size_changed):
 		get_viewport().size_changed.connect(_on_viewport_size_changed)
 	if not GameManager.settings_changed.is_connected(_on_layout_settings_changed):
 		GameManager.settings_changed.connect(_on_layout_settings_changed)
+	if not GameManager.settings_changed.is_connected(_apply_presentation_router):
+		GameManager.settings_changed.connect(_apply_presentation_router)
 	_reveal_timer = maxf(0.0, float(world_resume.get("reveal_timer", REVEAL_INTERVAL)))
 	if run_state.boss_triggered and not run_state.boss_defeated:
 		run_state.distance = minf(run_state.distance, RunState.BOSS_GATE_DISTANCE)
@@ -247,6 +322,7 @@ func bootstrap(run_seed: int, resume: Dictionary) -> void:
 		_station_panel.present(run_state)
 	else:
 		_set_mode(RunMode.TRAVEL)
+	refresh_presentation_now()
 	set_process(true)
 	set_process_input(true)
 	if _contextual_tutorial_active:
@@ -287,6 +363,81 @@ func _refresh_route_context() -> void:
 		return
 
 
+func _register_presentation_consumers() -> void:
+	_event_bus.register_presentation_consumer(
+		EnemyViewPool.CONSUMER_ID,
+		[
+			SimEvent.TYPE_ENEMY_SPAWNED,
+			SimEvent.TYPE_ENEMY_TELEGRAPHED,
+			SimEvent.TYPE_ENEMY_ATTACKED,
+			SimEvent.TYPE_ENEMY_HIT,
+			SimEvent.TYPE_ENEMY_KILLED,
+			SimEvent.TYPE_WARD_FORMED,
+			SimEvent.TYPE_WARD_CRACKED,
+			SimEvent.TYPE_WARD_SHATTERED
+		],
+		_enemy_view_pool.on_sim_event
+	)
+	_event_bus.register_presentation_consumer(
+		"view.longshadow_view",
+		[
+			SimEvent.TYPE_BOSS_PHASE_ENTRY,
+			SimEvent.TYPE_BOSS_RESPONSE,
+			SimEvent.TYPE_BOSS_ATTACK,
+			SimEvent.TYPE_BOSS_DEFEAT
+		],
+		_longshadow_view.on_sim_event
+	)
+	_event_bus.register_presentation_consumer(
+		"view.train_sprite_view",
+		[
+			SimEvent.TYPE_TRAIN_HIT,
+			SimEvent.TYPE_CAR_HIT,
+			SimEvent.TYPE_CAR_CRITICAL,
+			SimEvent.TYPE_CAR_DESTROYED,
+			SimEvent.TYPE_DEFENSE_FIRED,
+			SimEvent.TYPE_DETACH_RELEASED
+		],
+		_train_sprite_view.on_sim_event
+	)
+	_event_bus.register_presentation_consumer(
+		"view.world_sprite_view",
+		[
+			SimEvent.TYPE_ROUTE_REVEAL,
+			SimEvent.TYPE_ROUTE_COMMIT,
+			SimEvent.TYPE_STATION_ARRIVAL,
+			SimEvent.TYPE_STATION_DEPARTURE,
+			SimEvent.TYPE_DAWN_ARRIVAL
+		],
+		_world_sprite_view.on_sim_event
+	)
+	_event_bus.register_presentation_consumer(
+		VfxPool.CONSUMER_ID,
+		[
+			SimEvent.TYPE_TRAIN_HIT,
+			SimEvent.TYPE_CAR_HIT,
+			SimEvent.TYPE_CAR_CRITICAL,
+			SimEvent.TYPE_CAR_DESTROYED,
+			SimEvent.TYPE_DEFENSE_FIRED,
+			SimEvent.TYPE_ENEMY_ATTACKED,
+			SimEvent.TYPE_ENEMY_HIT,
+			SimEvent.TYPE_ENEMY_KILLED,
+			SimEvent.TYPE_WARD_CRACKED,
+			SimEvent.TYPE_WARD_SHATTERED,
+			SimEvent.TYPE_DETACH_RELEASED,
+			SimEvent.TYPE_BOSS_PHASE_ENTRY,
+			SimEvent.TYPE_BOSS_RESPONSE,
+			SimEvent.TYPE_BOSS_ATTACK,
+			SimEvent.TYPE_BOSS_DEFEAT,
+			SimEvent.TYPE_DAWN_ARRIVAL,
+			PresentationEvent.TYPE_CAMERA_IMPULSE,
+			PresentationEvent.TYPE_PARTICLE_BURST,
+			PresentationEvent.TYPE_UI_EMPHASIS
+		],
+		_vfx_pool.on_event
+	)
+
+
 func _wire_signals() -> void:
 	_hud.request_lens.connect(_on_lens)
 	_hud.request_priority.connect(_on_priority_level)
@@ -319,6 +470,9 @@ func _wire_signals() -> void:
 	_enemy_director.active_response.connect(_on_active_response)
 	_enemy_director.enemy_attack_landed.connect(_on_enemy_attack_landed)
 	_enemy_director.pressure_brake_changed.connect(_on_pressure_brake_changed)
+	_enemy_director.simulation_tick_completed.connect(
+		_on_enemy_simulation_tick_completed
+	)
 	_longshadow.phase_changed.connect(_on_boss_phase_changed)
 	_longshadow.attack_landed.connect(_on_boss_attack)
 	_longshadow.defeated.connect(_on_boss_defeated)
@@ -394,6 +548,10 @@ func _update_aim() -> void:
 		_train_controller.aim_towards(aim_position)
 
 
+func _on_enemy_simulation_tick_completed() -> void:
+	_update_presentation_snapshot(_current_dawn_progress)
+
+
 func _update_presentational_state() -> void:
 	_refresh_world_layout()
 	if (
@@ -430,7 +588,24 @@ func _update_presentational_state() -> void:
 		if run_state.boss_defeated
 		else 0.0
 	)
+	_current_dawn_progress = dawn_progress
 	_effects.set_dawn_progress(dawn_progress)
+	if (
+		run_state.boss_defeated
+		and not _dawn_arrival_emitted
+		and dawn_progress > 0.0
+	):
+		_dawn_arrival_emitted = true
+		_emit_sim_event(
+			SimEvent.TYPE_DAWN_ARRIVAL,
+			"sim.game_world",
+			VisualStateIds.TRAIN_LOCOMOTIVE,
+			_train_screen_pos,
+			Vector2.RIGHT,
+			dawn_progress,
+			&"dawn",
+			{"distance": run_state.distance}
+		)
 	_presentation_director.update_state(
 		_mode_name(),
 		_enemy_director.active_count(),
@@ -446,6 +621,245 @@ func _update_presentational_state() -> void:
 		_hud.set_boss_status(_longshadow.status_text(), _longshadow.health_ratio())
 	else:
 		_hud.set_boss_status("")
+
+
+func _update_presentation_snapshot(dawn_progress: float) -> void:
+	if _presentation_snapshot == null:
+		return
+	_presentation_snapshot.begin_frame()
+	_presentation_snapshot.elapsed = run_state.travel_time
+	_presentation_snapshot.simulation_time = run_state.travel_time
+	_presentation_snapshot.enemy_elapsed = _enemy_director.elapsed_time()
+	_presentation_snapshot.view_size = _view_size
+	_presentation_snapshot.train_position = _train_screen_pos
+	_presentation_snapshot.train_scale = _train_visual_scale
+	_presentation_snapshot.train_stable_id = VisualStateIds.TRAIN_LOCOMOTIVE
+	_presentation_snapshot.train_max_hp = run_state.locomotive_max_hp
+	_presentation_snapshot.train_hp_ratio = clampf(
+		run_state.locomotive_hp / maxf(1.0, run_state.locomotive_max_hp),
+		0.0,
+		1.0
+	)
+	_presentation_snapshot.distance = run_state.distance
+	_presentation_snapshot.distance_ratio = clampf(
+		run_state.distance / RunState.JOURNEY_TARGET, 0.0, 1.0
+	)
+	_presentation_snapshot.current_lens = run_state.current_lens
+	_presentation_snapshot.dawn_progress = dawn_progress
+	_presentation_snapshot.tension = float(
+		_presentation_director.snapshot().get("tension", 0.0)
+	)
+	_presentation_snapshot.mode_name = _mode_name()
+	_presentation_snapshot.boss_phase_name = (
+		_longshadow.phase_name() if _longshadow.is_active() else ""
+	)
+	_presentation_snapshot.reduced_motion = bool(
+		GameManager.get_setting("reduced_motion", false)
+	)
+	_presentation_snapshot.reduced_flashes = bool(
+		GameManager.get_setting("reduced_flashes", false)
+	)
+	_presentation_snapshot.high_contrast = bool(
+		GameManager.get_setting("high_contrast", false)
+	)
+	_presentation_snapshot.simulation_paused = run_state.is_simulation_paused()
+	_presentation_snapshot.reference_scenario_id = _reference_scenario_id
+	_presentation_snapshot.reference_frame_label = _reference_frame_label
+	_presentation_snapshot.reference_frame_time = _reference_frame_time
+	_presentation_snapshot.reference_frame_index = _reference_frame_index
+	_presentation_snapshot.set_route_context(_route_context)
+	for car_variant in run_state.cars:
+		var car: Dictionary = car_variant
+		var car_state: CarViewState = _presentation_snapshot.acquire_car_state()
+		car_state.populate(car)
+	if _light_profile != null:
+		_presentation_snapshot.light_origin = _light_profile.origin
+		_presentation_snapshot.light_direction = _light_profile.direction
+		_presentation_snapshot.light_range = _light_profile.range_px
+		_presentation_snapshot.light_spread = _light_profile.spread_radians
+		_presentation_snapshot.light_focused = _light_profile.focused
+		_presentation_snapshot.light_intensity = _light_profile.intensity
+		_presentation_snapshot.light_damage_multiplier = _light_profile.damage_multiplier
+	_enemy_director.write_snapshot(_presentation_snapshot)
+	_longshadow.write_snapshot(_presentation_snapshot)
+	if _enemy_view_pool != null:
+		_enemy_view_pool.update_snapshot(_presentation_snapshot)
+	if _longshadow_view != null:
+		_longshadow_view.update_snapshot(_presentation_snapshot)
+	if _train_sprite_view != null:
+		_train_sprite_view.update_snapshot(_presentation_snapshot)
+	if _world_sprite_view != null:
+		_world_sprite_view.update_snapshot(_presentation_snapshot)
+	if _vfx_pool != null:
+		_vfx_pool.update_snapshot(_presentation_snapshot)
+
+
+func _apply_presentation_router() -> void:
+	if _presentation_router == null:
+		return
+	var profile: String = GameManager.resolved_presentation_profile()
+	var features: Dictionary = GameManager.presentation_features()
+	_presentation_router.apply_profile(profile, features)
+	var vector_fallback: bool = _presentation_router.is_vector_fallback()
+	var effects_baked: bool = _presentation_router.is_category_baked(
+		PresentationRouter.CATEGORY_EFFECTS
+	)
+	# Fallback renderers stay visible unless a category is toggled to baked.
+	if is_instance_valid(_world_renderer):
+		_world_renderer.visible = not _presentation_router.is_category_baked(
+			PresentationRouter.CATEGORY_WORLD
+		)
+	if is_instance_valid(_train_renderer):
+		_train_renderer.visible = not _presentation_router.is_category_baked(
+			PresentationRouter.CATEGORY_TRAIN
+		)
+	# Enemy and Longshadow vector paths always route through the view pool;
+	# the pool switches its own draw path when baked is on.
+	if is_instance_valid(_enemy_view_pool):
+		_enemy_view_pool.apply_profile(profile, features)
+		_enemy_view_pool.set_baked_enabled(
+			_presentation_router.is_category_baked(
+				PresentationRouter.CATEGORY_ENEMIES
+			)
+		)
+	if is_instance_valid(_longshadow_view):
+		_longshadow_view.apply_profile(profile, features)
+		_longshadow_view.set_baked_enabled(
+			_presentation_router.is_category_baked(
+				PresentationRouter.CATEGORY_LONGSHADOW
+			)
+		)
+	if is_instance_valid(_train_sprite_view):
+		_train_sprite_view.apply_profile(profile, features)
+		_train_sprite_view.set_baked_enabled(
+			_presentation_router.is_category_baked(
+				PresentationRouter.CATEGORY_TRAIN
+			)
+		)
+	if is_instance_valid(_world_sprite_view):
+		_world_sprite_view.apply_profile(profile, features)
+		_world_sprite_view.set_baked_enabled(
+			_presentation_router.is_category_baked(
+				PresentationRouter.CATEGORY_WORLD
+			)
+		)
+	if is_instance_valid(_effects):
+		_effects.visible = not effects_baked
+	if is_instance_valid(_vfx_pool):
+		_vfx_pool.apply_profile(profile, features)
+		_vfx_pool.set_baked_enabled(effects_baked)
+	if vector_fallback:
+		# Vector fallback is a hard rollback: force all baked flags off.
+		if is_instance_valid(_world_renderer):
+			_world_renderer.visible = true
+		if is_instance_valid(_train_renderer):
+			_train_renderer.visible = true
+		if is_instance_valid(_effects):
+			_effects.visible = true
+		if is_instance_valid(_vfx_pool):
+			_vfx_pool.set_baked_enabled(false)
+
+
+func presentation_snapshot() -> PresentationSnapshot:
+	return _presentation_snapshot
+
+
+func presentation_router() -> PresentationRouter:
+	return _presentation_router
+
+
+func event_bus() -> PresentationEventBus:
+	return _event_bus
+
+
+func _emit_sim_event(
+	type: StringName,
+	source_id: String,
+	target_id: String,
+	position: Vector2,
+	direction: Vector2,
+	strength: float,
+	material: StringName,
+	payload: Dictionary
+) -> int:
+	if _event_bus == null or run_state == null:
+		return 0
+	return _event_bus.emit_sim(
+		EVENT_PRODUCER_ID,
+		type,
+		source_id,
+		target_id,
+		run_state.travel_time,
+		position,
+		direction,
+		strength,
+		material,
+		payload
+	)
+
+
+func startup_audit_issues() -> Array[String]:
+	return _startup_audit_issues.duplicate()
+
+
+func refresh_presentation_now() -> void:
+	# Public entry point used by runtime probes and QA tooling that stop the
+	# game world tick after preparing a scenario but still need one snapshot
+	# update so views can draw.
+	if run_state == null:
+		return
+	_refresh_world_layout()
+	_light_profile = LightProfile.build(
+		run_state,
+		run_state.stats(),
+		_train_controller.light_direction if is_instance_valid(_train_controller) else Vector2.RIGHT,
+		_train_lamp_position()
+	)
+	if is_instance_valid(_world_renderer):
+		_world_renderer.update_state(
+			run_state.distance,
+			_light_profile,
+			_train_screen_pos
+		)
+	if is_instance_valid(_enemy_director):
+		_enemy_director.set_light_profile(_light_profile)
+	var dawn_progress: float = 0.0
+	if run_state.boss_defeated:
+		dawn_progress = clampf(
+			(run_state.distance - RunState.BOSS_GATE_DISTANCE)
+			/ (RunState.JOURNEY_TARGET - RunState.BOSS_GATE_DISTANCE),
+			0.0,
+			1.0
+		)
+	_current_dawn_progress = dawn_progress
+	_update_presentation_snapshot(dawn_progress)
+
+
+func set_reference_capture_frame(
+	scenario_id: String,
+	frame_label: String,
+	frame_time: float,
+	frame_index: int
+) -> void:
+	_reference_scenario_id = scenario_id
+	_reference_frame_label = frame_label
+	_reference_frame_time = maxf(0.0, frame_time)
+	_reference_frame_index = maxi(0, frame_index)
+	set_reference_capture_state(true, _reference_frame_time)
+	refresh_presentation_now()
+
+
+func set_reference_capture_state(enabled: bool, frame_time: float) -> void:
+	if is_instance_valid(_world_renderer):
+		_world_renderer.set_reference_capture_state(enabled, frame_time)
+	if is_instance_valid(_train_renderer):
+		_train_renderer.set_reference_capture_state(enabled, frame_time)
+	if is_instance_valid(_hud):
+		_hud.set_reference_capture_state(enabled, frame_time)
+	if is_instance_valid(_effects):
+		_effects.set_reference_capture_state(enabled, frame_time)
+	if is_instance_valid(_vfx_pool):
+		_vfx_pool.set_reference_capture_state(enabled, frame_time)
 
 
 func _compute_world_layout() -> void:
@@ -596,6 +1010,29 @@ func _open_reveal() -> void:
 		int(run_state.scrap)
 	)
 	_route_choice.set_selected_index(selected_index)
+	if _event_bus != null:
+		var reveal_payload: Dictionary = {
+			"reveal_index": run_state.reveal_index,
+			"reroll_index": _route_reroll_index,
+			"choice_ids": []
+		}
+		for choice_variant in choices:
+			var choice: Dictionary = choice_variant
+			(reveal_payload["choice_ids"] as Array).append(
+				String(choice.get("id", ""))
+			)
+		var reveal_sequence: int = _emit_sim_event(
+			SimEvent.TYPE_ROUTE_REVEAL,
+			"sim.game_world",
+			"",
+			_train_screen_pos,
+			Vector2.RIGHT,
+			float(choices.size()),
+			&"route",
+			reveal_payload
+		)
+		if reveal_sequence > 0:
+			_last_route_reveal_sequence = reveal_sequence
 
 
 func _generate_route_choices() -> Array:
@@ -617,6 +1054,17 @@ func _open_station() -> void:
 	_set_mode(RunMode.STATION)
 	_station_panel.present(run_state)
 	_hud.flash("STATION AHEAD", 2.0)
+	if _event_bus != null:
+		_emit_sim_event(
+			SimEvent.TYPE_STATION_ARRIVAL,
+			"sim.game_world",
+			"",
+			_train_screen_pos,
+			Vector2.RIGHT,
+			run_state.distance,
+			&"station",
+			{"distance": run_state.distance}
+		)
 
 
 func _start_boss() -> void:
@@ -645,6 +1093,23 @@ func _on_route_chosen(event: Dictionary) -> void:
 	_reveal_timer = REVEAL_INTERVAL
 	_route_commit_pending = true
 	_hud.flash("Route chosen: %s" % String(event.get("title", "?")))
+	if _event_bus != null:
+		var event_id: String = String(event.get("id", ""))
+		_emit_sim_event(
+			SimEvent.TYPE_ROUTE_COMMIT,
+			"sim.game_world",
+			VisualStateIds.world_context(String(event.get("category", "neutral"))),
+			_train_screen_pos,
+			Vector2.RIGHT,
+			float(danger),
+			&"route",
+			{
+				"event_id": event_id,
+				"category": String(event.get("category", "neutral")),
+				"danger": danger,
+				"title": String(event.get("title", ""))
+			}
+		)
 
 
 func _on_route_reroll() -> void:
@@ -698,6 +1163,17 @@ func _on_station_closed() -> void:
 	run_state.station_completed = true
 	_set_mode(RunMode.TRAVEL)
 	_save_checkpoint()
+	if _event_bus != null:
+		_emit_sim_event(
+			SimEvent.TYPE_STATION_DEPARTURE,
+			"sim.game_world",
+			"",
+			_train_screen_pos,
+			Vector2.RIGHT,
+			run_state.scrap,
+			&"station",
+			{"cars": run_state.cars.size()}
+		)
 
 
 func _on_lens(name: String) -> void:
@@ -967,6 +1443,22 @@ func _on_detach() -> void:
 	if not lost_crew.is_empty():
 		message += " | Lost: %s" % ", ".join(PackedStringArray(lost_crew))
 	_hud.flash(message, 3.0)
+	if _event_bus != null:
+		var car_id: String = String(rear.get("car_id", rear.get("id", "")))
+		_emit_sim_event(
+			SimEvent.TYPE_DETACH_RELEASED,
+			"sim.game_world",
+			VisualStateIds.car(car_id),
+			detached_position,
+			Vector2.LEFT,
+			detach_stats.detach_boost_duration,
+			&"coupling",
+			{
+				"car_id": car_id,
+				"display": String(rear.get("display", rear.get("type", "car"))),
+				"lost_crew": lost_crew.duplicate()
+			}
+		)
 
 
 func _on_enemy_killed(kind: String, _value: int) -> void:
@@ -1059,13 +1551,24 @@ func _on_car_destroyed(display_name: String, evacuated_names: Array) -> void:
 	_effects.request_shake(9.0)
 	_effects.request_flash(Color(0.95, 0.18, 0.12, 0.34), 0.6)
 	AudioManager.play_spatial("detach", -0.58)
+	if _event_bus != null:
+		_emit_sim_event(
+			SimEvent.TYPE_CAR_DESTROYED,
+			"sim.run_state",
+			"",
+			_train_screen_pos,
+			Vector2.LEFT,
+			0.0,
+			&"steel",
+			{"display": display_name, "evacuated": evacuated_names.duplicate()}
+		)
 
 
 func _on_car_damaged(
 	car_id: String,
 	_display_name: String,
-	_hp: float,
-	_max_hp: float,
+	hp: float,
+	max_hp: float,
 	index: int
 ) -> void:
 	_train_renderer.flash_car(car_id)
@@ -1073,6 +1576,17 @@ func _on_car_damaged(
 		_train_renderer.car_screen_center(index),
 		PresentationPalette.color(&"flame", UITheme.high_contrast())
 	)
+	if _event_bus != null:
+		_emit_sim_event(
+			SimEvent.TYPE_CAR_HIT,
+			"sim.run_state",
+			VisualStateIds.car(car_id),
+			_train_renderer.car_screen_center(index),
+			Vector2.LEFT,
+			maxf(0.0, max_hp - hp),
+			&"steel",
+			{"car_id": car_id, "hp": hp, "max_hp": max_hp, "index": index}
+		)
 
 
 func _on_car_critical(car_id: String, display_name: String, index: int) -> void:
@@ -1093,10 +1607,32 @@ func _on_car_critical(car_id: String, display_name: String, index: int) -> void:
 	)
 	_effects.request_shake(7.0)
 	AudioManager.play("alarm")
+	if _event_bus != null:
+		_emit_sim_event(
+			SimEvent.TYPE_CAR_CRITICAL,
+			"sim.run_state",
+			VisualStateIds.car(car_id),
+			_train_renderer.car_screen_center(index),
+			Vector2.LEFT,
+			0.0,
+			&"steel",
+			{"car_id": car_id, "display": display_name, "index": index}
+		)
 
 
 func _on_locomotive_damaged(hp: float) -> void:
 	var ratio: float = hp / maxf(1.0, run_state.locomotive_max_hp)
+	if _event_bus != null:
+		_emit_sim_event(
+			SimEvent.TYPE_TRAIN_HIT,
+			"sim.run_state",
+			VisualStateIds.TRAIN_LOCOMOTIVE,
+			_train_screen_pos,
+			Vector2.LEFT,
+			maxf(0.0, run_state.locomotive_max_hp - hp),
+			&"steel",
+			{"hp": hp, "hp_ratio": ratio}
+		)
 	if ratio > 0.3 or _locomotive_critical_notified:
 		return
 	_locomotive_critical_notified = true

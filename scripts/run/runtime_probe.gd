@@ -4,6 +4,11 @@ extends Node
 ## Boots into a real game_world for ~8 seconds, then quits.
 ## Exercises the actual scene tree, tick loop, spawn, aim, HUD wiring.
 
+const REFERENCE_SIM_PRODUCER_ID: String = "qa.reference_scenario.sim"
+const REFERENCE_PRESENTATION_PRODUCER_ID: String = (
+	"qa.reference_scenario.presentation"
+)
+
 var _elapsed: float = 0.0
 var _duration: float = 8.0
 var _saw_enemies: bool = false
@@ -33,6 +38,17 @@ var _audio_stage: int = 0
 var _audio_max_voices: int = 0
 var _audio_max_music_players: int = 0
 var _audio_saw_crossfade: bool = false
+var _reference_scenario_id: String = ""
+var _reference_scenario_prepared: bool = false
+var _reference_scenario_receipt: Dictionary = {}
+var _reference_scenario_a_b: String = "vector"
+var _reference_capture_points: Array[Dictionary] = []
+var _reference_scenario_started_at: float = 0.0
+var _reference_capture_index: int = 0
+var _reference_capture_busy: bool = false
+var _reference_capture_paths: Array[String] = []
+var _reference_capture_pixel_hashes: Array[String] = []
+var _reference_capture_error: Error = OK
 
 
 func _ready() -> void:
@@ -48,6 +64,26 @@ func _ready() -> void:
 			PresentationProfile.normalize(requested_profile)
 		)
 		GameManager.emit_signal("settings_changed")
+	var requested_scenario: String = OS.get_environment(
+		"LANTERN_REFERENCE_SCENARIO"
+	).strip_edges().to_lower()
+	if requested_scenario.is_empty():
+		requested_scenario = WebRuntimeQuery.environment_or_benchmark_parameter(
+			"LANTERN_REFERENCE_SCENARIO",
+			"scenario"
+		).to_lower()
+	if not requested_scenario.is_empty() and ReferenceScenarios.is_valid(requested_scenario):
+		_reference_scenario_id = requested_scenario
+		var ab: String = OS.get_environment(
+			"LANTERN_REFERENCE_SCENARIO_AB"
+		).strip_edges().to_lower()
+		if ab.is_empty():
+			ab = WebRuntimeQuery.environment_or_benchmark_parameter(
+				"LANTERN_REFERENCE_SCENARIO_AB",
+				"ab"
+			).to_lower()
+		_reference_scenario_a_b = "baked" if ab == "baked" else "vector"
+		_duration = 3.2
 	if not OS.get_environment("LANTERN_CAPTURE_TRAIN_SHOWCASE").is_empty():
 		_showcase_mode = "train"
 	elif not OS.get_environment("LANTERN_CAPTURE_ROUTE_SHOWCASE").is_empty():
@@ -219,6 +255,8 @@ func _maybe_bootstrap() -> void:
 			_prepare_audio_benchmark()
 		elif _benchmark_mode == "visual":
 			_prepare_visual_benchmark()
+		if not _reference_scenario_id.is_empty():
+			_prepare_reference_scenario()
 		if "run_state" in _game_world:
 			var prepared_state: RunState = _game_world.get("run_state") as RunState
 			if prepared_state != null:
@@ -229,6 +267,9 @@ func _process(delta: float) -> void:
 	if not _bootstrapped:
 		return
 	_elapsed += delta
+	if not _reference_scenario_id.is_empty():
+		_process_reference_scenario()
+		return
 	if not _showcase_mode.is_empty():
 		var showcase_path: String = _showcase_path()
 		if not _capture_requested and _elapsed > 0.8:
@@ -414,6 +455,7 @@ func _prepare_train_showcase() -> void:
 		controller.aim_towards(Vector2(view_size.x, train_pos.y - 20.0))
 	if train != null:
 		train.queue_redraw()
+	_game_world.call("refresh_presentation_now")
 	_game_world.set_process(false)
 
 
@@ -467,6 +509,7 @@ func _prepare_max_consist_showcase() -> void:
 		})
 	_game_world.call("_refresh_world_layout", true)
 	_game_world.call("_update_presentational_state")
+	_game_world.call("refresh_presentation_now")
 	_game_world.set_process(false)
 
 
@@ -533,6 +576,7 @@ func _prepare_route_ui_showcase() -> void:
 		longshadow.visible = false
 	_game_world.call("_set_mode", 1)
 	_game_world.call("_update_presentational_state")
+	_game_world.call("refresh_presentation_now")
 	_game_world.set_process(false)
 
 
@@ -553,6 +597,7 @@ func _prepare_station_ui_showcase() -> void:
 		panel.present(rs)
 	_game_world.call("_set_mode", 2)
 	_game_world.call("_update_presentational_state")
+	_game_world.call("refresh_presentation_now")
 	_game_world.set_process(false)
 
 
@@ -611,6 +656,7 @@ func _prepare_ending_showcase(victory: bool) -> void:
 		effects.set_dawn_progress(1.0 if victory else 0.0)
 	_game_world.call("_set_mode", 4)
 	_game_world.call("_update_presentational_state")
+	_game_world.call("refresh_presentation_now")
 	_game_world.set_process(false)
 
 
@@ -653,6 +699,7 @@ func _prepare_boss_banner_showcase() -> void:
 	})
 	_game_world.call("_set_mode", 3)
 	_game_world.call("_update_presentational_state")
+	_game_world.call("refresh_presentation_now")
 	_game_world.set_process(false)
 	longshadow.queue_redraw()
 
@@ -788,6 +835,7 @@ func _prepare_combat_showcase() -> void:
 		)
 		effects.set_process(false)
 		effects.queue_redraw()
+	_game_world.call("refresh_presentation_now")
 	_game_world.set_process(false)
 
 
@@ -1062,8 +1110,863 @@ func _prepare_boss_showcase() -> void:
 			"danger": 2
 		})
 	_game_world.call("_update_presentational_state")
+	_game_world.call("refresh_presentation_now")
 	_game_world.set_process(false)
 	longshadow.queue_redraw()
+
+
+func _prepare_reference_scenario() -> void:
+	if _game_world == null:
+		return
+	var rs: RunState = _game_world.get("run_state") as RunState
+	if rs == null:
+		return
+	rs.simulation_enabled = false
+	# A/B routing: honour the requested renderer.
+	var router: PresentationRouter = (
+		_game_world.call("presentation_router") as PresentationRouter
+	)
+	if router != null:
+		for category in PresentationRouter.ALL_CATEGORIES:
+			router.set_category_enabled(category, _reference_scenario_a_b == "baked")
+		_game_world.call("_apply_presentation_router")
+	_game_world.call("set_reference_capture_state", true, 0.0)
+	_register_reference_event_producers()
+	match _reference_scenario_id:
+		ReferenceScenarios.SCENARIO_HEADLIGHT_REVEAL:
+			_prepare_scenario_headlight_reveal(rs)
+		ReferenceScenarios.SCENARIO_STANDARD_DEFENSE:
+			_prepare_scenario_standard_defense(rs)
+		ReferenceScenarios.SCENARIO_HEAVY_CANNON:
+			_prepare_scenario_heavy_cannon(rs)
+		ReferenceScenarios.SCENARIO_FLAK:
+			_prepare_scenario_flak(rs)
+		ReferenceScenarios.SCENARIO_FOCUS:
+			_prepare_scenario_focus(rs)
+		ReferenceScenarios.SCENARIO_WARD_SHATTER:
+			_prepare_scenario_ward_shatter(rs)
+		ReferenceScenarios.SCENARIO_REPAIR:
+			_prepare_scenario_repair(rs)
+		ReferenceScenarios.SCENARIO_DETACHMENT:
+			_prepare_scenario_detachment(rs)
+		ReferenceScenarios.SCENARIO_LONGSHADOW_VEIL:
+			_prepare_scenario_longshadow_phase(rs, LongshadowEncounter.Phase.VEIL)
+		ReferenceScenarios.SCENARIO_LONGSHADOW_TETHER:
+			_prepare_scenario_longshadow_phase(rs, LongshadowEncounter.Phase.TETHER)
+		ReferenceScenarios.SCENARIO_LONGSHADOW_CHARGE:
+			_prepare_scenario_longshadow_phase(rs, LongshadowEncounter.Phase.CHARGE)
+		ReferenceScenarios.SCENARIO_DAWN:
+			_prepare_scenario_dawn(rs)
+	_game_world.call("_update_presentational_state")
+	_game_world.call("refresh_presentation_now")
+	_reference_capture_points = ReferenceScenarios.capture_points(
+		_reference_scenario_id
+	)
+	_reference_scenario_started_at = _elapsed
+	_reference_capture_index = 0
+	_reference_capture_busy = false
+	_reference_capture_paths.clear()
+	_reference_capture_pixel_hashes.clear()
+	_reference_capture_error = OK
+	if not _reference_capture_points.is_empty():
+		var first_point: Dictionary = _reference_capture_points[0]
+		_game_world.call(
+			"set_reference_capture_frame",
+			_reference_scenario_id,
+			String(first_point.get("label", "start")),
+			float(first_point.get("time", 0.0)),
+			0
+		)
+	var director: EnemyDirector = (
+		_game_world.get("_enemy_director") as EnemyDirector
+	)
+	if director != null:
+		director.set_process(false)
+	_game_world.set_process(false)
+	_reference_scenario_prepared = true
+	_reference_scenario_receipt = _build_scenario_receipt(rs)
+	print(
+		"[scenario] scenario_json ",
+		JSON.stringify(_reference_scenario_receipt)
+	)
+
+
+func _process_reference_scenario() -> void:
+	var capture_path: String = OS.get_environment(
+		"LANTERN_REFERENCE_SCENARIO_CAPTURE"
+	)
+	if not capture_path.is_empty():
+		_capture_requested = true
+		if _reference_capture_error != OK:
+			_finish(
+				10,
+				"[probe] scenario %s frame sequence failed error=%s" % [
+					_reference_scenario_id,
+					_reference_capture_error
+				],
+				true
+			)
+			return
+		if (
+			not _reference_capture_busy
+			and _reference_capture_index < _reference_capture_points.size()
+		):
+			var point: Dictionary = _reference_capture_points[
+				_reference_capture_index
+			]
+			var point_time: float = float(point.get("time", 0.0))
+			if _elapsed - _reference_scenario_started_at >= point_time:
+				var label: String = String(
+					point.get("label", "frame")
+				)
+				_apply_reference_capture_point(
+					_reference_capture_index,
+					point
+				)
+				_game_world.call(
+					"set_reference_capture_frame",
+					_reference_scenario_id,
+					label,
+					point_time,
+					_reference_capture_index
+				)
+				var frame_path: String = _reference_capture_path(
+					capture_path,
+					_reference_capture_index,
+					label
+				)
+				_reference_capture_busy = true
+				call_deferred(
+					"_capture_reference_frame",
+					frame_path,
+					_reference_capture_index,
+					label
+				)
+				return
+		if (
+			not _reference_capture_busy
+			and _reference_capture_index >= _reference_capture_points.size()
+		):
+			_capture_complete = true
+			var final_rs: RunState = (
+				_game_world.get("run_state") as RunState
+			)
+			print(
+				"[scenario] capture_json ",
+				JSON.stringify({
+					"id": _reference_scenario_id,
+					"ab_variant": _reference_scenario_a_b,
+					"paths": _reference_capture_paths,
+					"pixel_hashes": _reference_capture_pixel_hashes,
+					"capture_points": _reference_capture_points,
+					"final_receipt": (
+						_build_scenario_receipt(final_rs)
+						if final_rs != null
+						else {}
+					)
+				})
+			)
+			_finish(
+				0,
+				"[probe] scenario %s frame sequence captured"
+				% _reference_scenario_id
+			)
+			return
+		var last_time: float = (
+			float(
+				_reference_capture_points[
+					_reference_capture_points.size() - 1
+				].get("time", 0.0)
+			)
+			if not _reference_capture_points.is_empty()
+			else 0.0
+		)
+		if _elapsed - _reference_scenario_started_at > last_time + 5.0:
+			_finish(
+				10,
+				"[probe] scenario %s frame sequence timed out"
+				% _reference_scenario_id,
+				true
+			)
+			return
+		return
+	if _elapsed - _reference_scenario_started_at >= _duration:
+		_finish(0, "[probe] scenario %s ok" % _reference_scenario_id)
+
+
+func _build_scenario_receipt(rs: RunState) -> Dictionary:
+	var receipt: Dictionary = {
+		"id": _reference_scenario_id,
+		"title": ReferenceScenarios.title(_reference_scenario_id),
+		"category": ReferenceScenarios.category(_reference_scenario_id),
+		"ab_variant": _reference_scenario_a_b,
+		"profile": GameManager.resolved_presentation_profile(),
+		"capture_points": ReferenceScenarios.capture_points(
+			_reference_scenario_id
+		),
+		"train_hp_ratio": (
+			rs.locomotive_hp / maxf(1.0, rs.locomotive_max_hp)
+		),
+		"cars": rs.cars.size(),
+		"stable_ids": {}
+	}
+	var stable_ids: Dictionary = receipt["stable_ids"]
+	stable_ids["train"] = VisualStateIds.TRAIN_LOCOMOTIVE
+	stable_ids["world_root"] = VisualStateIds.WORLD_ROOT
+	stable_ids["longshadow_root"] = VisualStateIds.LONGSHADOW_ROOT
+	var car_ids: Array = []
+	for car_variant in rs.cars:
+		var car: Dictionary = car_variant
+		car_ids.append(VisualStateIds.car(String(car.get("id", ""))))
+	stable_ids["cars"] = car_ids
+	var director: EnemyDirector = (
+		_game_world.get("_enemy_director") as EnemyDirector
+	)
+	if director != null:
+		var enemy_ids: Array = []
+		for enemy_variant in director.active_enemies():
+			var enemy: Enemy = enemy_variant
+			enemy_ids.append(enemy.stable_id())
+		stable_ids["enemies"] = enemy_ids
+	var longshadow: LongshadowEncounter = (
+		_game_world.get("_longshadow") as LongshadowEncounter
+	)
+	if longshadow != null and longshadow.is_active():
+		stable_ids["longshadow_phase"] = VisualStateIds.longshadow_phase(
+			longshadow.phase_index()
+		)
+	var router: PresentationRouter = (
+		_game_world.call("presentation_router") as PresentationRouter
+	)
+	if router != null:
+		receipt["router"] = router.category_snapshot()
+	var world_renderer: WorldRenderer = (
+		_game_world.get("_world_renderer") as WorldRenderer
+	)
+	var world_view: WorldSpriteView = (
+		_game_world.get("_world_sprite_view") as WorldSpriteView
+	)
+	var train_renderer: TrainRenderer = (
+		_game_world.get("_train_renderer") as TrainRenderer
+	)
+	var train_view: TrainSpriteView = (
+		_game_world.get("_train_sprite_view") as TrainSpriteView
+	)
+	var enemy_view: EnemyViewPool = (
+		_game_world.get("_enemy_view_pool") as EnemyViewPool
+	)
+	var boss_view: LongshadowView = (
+		_game_world.get("_longshadow_view") as LongshadowView
+	)
+	var effects: EffectsLayer = (
+		_game_world.get("_effects") as EffectsLayer
+	)
+	var vfx: VfxPool = _game_world.get("_vfx_pool") as VfxPool
+	receipt["view_routes"] = {
+		"world_vector": world_renderer != null and world_renderer.visible,
+		"world_baked": world_view != null and world_view.baked_enabled(),
+		"train_vector": train_renderer != null and train_renderer.visible,
+		"train_baked": train_view != null and train_view.baked_enabled(),
+		"enemies_baked": enemy_view != null and enemy_view.baked_enabled(),
+		"longshadow_baked": boss_view != null and boss_view.baked_enabled(),
+		"effects_vector": effects != null and effects.visible,
+		"effects_baked": vfx != null and vfx.baked_enabled()
+	}
+	return receipt
+
+
+func reference_scenario_receipt() -> Dictionary:
+	return _reference_scenario_receipt.duplicate(true)
+
+
+func _register_reference_event_producers() -> void:
+	var bus: PresentationEventBus = (
+		_game_world.call("event_bus") as PresentationEventBus
+	)
+	if bus == null:
+		return
+	bus.register_simulation_producer(
+		REFERENCE_SIM_PRODUCER_ID,
+		[
+			SimEvent.TYPE_ENEMY_TELEGRAPHED,
+			SimEvent.TYPE_DEFENSE_FIRED,
+			SimEvent.TYPE_ENEMY_HIT,
+			SimEvent.TYPE_WARD_CRACKED,
+			SimEvent.TYPE_WARD_SHATTERED,
+			SimEvent.TYPE_BOSS_RESPONSE,
+			SimEvent.TYPE_DAWN_ARRIVAL
+		]
+	)
+	bus.register_presentation_producer(
+		REFERENCE_PRESENTATION_PRODUCER_ID,
+		[
+			PresentationEvent.TYPE_PARTICLE_BURST,
+			PresentationEvent.TYPE_UI_EMPHASIS
+		]
+	)
+	var issues: Array[String] = bus.run_startup_audit()
+	for issue in issues:
+		push_error("[scenario] event audit: %s" % issue)
+
+
+func _apply_reference_capture_point(
+	frame_index: int,
+	point: Dictionary
+) -> void:
+	var rs: RunState = _game_world.get("run_state") as RunState
+	if rs == null:
+		return
+	var progress: float = float(frame_index) / 3.0
+	var point_time: float = float(point.get("time", 0.0))
+	var train_pos: Vector2 = _place_train_at_reference()
+	var effects: EffectsLayer = _game_world.get("_effects") as EffectsLayer
+	var enemy: Enemy = _reference_enemy()
+	match _reference_scenario_id:
+		ReferenceScenarios.SCENARIO_HEADLIGHT_REVEAL:
+			if enemy != null:
+				var view_size: Vector2 = get_viewport().get_visible_rect().size
+				enemy.position = Vector2(
+					lerpf(view_size.x * 0.8, view_size.x * 0.58, progress),
+					train_pos.y + lerpf(120.0, -8.0, progress)
+				)
+				var controller: TrainController = (
+					_game_world.get("_train_controller") as TrainController
+				)
+				if controller != null:
+					controller.aim_towards(
+						train_pos
+						+ Vector2(620.0, lerpf(-170.0, -8.0, progress))
+					)
+				if frame_index > 0:
+					_emit_reference_sim(
+						SimEvent.TYPE_ENEMY_TELEGRAPHED,
+						enemy.stable_id(),
+						"",
+						point_time,
+						enemy.position,
+						Vector2.LEFT,
+						4.0 + float(frame_index),
+						&"light"
+					)
+		ReferenceScenarios.SCENARIO_STANDARD_DEFENSE, \
+		ReferenceScenarios.SCENARIO_HEAVY_CANNON, \
+		ReferenceScenarios.SCENARIO_FLAK:
+			if enemy != null:
+				enemy.hp = maxf(
+					1.0,
+					enemy.max_hp * (1.0 - progress * 0.78)
+				)
+				enemy.position.x += float(frame_index) * 4.0
+				var source: Vector2 = _defense_source_position(rs)
+				if frame_index == 1:
+					if effects != null:
+						effects.add_tracer(source, enemy.position)
+					_emit_reference_sim(
+						SimEvent.TYPE_DEFENSE_FIRED,
+						"defense:reference",
+						enemy.stable_id(),
+						point_time,
+						source,
+						(enemy.position - source).normalized(),
+						8.0 + float(frame_index) * 3.0,
+						&"muzzle"
+					)
+				elif frame_index >= 2:
+					if effects != null:
+						effects.add_hit(
+							enemy.position,
+							PresentationPalette.color(&"ember")
+						)
+					_emit_reference_sim(
+						SimEvent.TYPE_ENEMY_HIT,
+						"defense:reference",
+						enemy.stable_id(),
+						point_time,
+						enemy.position,
+						Vector2.RIGHT,
+						12.0 + float(frame_index) * 4.0,
+						&"impact"
+					)
+		ReferenceScenarios.SCENARIO_FOCUS:
+			rs.focus_active_time = (
+				0.0
+				if frame_index == 0 or frame_index == 3
+				else 1.8 - float(frame_index - 1) * 0.6
+			)
+			if enemy != null:
+				enemy.position.x = lerpf(
+					get_viewport().get_visible_rect().size.x * 0.7,
+					get_viewport().get_visible_rect().size.x * 0.58,
+					progress
+				)
+				enemy.hp = maxf(
+					1.0,
+					enemy.max_hp * (1.0 - progress * 0.5)
+				)
+			if frame_index > 0:
+				_emit_reference_presentation(
+					point_time,
+					enemy.position if enemy != null else train_pos,
+					6.0 + float(frame_index) * 4.0
+				)
+		ReferenceScenarios.SCENARIO_WARD_SHATTER:
+			if enemy != null:
+				enemy.ward_max_hp = 24.0
+				enemy.ward_hp = [24.0, 12.0, 0.0, 0.0][frame_index]
+				enemy.warded = frame_index < 2
+				if frame_index > 0:
+					if effects != null:
+						effects.add_hit(
+							enemy.position,
+							PresentationPalette.color(&"shadow_veil"),
+							"ward"
+						)
+					_emit_reference_sim(
+						SimEvent.TYPE_WARD_CRACKED
+						if frame_index == 1
+						else SimEvent.TYPE_WARD_SHATTERED,
+						enemy.stable_id(),
+						"",
+						point_time,
+						enemy.position,
+						Vector2.RIGHT,
+						10.0 + float(frame_index) * 5.0,
+						&"shadow_ink"
+					)
+		ReferenceScenarios.SCENARIO_REPAIR:
+			rs.locomotive_hp = rs.locomotive_max_hp * [
+				0.55, 0.64, 0.79, 0.92
+			][frame_index]
+			if frame_index > 0:
+				_emit_reference_presentation(
+					point_time,
+					train_pos + Vector2(-20.0 + frame_index * 12.0, -30.0),
+					5.0 + float(frame_index) * 3.0
+				)
+		ReferenceScenarios.SCENARIO_DETACHMENT:
+			if frame_index == 1 and rs.cars.size() >= 3:
+				_game_world.call("_on_detach")
+			elif frame_index >= 2:
+				_emit_reference_presentation(
+					point_time,
+					train_pos + Vector2(
+						-180.0 - float(frame_index) * 45.0,
+						20.0 + float(frame_index) * 12.0
+					),
+					8.0 + float(frame_index) * 4.0
+				)
+		ReferenceScenarios.SCENARIO_LONGSHADOW_VEIL, \
+		ReferenceScenarios.SCENARIO_LONGSHADOW_TETHER, \
+		ReferenceScenarios.SCENARIO_LONGSHADOW_CHARGE:
+			_apply_longshadow_reference_point(point_time)
+		ReferenceScenarios.SCENARIO_DAWN:
+			rs.boss_defeated = true
+			rs.distance = lerpf(
+				RunState.BOSS_GATE_DISTANCE,
+				RunState.JOURNEY_TARGET,
+				progress
+			)
+			rs.victory = frame_index == 3
+			if effects != null:
+				effects.set_dawn_progress(progress)
+			if frame_index > 0:
+				_emit_reference_sim(
+					SimEvent.TYPE_DAWN_ARRIVAL,
+					"world:dawn",
+					VisualStateIds.TRAIN_LOCOMOTIVE,
+					point_time,
+					train_pos,
+					Vector2.RIGHT,
+					progress,
+					&"dawn"
+				)
+	rs.refresh_stats()
+	_game_world.call("_update_presentational_state")
+	_game_world.call("refresh_presentation_now")
+
+
+func _apply_longshadow_reference_point(point_time: float) -> void:
+	var rs: RunState = _game_world.get("run_state") as RunState
+	var longshadow: LongshadowEncounter = (
+		_game_world.get("_longshadow") as LongshadowEncounter
+	)
+	if rs == null or longshadow == null:
+		return
+	var phase: int = LongshadowEncounter.Phase.VEIL
+	if _reference_scenario_id == ReferenceScenarios.SCENARIO_LONGSHADOW_TETHER:
+		phase = LongshadowEncounter.Phase.TETHER
+	elif (
+		_reference_scenario_id
+		== ReferenceScenarios.SCENARIO_LONGSHADOW_CHARGE
+	):
+		phase = LongshadowEncounter.Phase.CHARGE
+	var transition_total: float = (
+		LongshadowEncounter.ENTRANCE_DURATION
+		if phase == LongshadowEncounter.Phase.VEIL
+		else LongshadowEncounter.TRANSITION_DURATION
+	)
+	longshadow.start({
+		"phase": phase,
+		"phase_max_health": LongshadowEncounter.PHASE_HEALTH[phase],
+		"health": LongshadowEncounter.PHASE_HEALTH[phase] * 0.72,
+		"attack_timer": 2.0,
+		"charge_timer": 2.4
+		if phase == LongshadowEncounter.Phase.CHARGE
+		else 11.0,
+		"charge_stagger": 0.0,
+		"target_band": 1,
+		"target_switch_timer": 3.0,
+		"elapsed": 24.0 + point_time,
+		"phase_elapsed": 0.0
+		if phase == LongshadowEncounter.Phase.VEIL
+		else 12.0,
+		"transition_timer": maxf(0.0, transition_total - point_time),
+		"phase_unlocked": false,
+		"response_progress": 0.0,
+		"charge_warning_issued": (
+			phase == LongshadowEncounter.Phase.CHARGE
+		),
+		"completed": false
+	})
+	if point_time > 0.0:
+		_emit_reference_sim(
+			SimEvent.TYPE_BOSS_RESPONSE,
+			VisualStateIds.LONGSHADOW_ROOT,
+			VisualStateIds.TRAIN_LOCOMOTIVE,
+			point_time,
+			longshadow.current_target_position(),
+			Vector2.LEFT,
+			8.0 + point_time * 3.0,
+			&"shadow_ink"
+		)
+
+
+func _emit_reference_sim(
+	type: StringName,
+	source_id: String,
+	target_id: String,
+	timestamp: float,
+	position: Vector2,
+	direction: Vector2,
+	strength: float,
+	material: StringName
+) -> void:
+	var bus: PresentationEventBus = (
+		_game_world.call("event_bus") as PresentationEventBus
+	)
+	if bus == null:
+		return
+	bus.emit_sim(
+		REFERENCE_SIM_PRODUCER_ID,
+		type,
+		source_id,
+		target_id,
+		timestamp,
+		position,
+		direction,
+		strength,
+		material,
+		{"scenario": _reference_scenario_id}
+	)
+
+
+func _emit_reference_presentation(
+	timestamp: float,
+	position: Vector2,
+	strength: float
+) -> void:
+	var bus: PresentationEventBus = (
+		_game_world.call("event_bus") as PresentationEventBus
+	)
+	if bus == null:
+		return
+	bus.emit_presentation(
+		REFERENCE_PRESENTATION_PRODUCER_ID,
+		PresentationEvent.TYPE_PARTICLE_BURST,
+		"scenario:%s" % _reference_scenario_id,
+		timestamp,
+		position,
+		Vector2.UP,
+		strength,
+		&"repair_spark",
+		{"scenario": _reference_scenario_id}
+	)
+
+
+func _reference_enemy() -> Enemy:
+	var director: EnemyDirector = (
+		_game_world.get("_enemy_director") as EnemyDirector
+	)
+	if director == null or director.active_enemies().is_empty():
+		return null
+	return director.active_enemies()[0] as Enemy
+
+
+func _defense_source_position(rs: RunState) -> Vector2:
+	var renderer: TrainRenderer = (
+		_game_world.get("_train_renderer") as TrainRenderer
+	)
+	if renderer == null:
+		return _place_train_at_reference()
+	for index in range(rs.cars.size()):
+		if String(rs.cars[index].get("type", "")) == "Defense":
+			return renderer.car_screen_center(index)
+	return _place_train_at_reference()
+
+
+func _spawn_scenario_enemy(
+	director: EnemyDirector,
+	kind: String,
+	position: Vector2,
+	target: Vector2,
+	role: String
+) -> Enemy:
+	var rs: RunState = _game_world.get("run_state") as RunState
+	if director == null or rs == null:
+		return null
+	var enemy: Enemy = director.call("_acquire") as Enemy
+	if enemy == null:
+		return null
+	enemy.init_from_config(kind, rs.enemy_config.get(kind, {}))
+	director.call("_assign_visual_id", enemy)
+	enemy.position = position
+	enemy.target = target
+	enemy.role = role
+	if role == "roof":
+		enemy.boarder_car_index = maxi(0, rs.cars.size() - 1)
+	return enemy
+
+
+func _place_train_at_reference() -> Vector2:
+	return Vector2(_game_world.get("_train_screen_pos"))
+
+
+func _prepare_scenario_headlight_reveal(rs: RunState) -> void:
+	rs.current_lens = "Standard"
+	rs.set_priority("light", 2)
+	rs.power = 8.0
+	var director: EnemyDirector = (
+		_game_world.get("_enemy_director") as EnemyDirector
+	)
+	if director != null:
+		director.clear_regular_enemies()
+		var train_pos: Vector2 = _place_train_at_reference()
+		var view_size: Vector2 = get_viewport().get_visible_rect().size
+		_spawn_scenario_enemy(
+			director,
+			"Pursuer",
+			Vector2(view_size.x * 0.72, train_pos.y + 2.0),
+			train_pos + Vector2(-140.0, 0.0),
+			"ground"
+		)
+		director.set_process(false)
+	var controller: TrainController = (
+		_game_world.get("_train_controller") as TrainController
+	)
+	if controller != null:
+		controller.aim_towards(
+			_place_train_at_reference()
+			+ Vector2(600.0, -10.0)
+		)
+
+
+func _prepare_scenario_standard_defense(rs: RunState) -> void:
+	rs.current_lens = "Standard"
+	if not rs.has_car_type("Defense"):
+		rs.add_car("Defense")
+	rs.set_priority("defense", 2)
+	rs.power = 12.0
+	rs.refresh_stats()
+	var director: EnemyDirector = (
+		_game_world.get("_enemy_director") as EnemyDirector
+	)
+	if director != null:
+		director.clear_regular_enemies()
+		var train_pos: Vector2 = _place_train_at_reference()
+		var view_size: Vector2 = get_viewport().get_visible_rect().size
+		_spawn_scenario_enemy(
+			director,
+			"Pursuer",
+			Vector2(view_size.x * 0.55, train_pos.y - 20.0),
+			train_pos + Vector2(-60.0, 0.0),
+			"ground"
+		)
+		director.set_process(false)
+
+
+func _prepare_scenario_heavy_cannon(rs: RunState) -> void:
+	rs.current_lens = "Standard"
+	if not rs.has_car_type("Defense"):
+		rs.add_car("Defense")
+	for car in rs.cars:
+		if String((car as Dictionary).get("type", "")) == "Defense":
+			(car as Dictionary)["upgrade"] = "heavy_cannon"
+			break
+	rs.set_priority("defense", 2)
+	rs.power = 12.0
+	rs.refresh_stats()
+	var director: EnemyDirector = (
+		_game_world.get("_enemy_director") as EnemyDirector
+	)
+	if director != null:
+		director.clear_regular_enemies()
+		var train_pos: Vector2 = _place_train_at_reference()
+		var view_size: Vector2 = get_viewport().get_visible_rect().size
+		_spawn_scenario_enemy(
+			director,
+			"Pursuer",
+			Vector2(view_size.x * 0.6, train_pos.y),
+			train_pos + Vector2(-60.0, 0.0),
+			"ground"
+		)
+		director.set_process(false)
+
+
+func _prepare_scenario_flak(rs: RunState) -> void:
+	rs.current_lens = "Standard"
+	if not rs.has_car_type("Defense"):
+		rs.add_car("Defense")
+	for car in rs.cars:
+		if String((car as Dictionary).get("type", "")) == "Defense":
+			(car as Dictionary)["upgrade"] = "flak_array"
+			break
+	rs.set_priority("defense", 2)
+	rs.power = 12.0
+	rs.refresh_stats()
+	var director: EnemyDirector = (
+		_game_world.get("_enemy_director") as EnemyDirector
+	)
+	if director != null:
+		director.clear_regular_enemies()
+		var train_pos: Vector2 = _place_train_at_reference()
+		var view_size: Vector2 = get_viewport().get_visible_rect().size
+		_spawn_scenario_enemy(
+			director,
+			"Drainer",
+			Vector2(view_size.x * 0.7, train_pos.y - 130.0),
+			train_pos + Vector2(60.0, -40.0),
+			"air"
+		)
+		director.set_process(false)
+
+
+func _prepare_scenario_focus(rs: RunState) -> void:
+	rs.current_lens = "Standard"
+	rs.set_priority("light", 2)
+	rs.lumen = 24.0
+	rs.power = 10.0
+	rs.focus_active_time = 3.0
+	rs.refresh_stats()
+	var director: EnemyDirector = (
+		_game_world.get("_enemy_director") as EnemyDirector
+	)
+	if director != null:
+		director.clear_regular_enemies()
+		var train_pos: Vector2 = _place_train_at_reference()
+		var view_size: Vector2 = get_viewport().get_visible_rect().size
+		_spawn_scenario_enemy(
+			director,
+			"Pursuer",
+			Vector2(view_size.x * 0.65, train_pos.y),
+			train_pos + Vector2(-60.0, 0.0),
+			"ground"
+		)
+		director.set_process(false)
+
+
+func _prepare_scenario_ward_shatter(rs: RunState) -> void:
+	rs.current_lens = "Standard"
+	rs.set_priority("light", 2)
+	rs.power = 10.0
+	rs.focus_active_time = 2.0
+	rs.refresh_stats()
+	var director: EnemyDirector = (
+		_game_world.get("_enemy_director") as EnemyDirector
+	)
+	if director != null:
+		director.clear_regular_enemies()
+		var train_pos: Vector2 = _place_train_at_reference()
+		var view_size: Vector2 = get_viewport().get_visible_rect().size
+		var enemy: Enemy = _spawn_scenario_enemy(
+			director,
+			"Pursuer",
+			Vector2(view_size.x * 0.6, train_pos.y - 30.0),
+			train_pos + Vector2(-60.0, 0.0),
+			"ground"
+		)
+		if enemy != null:
+			enemy.warded = true
+			enemy.ward_max_hp = 24.0
+			enemy.ward_hp = 4.0
+		director.set_process(false)
+
+
+func _prepare_scenario_repair(rs: RunState) -> void:
+	rs.current_lens = "Standard"
+	rs.set_priority("repair", 2)
+	rs.power = 10.0
+	rs.locomotive_hp = rs.locomotive_max_hp * 0.55
+	rs.refresh_stats()
+
+
+func _prepare_scenario_detachment(rs: RunState) -> void:
+	rs.current_lens = "Standard"
+	rs.set_priority("engine", 2)
+	rs.power = 10.0
+	# Aim the last car for the visible split
+	rs.cars[rs.cars.size() - 1]["hp"] = 4.0
+	rs.refresh_stats()
+
+
+func _prepare_scenario_longshadow_phase(rs: RunState, phase: int) -> void:
+	var longshadow: LongshadowEncounter = (
+		_game_world.get("_longshadow") as LongshadowEncounter
+	)
+	if longshadow == null:
+		return
+	rs.boss_triggered = true
+	rs.distance = RunState.BOSS_GATE_DISTANCE
+	rs.current_lens = LongshadowEncounter.PHASE_LENSES[phase]
+	var director: EnemyDirector = (
+		_game_world.get("_enemy_director") as EnemyDirector
+	)
+	if director != null:
+		director.clear_regular_enemies()
+	longshadow.start({
+		"phase": phase,
+		"phase_max_health": LongshadowEncounter.PHASE_HEALTH[phase],
+		"health": LongshadowEncounter.PHASE_HEALTH[phase] * 0.72,
+		"attack_timer": 2.0,
+		"charge_timer": 2.4 if phase == LongshadowEncounter.Phase.CHARGE else 11.0,
+		"charge_stagger": 0.0,
+		"target_band": 1,
+		"target_switch_timer": 3.0,
+		"elapsed": 24.0,
+		"phase_elapsed": 0.0
+		if phase == LongshadowEncounter.Phase.VEIL
+		else 12.0,
+		"transition_timer": (
+			LongshadowEncounter.ENTRANCE_DURATION
+			if phase == LongshadowEncounter.Phase.VEIL
+			else LongshadowEncounter.TRANSITION_DURATION
+		),
+		"phase_unlocked": false,
+		"response_progress": 0.0,
+		"charge_warning_issued": phase == LongshadowEncounter.Phase.CHARGE,
+		"completed": false
+	})
+	_game_world.call("_set_mode", 3)
+
+
+func _prepare_scenario_dawn(rs: RunState) -> void:
+	rs.current_lens = "Standard"
+	rs.boss_defeated = true
+	rs.distance = RunState.BOSS_GATE_DISTANCE
+	rs.victory = false
+	rs.refresh_stats()
+	var effects: EffectsLayer = _game_world.get("_effects") as EffectsLayer
+	if effects != null:
+		effects.set_dawn_progress(0.0)
 
 
 func _capture_frame(path: String) -> void:
@@ -1077,6 +1980,74 @@ func _capture_frame(path: String) -> void:
 		print("[capture] gameplay=", path)
 	else:
 		printerr("[capture] gameplay failed error=", result)
+
+
+func _capture_reference_frame(
+	path: String,
+	frame_index: int,
+	label: String
+) -> void:
+	await RenderingServer.frame_post_draw
+	var result: Error = DirAccess.make_dir_recursive_absolute(
+		path.get_base_dir()
+	)
+	var image: Image = get_viewport().get_texture().get_image()
+	var hashing := HashingContext.new()
+	var hash_result: Error = hashing.start(HashingContext.HASH_SHA256)
+	var pixel_hash: String = ""
+	if hash_result == OK:
+		hashing.update(image.get_data())
+		pixel_hash = hashing.finish().hex_encode()
+	if result == OK:
+		result = image.save_png(path)
+	_reference_capture_error = result
+	_capture_result = result
+	_capture_path = path
+	_reference_capture_busy = false
+	if result == OK:
+		_reference_capture_paths.append(path)
+		_reference_capture_pixel_hashes.append(pixel_hash)
+		_reference_capture_index = frame_index + 1
+		print(
+			"[capture] scenario_frame=%s index=%d label=%s path=%s" % [
+				_reference_scenario_id,
+				frame_index,
+				label,
+				path
+			]
+		)
+	else:
+		printerr(
+			"[capture] scenario frame failed error=%s path=%s" % [
+				result,
+				path
+			]
+		)
+
+
+func _reference_capture_path(
+	base_path: String,
+	frame_index: int,
+	label: String
+) -> String:
+	var safe_label: String = label.to_lower().replace(" ", "_")
+	var frame_token: String = "%02d-%s" % [frame_index, safe_label]
+	if base_path.contains("{frame}") or base_path.contains("{label}"):
+		return (
+			base_path.replace("{frame}", frame_token)
+			.replace("{label}", safe_label)
+		)
+	if base_path.get_extension().is_empty():
+		return base_path.path_join(
+			"%s-%s.png" % [_reference_scenario_id, frame_token]
+		)
+	if frame_index == 1:
+		return base_path
+	return "%s-%s.%s" % [
+		base_path.get_basename(),
+		frame_token,
+		base_path.get_extension()
+	]
 
 
 func _finish(exit_code: int, message: String, is_error: bool = false) -> void:

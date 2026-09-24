@@ -1,6 +1,12 @@
 class_name LongshadowEncounter
 extends Node2D
 ## Three-phase finale: strip the Veil, sever the Tether, survive the Charge.
+##
+## In v0.8 M2 this class holds only the deterministic simulation. All body,
+## mechanic, transition, and status drawing is owned by `LongshadowView`,
+## which reads a snapshot produced by `write_snapshot()` after each tick.
+## `LongshadowEncounter` remains a `Node2D` so existing runtime probes can
+## still cast it as a `CanvasItem`, but it never overrides `_draw`.
 
 signal phase_changed(name: String)
 signal attack_landed(message: String, severity: float)
@@ -20,6 +26,16 @@ const RESPONSE_THRESHOLDS: Array[float] = [14.0, 16.0, 12.0]
 const RESPONSE_HEALTH_FLOOR: float = 0.28
 const ENTRANCE_DURATION: float = 3.0
 const TRANSITION_DURATION: float = 2.5
+const PRODUCER_ID: String = "sim.longshadow_encounter"
+
+const EMITTED_TYPES: Array[StringName] = [
+	SimEvent.TYPE_BOSS_PHASE_ENTRY,
+	SimEvent.TYPE_BOSS_ATTACK,
+	SimEvent.TYPE_BOSS_RESPONSE,
+	SimEvent.TYPE_BOSS_DEFEAT,
+	SimEvent.TYPE_TRAIN_HIT,
+	SimEvent.TYPE_CAR_HIT
+]
 
 var _run_state: RunState
 var _view_size: Vector2 = Vector2(1280.0, 720.0)
@@ -41,6 +57,7 @@ var _transition_timer: float = 0.0
 var _phase_unlocked: bool = false
 var _response_progress: float = 0.0
 var _charge_warning_issued: bool = false
+var _event_bus: PresentationEventBus
 
 
 func setup(run_state: RunState, view_size: Vector2, train_pos: Vector2) -> void:
@@ -51,6 +68,12 @@ func setup(run_state: RunState, view_size: Vector2, train_pos: Vector2) -> void:
 	visible = false
 
 
+func attach_event_bus(bus: PresentationEventBus) -> void:
+	_event_bus = bus
+	if _event_bus != null:
+		_event_bus.register_simulation_producer(PRODUCER_ID, EMITTED_TYPES)
+
+
 func set_world_layout(
 	view_size: Vector2,
 	train_pos: Vector2,
@@ -59,7 +82,6 @@ func set_world_layout(
 	_view_size = view_size
 	_train_pos = train_pos
 	_train_scale = clampf(train_scale, 0.6, 1.0)
-	queue_redraw()
 
 
 func start(snapshot: Dictionary = {}) -> void:
@@ -102,8 +124,17 @@ func start(snapshot: Dictionary = {}) -> void:
 		_charge_warning_issued = bool(snapshot.get("charge_warning_issued", false))
 	_apply_phase_speed()
 	_prime_active_response()
+	_emit_boss(
+		SimEvent.TYPE_BOSS_PHASE_ENTRY,
+		phase_name(),
+		{
+			"phase": _phase,
+			"phase_max_health": _phase_max_health,
+			"transition_timer": _transition_timer,
+			"resume": not snapshot.is_empty()
+		}
+	)
 	emit_signal("phase_changed", phase_name())
-	queue_redraw()
 
 
 func advance(delta: float, light_profile: LightProfile, stats: TrainStats) -> void:
@@ -111,7 +142,6 @@ func advance(delta: float, light_profile: LightProfile, stats: TrainStats) -> vo
 		return
 	if _transition_timer > 0.0:
 		_transition_timer = maxf(0.0, _transition_timer - delta)
-		queue_redraw()
 		return
 	var scaled := delta * _run_state.combat_speed_scale()
 	_elapsed += scaled
@@ -155,7 +185,6 @@ func advance(delta: float, light_profile: LightProfile, stats: TrainStats) -> vo
 
 	if _health <= 0.0:
 		_advance_phase()
-	queue_redraw()
 
 
 func is_active() -> bool:
@@ -199,8 +228,70 @@ func phase_name() -> String:
 	return PHASE_NAMES[_phase]
 
 
+func phase_index() -> int:
+	return _phase
+
+
 func health_ratio() -> float:
 	return clampf(_health / maxf(1.0, _phase_max_health), 0.0, 1.0)
+
+
+func response_ratio() -> float:
+	return clampf(
+		_response_progress / maxf(1.0, RESPONSE_THRESHOLDS[_phase]),
+		0.0,
+		1.0
+	)
+
+
+func response_threshold() -> float:
+	return RESPONSE_THRESHOLDS[_phase]
+
+
+func response_progress() -> float:
+	return _response_progress
+
+
+func transition_timer() -> float:
+	return _transition_timer
+
+
+func transition_total() -> float:
+	if _phase == Phase.VEIL and _phase_elapsed <= 0.001:
+		return ENTRANCE_DURATION
+	return TRANSITION_DURATION
+
+
+func phase_unlocked() -> bool:
+	return _phase_unlocked
+
+
+func charge_timer() -> float:
+	return _charge_timer
+
+
+func charge_stagger() -> float:
+	return _charge_stagger
+
+
+func charge_warning_issued() -> bool:
+	return _charge_warning_issued
+
+
+func target_band() -> int:
+	return _target_band
+
+
+func phase_elapsed() -> float:
+	return _phase_elapsed
+
+
+func elapsed_time() -> float:
+	return _elapsed
+
+
+func attack_timer() -> float:
+	return _attack_timer
 
 
 func status_text() -> String:
@@ -212,21 +303,21 @@ func status_text() -> String:
 				"VEIL EXPOSED - finish it with %s light" % PHASE_LENSES[_phase]
 				if _phase_unlocked
 				else "VEIL LOCK %.0f%% - %s + FOCUS"
-				% [_response_ratio() * 100.0, PHASE_LENSES[_phase]]
+				% [response_ratio() * 100.0, PHASE_LENSES[_phase]]
 			)
 		Phase.TETHER:
 			return (
 				"TETHER SEVERED - keep %s on the anchor" % PHASE_LENSES[_phase]
 				if _phase_unlocked
 				else "TETHER LOCK %.0f%% - %s + FOCUS/SALVO"
-				% [_response_ratio() * 100.0, PHASE_LENSES[_phase]]
+				% [response_ratio() * 100.0, PHASE_LENSES[_phase]]
 			)
 		Phase.CHARGE:
 			return (
 				"CHARGE EXPOSED %.1fs - %s light" % [_charge_timer, PHASE_LENSES[_phase]]
 				if _phase_unlocked
 				else "CHARGE LOCK %.1fs - %s + FOCUS/SALVO %.0f%%"
-				% [_charge_timer, PHASE_LENSES[_phase], _response_ratio() * 100.0]
+				% [_charge_timer, PHASE_LENSES[_phase], response_ratio() * 100.0]
 			)
 		_:
 			return "LONGSHADOW"
@@ -245,6 +336,22 @@ func current_target_position() -> Vector2:
 		)
 	]
 	return Vector2(boss.x - 85.0, band_positions[_target_band])
+
+
+func boss_screen_position() -> Vector2:
+	return _boss_position()
+
+
+func train_position() -> Vector2:
+	return _train_pos
+
+
+func train_scale() -> float:
+	return _train_scale
+
+
+func view_size() -> Vector2:
+	return _view_size
 
 
 func checkpoint_state() -> Dictionary:
@@ -267,6 +374,35 @@ func checkpoint_state() -> Dictionary:
 		"charge_warning_issued": _charge_warning_issued,
 		"completed": _completed
 	}
+
+
+func write_snapshot(snapshot: PresentationSnapshot) -> void:
+	snapshot.longshadow_active = is_active()
+	snapshot.longshadow_completed = _completed
+	snapshot.longshadow_phase = _phase
+	snapshot.longshadow_phase_id = VisualStateIds.longshadow_phase(_phase)
+	snapshot.longshadow_stable_id = VisualStateIds.LONGSHADOW_ROOT
+	snapshot.longshadow_position = _boss_position()
+	snapshot.longshadow_target_position = current_target_position()
+	snapshot.longshadow_health_ratio = health_ratio()
+	snapshot.longshadow_phase_max_health = _phase_max_health
+	snapshot.longshadow_transition_timer = _transition_timer
+	snapshot.longshadow_transition_total = transition_total()
+	snapshot.longshadow_transition_ratio = clampf(
+		1.0 - _transition_timer / maxf(0.001, transition_total()), 0.0, 1.0
+	)
+	snapshot.longshadow_response_progress = _response_progress
+	snapshot.longshadow_response_threshold = RESPONSE_THRESHOLDS[_phase]
+	snapshot.longshadow_response_ratio = response_ratio()
+	snapshot.longshadow_phase_unlocked = _phase_unlocked
+	snapshot.longshadow_charge_timer = _charge_timer
+	snapshot.longshadow_charge_stagger = _charge_stagger
+	snapshot.longshadow_charge_warning_issued = _charge_warning_issued
+	snapshot.longshadow_attack_timer = _attack_timer
+	snapshot.longshadow_target_band = _target_band
+	snapshot.longshadow_phase_elapsed = _phase_elapsed
+	snapshot.longshadow_elapsed = _elapsed
+	snapshot.longshadow_status_text = status_text()
 
 
 func _update_target(delta: float) -> void:
@@ -326,7 +462,6 @@ func apply_defense_salvo(stats: TrainStats) -> float:
 		)
 	if _health <= 0.0 and _phase_elapsed >= PHASE_MIN_DURATIONS[_phase]:
 		_advance_phase()
-	queue_redraw()
 	return maxf(0.0, before - _health)
 
 
@@ -351,12 +486,22 @@ func _perform_phase_attack() -> void:
 		_run_state.damage_locomotive(3.0)
 		_attack_timer = 4.5
 		emit_signal("attack_landed", "The Veil drinks power and lumen.", 3.0)
+		_emit_boss(
+			SimEvent.TYPE_BOSS_ATTACK,
+			"veil",
+			{"damage": 3.0, "target": "locomotive"}
+		)
 	elif _phase == Phase.TETHER:
 		var result := _run_state.damage_rear_car(6.0)
 		_attack_timer = 4.0
 		if result.is_empty() and _run_state.cars.is_empty():
 			_run_state.damage_locomotive(7.0)
 		emit_signal("attack_landed", "The Tether tears at the rear coupling.", 5.0)
+		_emit_boss(
+			SimEvent.TYPE_BOSS_ATTACK,
+			"tether",
+			{"damage": 6.0, "target": "rear_car"}
+		)
 	_run_state.emit_signal("resources_changed")
 
 
@@ -369,6 +514,11 @@ func _process_charge(delta: float, beam_damage: float) -> void:
 		_charge_warning_issued = true
 		_run_state.trigger_critical_slow(2.2)
 		emit_signal("attack_landed", "CHARGE IMMINENT - Focus or Salvo now.", 6.0)
+		_emit_boss(
+			SimEvent.TYPE_BOSS_ATTACK,
+			"charge_warning",
+			{"charge_timer": _charge_timer}
+		)
 	if _charge_stagger >= RESPONSE_THRESHOLDS[_phase]:
 		if not _phase_unlocked:
 			_phase_unlocked = true
@@ -377,6 +527,11 @@ func _process_charge(delta: float, beam_damage: float) -> void:
 				"charge_interrupted"
 			)
 			emit_signal("attack_landed", "The active response exposes the Charge.", 2.0)
+			_emit_boss(
+				SimEvent.TYPE_BOSS_RESPONSE,
+				"charge_interrupted",
+				{"progress": _response_progress}
+			)
 		_charge_stagger = 0.0
 		_response_progress = RESPONSE_THRESHOLDS[_phase]
 		_charge_timer = minf(12.0, _charge_timer + 4.0)
@@ -395,6 +550,11 @@ func _process_charge(delta: float, beam_damage: float) -> void:
 	if not _phase_unlocked:
 		_prime_active_response()
 	emit_signal("attack_landed", "The Longshadow's charge strikes the locomotive.", 9.0)
+	_emit_boss(
+		SimEvent.TYPE_BOSS_ATTACK,
+		"charge_landed",
+		{"damage": 18.0, "target": "locomotive"}
+	)
 
 
 func _register_active_response(amount: float, message: String) -> void:
@@ -410,13 +570,10 @@ func _register_active_response(amount: float, message: String) -> void:
 		"%s_exposed" % phase_name().to_lower()
 	)
 	emit_signal("attack_landed", message, 2.0)
-
-
-func _response_ratio() -> float:
-	return clampf(
-		_response_progress / maxf(1.0, RESPONSE_THRESHOLDS[_phase]),
-		0.0,
-		1.0
+	_emit_boss(
+		SimEvent.TYPE_BOSS_RESPONSE,
+		"%s_exposed" % phase_name().to_lower(),
+		{"message": message}
 	)
 
 
@@ -435,6 +592,11 @@ func _advance_phase() -> void:
 		_run_state.supplies = minf(RunState.SUPPLIES_MAX, _run_state.supplies + 10.0)
 		_run_state.emit_signal("resources_changed")
 		emit_signal("defeated")
+		_emit_boss(
+			SimEvent.TYPE_BOSS_DEFEAT,
+			"defeated",
+			{}
+		)
 		return
 	_phase += 1
 	_phase_max_health = PHASE_HEALTH[_phase]
@@ -454,6 +616,15 @@ func _advance_phase() -> void:
 		"entered_%s" % phase_name().to_lower()
 	)
 	emit_signal("phase_changed", phase_name())
+	_emit_boss(
+		SimEvent.TYPE_BOSS_PHASE_ENTRY,
+		phase_name(),
+		{
+			"phase": _phase,
+			"transition_timer": _transition_timer,
+			"phase_max_health": _phase_max_health
+		}
+	)
 
 
 func _prime_active_response() -> void:
@@ -513,424 +684,26 @@ func _apply_phase_damage(amount: float) -> void:
 	)
 
 
-func _draw() -> void:
-	if not is_active():
-		return
-	var boss: Vector2 = _boss_position()
-	var reduced_motion: bool = bool(
-		GameManager.get_setting("reduced_motion", false)
-	)
-	var pulse: float = (
-		1.0
-		if reduced_motion
-		else 1.0 + sin(_elapsed * 2.4) * 0.045
-	)
-	match _phase:
-		Phase.VEIL:
-			_draw_veil_body(boss, pulse)
-		Phase.TETHER:
-			_draw_tether_body(boss, pulse)
-		Phase.CHARGE:
-			_draw_charge_body(boss, pulse)
-	_draw_transition_flourish(boss, reduced_motion)
-	if _transition_timer > 0.0:
-		_draw_boss_status(boss)
-		return
-	_draw_response_lock(boss)
-	if _phase == Phase.VEIL:
-		_draw_veil_mechanic(boss)
-	elif _phase == Phase.TETHER:
-		_draw_tether_mechanic(boss)
-	elif _phase == Phase.CHARGE:
-		_draw_charge_mechanic(boss)
-	_draw_boss_status(boss)
-
-
-func _draw_veil_body(center: Vector2, scale: float) -> void:
-	var shadow: Color = PresentationPalette.color(
-		&"shadow_veil",
-		UITheme.high_contrast()
-	)
-	var left := _offset_points(center, [
-		Vector2(-5.0, -52.0),
-		Vector2(-42.0, -43.0),
-		Vector2(-73.0, -12.0),
-		Vector2(-61.0, 35.0),
-		Vector2(-26.0, 57.0),
-		Vector2(-8.0, 22.0)
-	], scale)
-	var right := _offset_points(center, [
-		Vector2(7.0, -48.0),
-		Vector2(36.0, -57.0),
-		Vector2(68.0, -27.0),
-		Vector2(73.0, 18.0),
-		Vector2(34.0, 51.0),
-		Vector2(10.0, 20.0)
-	], scale)
-	_draw_outlined_polygon(
-		left,
-		PresentationPalette.COAL,
-		PresentationPalette.with_alpha(&"shadow_veil", 0.72),
-		2.5
-	)
-	_draw_outlined_polygon(
-		right,
-		PresentationPalette.COAL.lerp(shadow, 0.18),
-		PresentationPalette.with_alpha(&"shadow_veil", 0.72),
-		2.5
-	)
-	draw_circle(center, 27.0 * scale, shadow.darkened(0.28))
-	draw_circle(center + Vector2(-4.0, 2.0), 18.0 * scale, PresentationPalette.NIGHT_VOID)
-	draw_arc(
-		center,
-		43.0 * scale,
-		-2.72,
-		-0.62,
-		18,
-		PresentationPalette.with_alpha(&"bone", 0.24),
-		2.0
-	)
-	draw_arc(
-		center,
-		49.0 * scale,
-		0.38,
-		2.24,
-		18,
-		PresentationPalette.with_alpha(&"shadow_veil", 0.8),
-		4.0
-	)
-
-
-func _draw_tether_body(center: Vector2, scale: float) -> void:
-	var shadow: Color = PresentationPalette.color(
-		&"shadow_veil",
-		UITheme.high_contrast()
-	)
-	var upper := _offset_points(center, [
-		Vector2(-45.0, -7.0),
-		Vector2(-30.0, -52.0),
-		Vector2(2.0, -68.0),
-		Vector2(34.0, -43.0),
-		Vector2(21.0, -8.0)
-	], scale)
-	var lower := _offset_points(center, [
-		Vector2(-43.0, 8.0),
-		Vector2(-24.0, 53.0),
-		Vector2(8.0, 67.0),
-		Vector2(39.0, 36.0),
-		Vector2(20.0, 8.0)
-	], scale)
-	_draw_outlined_polygon(
-		upper,
-		PresentationPalette.COAL.lerp(shadow, 0.28),
-		PresentationPalette.with_alpha(&"shadow_veil", 0.82),
-		2.5
-	)
-	_draw_outlined_polygon(
-		lower,
-		PresentationPalette.COAL,
-		PresentationPalette.with_alpha(&"shadow_veil", 0.82),
-		2.5
-	)
-	draw_rect(
-		Rect2(
-			center + Vector2(-8.0, -48.0) * scale,
-			Vector2(16.0, 96.0) * scale
-		),
-		PresentationPalette.NIGHT_VOID
-	)
-	draw_line(
-		center + Vector2(-7.0, -30.0) * scale,
-		center + Vector2(7.0, -7.0) * scale,
-		PresentationPalette.with_alpha(&"bone", 0.38),
-		2.0
-	)
-	draw_line(
-		center + Vector2(-7.0, 30.0) * scale,
-		center + Vector2(7.0, 7.0) * scale,
-		PresentationPalette.with_alpha(&"bone", 0.38),
-		2.0
-	)
-
-
-func _draw_charge_body(center: Vector2, scale: float) -> void:
-	var shadow: Color = PresentationPalette.color(
-		&"shadow_veil",
-		UITheme.high_contrast()
-	)
-	var wedge := _offset_points(center, [
-		Vector2(-66.0, 0.0),
-		Vector2(-25.0, -47.0),
-		Vector2(33.0, -39.0),
-		Vector2(70.0, 0.0),
-		Vector2(28.0, 43.0),
-		Vector2(-27.0, 46.0)
-	], scale)
-	_draw_outlined_polygon(
-		wedge,
-		PresentationPalette.COAL.lerp(shadow, 0.34),
-		PresentationPalette.with_alpha(&"danger", 0.82),
-		3.0
-	)
-	var slit := _offset_points(center, [
-		Vector2(-38.0, 0.0),
-		Vector2(12.0, -15.0),
-		Vector2(29.0, 0.0),
-		Vector2(12.0, 15.0)
-	], scale)
-	draw_colored_polygon(slit, PresentationPalette.NIGHT_VOID)
-	for spine in range(3):
-		var y: float = float(spine - 1) * 22.0
-		draw_line(
-			center + Vector2(30.0, y) * scale,
-			center + Vector2(58.0, y * 1.25) * scale,
-			PresentationPalette.with_alpha(&"shadow_veil", 0.72),
-			4.0
-		)
-
-
-func _draw_transition_flourish(center: Vector2, reduced_motion: bool) -> void:
-	if _transition_timer <= 0.0:
-		return
-	var gate_duration: float = (
-		ENTRANCE_DURATION
-		if _phase == Phase.VEIL and _phase_elapsed <= 0.001
-		else TRANSITION_DURATION
-	)
-	var flourish_duration: float = 1.1
-	var elapsed: float = maxf(0.0, gate_duration - _transition_timer)
-	if elapsed > flourish_duration:
-		return
-	var ratio: float = clampf(elapsed / flourish_duration, 0.0, 1.0)
-	var visual_ratio: float = 1.0 if reduced_motion else ratio
-	for ring in range(3):
-		var radius: float = 70.0 + float(ring) * 15.0 + visual_ratio * 22.0
-		var alpha: float = (0.48 - float(ring) * 0.1) * (1.0 - ratio * 0.7)
-		for segment in range(3):
-			var start: float = float(segment) * 2.12 + ratio * 0.6
-			draw_arc(
-				center,
-				radius,
-				start,
-				start + 1.22,
-				12,
-				PresentationPalette.with_alpha(
-					&"shadow_veil",
-					alpha,
-					UITheme.high_contrast()
-				),
-				3.5
-			)
-
-
-func _draw_response_lock(center: Vector2) -> void:
-	var response_ratio: float = _response_ratio()
-	if not _phase_unlocked:
-		var base_color: Color = PresentationPalette.with_alpha(
-			&"shadow_veil",
-			0.46,
-			UITheme.high_contrast()
-		)
-		for segment in range(3):
-			var start: float = -PI * 0.5 + float(segment) * 2.14
-			draw_arc(
-				center,
-				80.0,
-				start,
-				start + 1.36,
-				14,
-				base_color,
-				4.0
-			)
-		draw_arc(
-			center,
-			80.0,
-			-PI * 0.5,
-			-PI * 0.5 + TAU * response_ratio,
-			42,
-			PresentationPalette.color(&"brass", UITheme.high_contrast()),
-			5.5
-		)
-	var response_text: String = (
-		"EXPOSED"
-		if _phase_unlocked
-		else "%s + ACTIVE" % PHASE_LENSES[_phase].to_upper()
-	)
-	draw_string(
-		UITheme.bold_font(),
-		center + Vector2(-88.0, -124.0),
-		response_text,
-		HORIZONTAL_ALIGNMENT_CENTER,
-		176.0,
-		UITheme.font_size(11),
-		PresentationPalette.color(
-			&"danger" if _phase_unlocked else &"brass",
-			UITheme.high_contrast()
-		)
-	)
-
-
-func _draw_veil_mechanic(center: Vector2) -> void:
-	var rotation: float = (
-		0.0
-		if bool(GameManager.get_setting("reduced_motion", false))
-		else _elapsed * 0.22
-	)
-	for segment in range(4):
-		var start: float = rotation + float(segment) * 1.58
-		draw_arc(
-			center,
-			64.0,
-			start,
-			start + 0.84,
-			10,
-			PresentationPalette.with_alpha(
-				&"shadow_veil",
-				0.66,
-				UITheme.high_contrast()
-			),
-			5.0
-		)
-
-
-func _draw_tether_mechanic(center: Vector2) -> void:
-	var anchor: Vector2 = current_target_position()
-	var source: Vector2 = _train_pos + Vector2(38.0, -22.0) * _train_scale
-	var bend := Vector2(lerpf(source.x, anchor.x, 0.52), anchor.y - 26.0)
-	draw_polyline(
-		PackedVector2Array([source, bend, anchor]),
-		PresentationPalette.with_alpha(
-			&"danger",
-			0.78,
-			UITheme.high_contrast()
-		),
-		4.0
-	)
-	for knot in range(1, 4):
-		var t: float = float(knot) / 4.0
-		var knot_pos: Vector2 = source.lerp(bend, minf(1.0, t * 1.7))
-		if t > 0.58:
-			knot_pos = bend.lerp(anchor, (t - 0.58) / 0.42)
-		draw_rect(
-			Rect2(knot_pos - Vector2(3.0, 3.0), Vector2(6.0, 6.0)),
-			PresentationPalette.color(&"brass", UITheme.high_contrast())
-		)
-	var diamond := PackedVector2Array([
-		anchor + Vector2(0.0, -17.0),
-		anchor + Vector2(17.0, 0.0),
-		anchor + Vector2(0.0, 17.0),
-		anchor + Vector2(-17.0, 0.0)
-	])
-	_draw_outlined_polygon(
-		diamond,
-		PresentationPalette.COAL,
-		PresentationPalette.color(&"brass", UITheme.high_contrast()),
-		3.0
-	)
-	draw_string(
-		UITheme.bold_font(),
-		anchor + Vector2(-33.0, -23.0),
-		"SEVER",
-		HORIZONTAL_ALIGNMENT_CENTER,
-		66.0,
-		UITheme.font_size(10),
-		PresentationPalette.color(&"danger", UITheme.high_contrast())
-	)
-
-
-func _draw_charge_mechanic(center: Vector2) -> void:
-	var charge_ratio: float = 1.0 - clampf(_charge_timer / 11.0, 0.0, 1.0)
-	var warning_color: Color = PresentationPalette.with_alpha(
-		&"danger",
-		0.42 + charge_ratio * 0.5,
-		UITheme.high_contrast()
-	)
-	for chevron in range(3):
-		var x: float = lerpf(
-			center.x - 84.0,
-			_train_pos.x + 96.0 * _train_scale,
-			float(chevron) / 3.0
-		)
-		var y: float = lerpf(
-			center.y,
-			_train_pos.y - 26.0 * _train_scale,
-			float(chevron) / 3.0
-		)
-		var size: float = 14.0 + charge_ratio * 9.0
-		draw_polyline(
-			PackedVector2Array([
-				Vector2(x + size, y - size),
-				Vector2(x, y),
-				Vector2(x + size, y + size)
-			]),
-			warning_color,
-			3.0 + charge_ratio * 2.0
-		)
-	if _charge_timer <= 3.0:
-		draw_string(
-			UITheme.bold_font(),
-			center + Vector2(-62.0, -148.0),
-			"CHARGE %.1f" % _charge_timer,
-			HORIZONTAL_ALIGNMENT_CENTER,
-			124.0,
-			UITheme.font_size(13),
-			PresentationPalette.color(&"danger", UITheme.high_contrast())
-		)
-
-
-func _draw_boss_status(center: Vector2) -> void:
-	var font_size: int = UITheme.font_size(11)
-	var title: String = "LONGSHADOW // %s" % phase_name()
-	draw_string(
-		UITheme.bold_font(),
-		center + Vector2(-88.0, -102.0),
-		title,
-		HORIZONTAL_ALIGNMENT_CENTER,
-		176.0,
-		font_size,
-		PresentationPalette.color(&"bone", UITheme.high_contrast())
-	)
-	var bar_pos: Vector2 = center + Vector2(-72.0, -88.0)
-	draw_rect(
-		Rect2(bar_pos, Vector2(144.0, 8.0)),
-		PresentationPalette.color(&"night_void", UITheme.high_contrast())
-	)
-	draw_rect(
-		Rect2(bar_pos, Vector2(144.0 * health_ratio(), 8.0)),
-		PresentationPalette.color(
-			&"danger" if health_ratio() <= 0.3 else &"shadow_veil",
-			UITheme.high_contrast()
-		)
-	)
-	draw_rect(
-		Rect2(bar_pos, Vector2(144.0, 8.0)),
-		PresentationPalette.with_alpha(&"bone", 0.54),
-		false,
-		1.0
-	)
-
-
-func _offset_points(
-	center: Vector2,
-	offsets: Array,
-	scale: float
-) -> PackedVector2Array:
-	var points := PackedVector2Array()
-	for offset_variant in offsets:
-		var offset: Vector2 = offset_variant
-		points.append(center + offset * scale)
-	return points
-
-
-func _draw_outlined_polygon(
-	points: PackedVector2Array,
-	fill: Color,
-	outline: Color,
-	width: float
+func _emit_boss(
+	type: StringName,
+	label: String,
+	extra: Dictionary
 ) -> void:
-	if points.size() < 3:
+	if _event_bus == null:
 		return
-	draw_colored_polygon(points, fill)
-	var closed: PackedVector2Array = points.duplicate()
-	closed.append(points[0])
-	draw_polyline(closed, outline, width, true)
+	var payload: Dictionary = extra.duplicate()
+	payload["phase"] = _phase
+	payload["phase_name"] = phase_name()
+	payload["label"] = label
+	_event_bus.emit_sim(
+		PRODUCER_ID,
+		type,
+		VisualStateIds.LONGSHADOW_ROOT,
+		"",
+		_run_state.travel_time,
+		_boss_position(),
+		Vector2.LEFT,
+		float(payload.get("damage", 0.0)),
+		&"shadow_ink",
+		payload
+	)

@@ -2,8 +2,15 @@ class_name EnemyDirector
 extends Node2D
 ## EnemyDirector
 ##
-## Pooled enemy spawn and simulation. Draws enemies with vector primitives.
-## Requests damage to RunState (locomotive/cars) through callbacks.
+## Pooled deterministic enemy simulation owner. In v0.8 M2 this class holds no
+## rendering responsibility: `EnemyViewPool` reads a reusable snapshot every
+## presentation frame and performs all drawing. `EnemyDirector` remains a
+## `Node2D` so existing runtime probes and QA can address it as a canvas item
+## whose visibility gates the view pool, but it never overrides `_draw`.
+##
+## Requests damage on `RunState`, emits gameplay signals for compatibility,
+## and emits `SimEvent`s on the `PresentationEventBus` for the M2 view
+## boundary.
 
 signal enemy_killed(kind: String, value: int)
 signal threat_announced(kind: String, guidance: String)
@@ -11,11 +18,27 @@ signal defense_fired(target_position: Vector2, source_car_id: String, crewed: bo
 signal active_response(position: Vector2, message: String)
 signal enemy_attack_landed(position: Vector2, kind: String)
 signal pressure_brake_changed(active: bool)
+signal simulation_tick_completed()
 
 const POOL_SIZE: int = 40
 const MAX_ACTIVE_DESKTOP: int = 12
 const MAX_ACTIVE_COMPACT: int = 10
 const WARD_SAFE_PRESSURE: int = 6
+const PRODUCER_ID: String = "sim.enemy_director"
+
+const EMITTED_TYPES: Array[StringName] = [
+	SimEvent.TYPE_ENEMY_SPAWNED,
+	SimEvent.TYPE_ENEMY_TELEGRAPHED,
+	SimEvent.TYPE_ENEMY_ATTACKED,
+	SimEvent.TYPE_ENEMY_HIT,
+	SimEvent.TYPE_ENEMY_KILLED,
+	SimEvent.TYPE_WARD_FORMED,
+	SimEvent.TYPE_WARD_CRACKED,
+	SimEvent.TYPE_WARD_SHATTERED,
+	SimEvent.TYPE_DEFENSE_FIRED,
+	SimEvent.TYPE_TRAIN_HIT,
+	SimEvent.TYPE_CAR_HIT
+]
 
 var _run_state: RunState
 var _pool: Array = []
@@ -27,12 +50,13 @@ var _view_size: Vector2 = Vector2(1280, 720)
 var _train_pos: Vector2 = Vector2(320, 460)
 var _train_scale: float = 1.0
 var _light_profile: LightProfile = LightProfile.new()
-var _reduced_motion: bool = false
 var _announced_threats: Dictionary = {}
 var _defense_fx_timer: float = 0.0
 var _announced_ward: bool = false
 var _ward_pending: bool = false
 var _pressure_brake_active: bool = false
+var _visual_id_counter: int = 0
+var _event_bus: PresentationEventBus
 
 
 func setup(run_state: RunState, view_size: Vector2) -> void:
@@ -40,7 +64,14 @@ func setup(run_state: RunState, view_size: Vector2) -> void:
 	_view_size = view_size
 	for i in range(POOL_SIZE):
 		_pool.append(Enemy.new())
+	_visual_id_counter = (run_state.run_seed & 0x0000FFFF) << 8
 	set_process(true)
+
+
+func attach_event_bus(bus: PresentationEventBus) -> void:
+	_event_bus = bus
+	if _event_bus != null:
+		_event_bus.register_simulation_producer(PRODUCER_ID, EMITTED_TYPES)
 
 
 func set_train_pos(p: Vector2) -> void:
@@ -63,6 +94,10 @@ func set_light_profile(profile: LightProfile) -> void:
 
 func active_count() -> int:
 	return _active.size()
+
+
+func active_enemies() -> Array:
+	return _active
 
 
 func pressure_limit() -> int:
@@ -141,7 +176,6 @@ func spawn_threat_waves(wave_count: int = 1) -> void:
 func _process(delta: float) -> void:
 	if _run_state == null:
 		return
-	_reduced_motion = bool(GameManager.get_setting("reduced_motion", false))
 	_update_pressure_brake()
 	var scaled: float = (
 		0.0
@@ -174,7 +208,7 @@ func _process(delta: float) -> void:
 		else:
 			_release(e)
 	_active = new_active
-	queue_redraw()
+	emit_signal("simulation_tick_completed")
 
 
 func _update_pressure_brake() -> void:
@@ -212,6 +246,7 @@ func _spawn_wave() -> bool:
 			return i > 0
 		var cfg: Dictionary = _run_state.enemy_config.get(kind, {})
 		e.init_from_config(kind, cfg)
+		_assign_visual_id(e)
 		_announce_threat(kind)
 		# scale with difficulty
 		e.hp = e.hp * (1.0 + difficulty * 0.6)
@@ -230,6 +265,16 @@ func _spawn_wave() -> bool:
 					"Ward",
 					"SHADOW WARD - auto-slow engaged. Use Focus or a Defense Salvo."
 				)
+			_emit_sim(
+				SimEvent.TYPE_WARD_FORMED,
+				e.stable_id(),
+				"",
+				e.position,
+				Vector2.LEFT,
+				e.ward_max_hp,
+				&"shadow_ward",
+				{"kind": kind}
+			)
 		# spawn to the right of view; drainers can spawn higher/lower
 		match kind:
 			"Boarder":
@@ -248,6 +293,16 @@ func _spawn_wave() -> bool:
 				e.position = Vector2(_view_size.x + 40, _train_pos.y + 2)
 				e.target = _rear_target()
 				e.role = "ground"
+		_emit_sim(
+			SimEvent.TYPE_ENEMY_SPAWNED,
+			e.stable_id(),
+			"",
+			e.position,
+			(e.target - e.position).normalized() if e.target != e.position else Vector2.LEFT,
+			e.hp,
+			_kind_material(kind),
+			{"kind": kind, "role": e.role, "warded": e.warded}
+		)
 	return true
 
 
@@ -282,6 +337,11 @@ func _acquire() -> Enemy:
 	return null
 
 
+func _assign_visual_id(e: Enemy) -> void:
+	_visual_id_counter += 1
+	e.visual_id = _visual_id_counter
+
+
 func _release(e: Enemy) -> void:
 	e.alive = false
 
@@ -306,7 +366,19 @@ func _update_enemy(e: Enemy, delta: float) -> void:
 		e.position += to_target.normalized() * e.speed * delta
 	# Attack when close
 	if to_target.length() < 40.0:
+		var was_positive: bool = e.attack_timer > 0.0
 		e.attack_timer -= delta
+		if was_positive and e.attack_timer <= e.attack_warning_time:
+			_emit_sim(
+				SimEvent.TYPE_ENEMY_TELEGRAPHED,
+				e.stable_id(),
+				"",
+				e.position,
+				(e.target - e.position).normalized() if e.target != e.position else Vector2.LEFT,
+				e.damage,
+				_kind_material(e.kind),
+				{"kind": e.kind, "role": e.role}
+			)
 		if e.attack_timer <= 0.0:
 			_apply_attack(e)
 			e.attack_timer = e.attack_interval
@@ -314,12 +386,24 @@ func _update_enemy(e: Enemy, delta: float) -> void:
 		var base_damage: float = 10.0 if e.kind == "Drainer" else 3.0
 		if e.warded:
 			if _light_profile.focused:
+				var before_ward_hp: float = e.ward_hp
 				e.ward_hp -= (
 					18.0
 					* delta
 					* _run_state.effective_priority("light")
 					* _light_profile.damage_multiplier
 				)
+				if before_ward_hp > e.ward_hp:
+					_emit_sim(
+						SimEvent.TYPE_WARD_CRACKED,
+						e.stable_id(),
+						"",
+						e.position,
+						_light_profile.direction,
+						before_ward_hp - e.ward_hp,
+						&"shadow_ward",
+						{"ward_hp": e.ward_hp, "ward_max_hp": e.ward_max_hp}
+					)
 				if e.ward_hp <= 0.0:
 					_break_ward(e, "Focus shattered a shadow ward.")
 		else:
@@ -357,11 +441,12 @@ func _apply_defense_fire(delta: float) -> void:
 			var target: Enemy = candidates[index]
 			if not target.alive or target.warded:
 				continue
-			target.hp -= (
+			var damage_delta: float = (
 				float(mount.get("damage", 0.0))
 				* _run_state.effective_priority("defense")
 				* delta
 			)
+			target.hp -= damage_delta
 			if _defense_fx_timer <= 0.0:
 				var source_car_id: String = String(mount.get("car_id", ""))
 				emit_signal(
@@ -369,6 +454,21 @@ func _apply_defense_fire(delta: float) -> void:
 					target.position,
 					source_car_id,
 					not _run_state.active_crew_for_car(source_car_id).is_empty()
+				)
+				_emit_sim(
+					SimEvent.TYPE_DEFENSE_FIRED,
+					VisualStateIds.defense_mount(source_car_id),
+					target.stable_id(),
+					target.position,
+					(target.position - _train_pos).normalized() if target.position != _train_pos else Vector2.RIGHT,
+					damage_delta,
+					_mount_material(String(mount.get("mode", ""))),
+					{
+						"car_id": source_car_id,
+						"mode": String(mount.get("mode", "")),
+						"crewed": not _run_state.active_crew_for_car(source_car_id).is_empty(),
+						"manual": false
+					}
 				)
 				_defense_fx_timer = 0.32
 			if target.hp <= 0.0:
@@ -380,6 +480,16 @@ func _kill_enemy(enemy: Enemy) -> void:
 		return
 	enemy.alive = false
 	emit_signal("enemy_killed", enemy.kind, enemy.value)
+	_emit_sim(
+		SimEvent.TYPE_ENEMY_KILLED,
+		enemy.stable_id(),
+		"",
+		enemy.position,
+		(_train_pos - enemy.position).normalized() if enemy.position != _train_pos else Vector2.LEFT,
+		float(enemy.value),
+		_kind_material(enemy.kind),
+		{"kind": enemy.kind, "role": enemy.role}
+	)
 
 
 func fire_manual_salvo(stats: TrainStats) -> Dictionary:
@@ -416,6 +526,21 @@ func fire_manual_salvo(stats: TrainStats) -> Dictionary:
 			target.hp -= damage
 			total_damage += damage
 			positions.append(target.position)
+			var source_car_id: String = String(mount.get("car_id", ""))
+			_emit_sim(
+				SimEvent.TYPE_DEFENSE_FIRED,
+				VisualStateIds.defense_mount(source_car_id),
+				target.stable_id(),
+				target.position,
+				(target.position - _train_pos).normalized() if target.position != _train_pos else Vector2.RIGHT,
+				damage,
+				_mount_material(String(mount.get("mode", ""))),
+				{
+					"car_id": source_car_id,
+					"mode": String(mount.get("mode", "")),
+					"manual": true
+				}
+			)
 			if target.hp <= 0.0:
 				kills += 1
 				_kill_enemy(target)
@@ -438,6 +563,16 @@ func _break_ward(enemy: Enemy, message: String) -> void:
 	_run_state.record_ward_break()
 	_run_state.emit_signal("resources_changed")
 	emit_signal("active_response", enemy.position, message)
+	_emit_sim(
+		SimEvent.TYPE_WARD_SHATTERED,
+		enemy.stable_id(),
+		"",
+		enemy.position,
+		(_train_pos - enemy.position).normalized() if enemy.position != _train_pos else Vector2.LEFT,
+		enemy.ward_max_hp,
+		&"shadow_ward",
+		{"message": message}
+	)
 
 
 func _lens_damage_multiplier(kind: String) -> float:
@@ -456,15 +591,60 @@ func _apply_attack(e: Enemy) -> void:
 	match e.kind:
 		"Pursuer":
 			_run_state.damage_rear_car(e.damage)
+			_emit_sim(
+				SimEvent.TYPE_ENEMY_ATTACKED,
+				e.stable_id(),
+				"train:rear",
+				e.position,
+				(_train_pos - e.position).normalized() if e.position != _train_pos else Vector2.LEFT,
+				e.damage,
+				_kind_material(e.kind),
+				{"kind": e.kind, "against": "rear_car"}
+			)
 		"Boarder":
 			if not _run_state.cars.is_empty() and e.boarder_car_index >= 0:
+				var target_car_id: String = ""
+				if e.boarder_car_index < _run_state.cars.size():
+					target_car_id = String(
+						(_run_state.cars[e.boarder_car_index] as Dictionary).get("id", "")
+					)
 				_run_state.damage_car_at(e.boarder_car_index, e.damage)
+				_emit_sim(
+					SimEvent.TYPE_ENEMY_ATTACKED,
+					e.stable_id(),
+					VisualStateIds.car(target_car_id),
+					e.position,
+					(_train_pos - e.position).normalized() if e.position != _train_pos else Vector2.LEFT,
+					e.damage,
+					_kind_material(e.kind),
+					{"kind": e.kind, "against": "car", "car_index": e.boarder_car_index}
+				)
 				e.boarder_car_index -= 1
 			else:
 				_run_state.damage_locomotive(e.damage * 0.5)
+				_emit_sim(
+					SimEvent.TYPE_ENEMY_ATTACKED,
+					e.stable_id(),
+					VisualStateIds.TRAIN_LOCOMOTIVE,
+					e.position,
+					(_train_pos - e.position).normalized() if e.position != _train_pos else Vector2.LEFT,
+					e.damage * 0.5,
+					_kind_material(e.kind),
+					{"kind": e.kind, "against": "locomotive"}
+				)
 				e.alive = false
 		"Drainer":
 			_run_state.lumen = maxf(0.0, _run_state.lumen - e.damage * 0.3)
+			_emit_sim(
+				SimEvent.TYPE_ENEMY_ATTACKED,
+				e.stable_id(),
+				VisualStateIds.TRAIN_LOCOMOTIVE,
+				e.position,
+				(_train_pos - e.position).normalized() if e.position != _train_pos else Vector2.LEFT,
+				e.damage,
+				_kind_material(e.kind),
+				{"kind": e.kind, "against": "lumen"}
+			)
 	emit_signal("enemy_attack_landed", e.position, e.kind)
 
 
@@ -478,6 +658,16 @@ func on_detach(nearby_purge: float) -> void:
 			if e.role == "ground":
 				e.alive = false
 				emit_signal("enemy_killed", e.kind, 0)
+				_emit_sim(
+					SimEvent.TYPE_ENEMY_KILLED,
+					e.stable_id(),
+					"",
+					e.position,
+					Vector2.LEFT,
+					0.0,
+					_kind_material(e.kind),
+					{"cause": "detach"}
+				)
 			else:
 				e.position += Vector2(180, -40)
 
@@ -487,7 +677,8 @@ func checkpoint_state() -> Dictionary:
 		"spawn_cooldown": _spawn_cooldown,
 		"wave_index": _wave_index,
 		"ward_pending": _ward_pending,
-		"announced_ward": _announced_ward
+		"announced_ward": _announced_ward,
+		"visual_id_counter": _visual_id_counter
 	}
 
 
@@ -499,6 +690,8 @@ func apply_checkpoint_state(state: Dictionary) -> void:
 	_wave_index = maxi(0, int(state.get("wave_index", 0)))
 	_ward_pending = bool(state.get("ward_pending", false))
 	_announced_ward = bool(state.get("announced_ward", false))
+	if state.has("visual_id_counter"):
+		_visual_id_counter = maxi(_visual_id_counter, int(state.get("visual_id_counter", _visual_id_counter)))
 
 
 func clear_regular_enemies() -> void:
@@ -508,454 +701,72 @@ func clear_regular_enemies() -> void:
 	if _pressure_brake_active:
 		_pressure_brake_active = false
 		emit_signal("pressure_brake_changed", false)
-	queue_redraw()
 
 
-func _draw() -> void:
-	for e in _active:
-		if not e.alive:
+func write_snapshot(snapshot: PresentationSnapshot) -> void:
+	for enemy_variant in _active:
+		var enemy: Enemy = enemy_variant
+		if not enemy.alive:
 			continue
-		match e.kind:
-			"Pursuer":
-				_draw_pursuer(e)
-			"Boarder":
-				_draw_boarder(e)
-			"Drainer":
-				_draw_drainer(e)
-		if e.warded:
-			_draw_ward(e)
-		_draw_attack_warning(e)
-		_draw_hp(e)
-	if UITheme.high_contrast():
-		var occupied_labels: Array[Rect2] = []
-		var labeled_enemies: Array = _active.duplicate()
-		labeled_enemies.sort_custom(
-			func(a: Enemy, b: Enemy) -> bool:
-				return a.position.x < b.position.x
+		var state: EnemyViewState = snapshot.acquire_enemy_state()
+		state.visual_id = enemy.visual_id
+		state.stable_id = enemy.stable_id()
+		state.kind = enemy.kind
+		state.role = enemy.role
+		state.alive = true
+		state.position = enemy.position
+		state.target = enemy.target
+		state.max_hp = enemy.max_hp
+		state.hp_ratio = (
+			clampf(enemy.hp / enemy.max_hp, 0.0, 1.0)
+			if enemy.max_hp > 0.0
+			else 0.0
 		)
-		for enemy_variant in labeled_enemies:
-			var enemy: Enemy = enemy_variant
-			if enemy.alive:
-				occupied_labels.append(
-					_draw_accessibility_label(enemy, occupied_labels)
-				)
-
-
-func _draw_ward(e: Enemy) -> void:
-	var ratio: float = clampf(e.ward_hp / maxf(1.0, e.ward_max_hp), 0.0, 1.0)
-	var rotation: float = 0.0 if _reduced_motion else _elapsed * 0.65
-	var radius: float = 27.0
-	var ward_color: Color = PresentationPalette.with_alpha(
-		&"shadow_veil",
-		0.48 + ratio * 0.42,
-		UITheme.high_contrast()
-	)
-	var segments := [
-		Vector2(0.05, 1.2),
-		Vector2(1.72, 3.1),
-		Vector2(3.72, 5.56)
-	]
-	for segment_variant in segments:
-		var segment: Vector2 = segment_variant
-		draw_arc(
-			e.position,
-			radius,
-			segment.x + rotation,
-			segment.y + rotation,
-			12,
-			ward_color,
-			3.0 + ratio
-		)
-	for shard_index in range(3):
-		var shard_angle: float = rotation + 1.4 + float(shard_index) * 2.05
-		var shard_center: Vector2 = (
-			e.position
-			+ Vector2.from_angle(shard_angle) * (radius + 4.0)
-		)
-		draw_colored_polygon(
-			PackedVector2Array([
-				shard_center + Vector2.from_angle(shard_angle) * 5.0,
-				shard_center + Vector2.from_angle(shard_angle + 2.35) * 4.0,
-				shard_center + Vector2.from_angle(shard_angle - 2.35) * 4.0
-			]),
-			ward_color
-		)
-	var ward_font_size: int = UITheme.font_size(9)
-	draw_string(
-		UITheme.bold_font(),
-		e.position + Vector2(-42.0, -47.0),
-		"FOCUS / SALVO",
-		HORIZONTAL_ALIGNMENT_CENTER,
-		84.0,
-		ward_font_size,
-		PresentationPalette.color(&"shadow_veil", UITheme.high_contrast())
-	)
-
-
-func _draw_pursuer(e: Enemy) -> void:
-	var p: Vector2 = e.position
-	var body_color: Color = _threat_color("Pursuer")
-	var outline: Color = _threat_outline()
-	var body: PackedVector2Array = PackedVector2Array([
-		p + Vector2(-29.0, -1.0),
-		p + Vector2(-15.0, -15.0),
-		p + Vector2(8.0, -18.0),
-		p + Vector2(25.0, -7.0),
-		p + Vector2(17.0, 10.0),
-		p + Vector2(-13.0, 12.0)
-	])
-	_draw_outlined_polygon(body, body_color, outline, 2.0)
-	var leg_points := [
-		[Vector2(-15.0, 9.0), Vector2(-27.0, 19.0), Vector2(-34.0, 16.0)],
-		[Vector2(1.0, 11.0), Vector2(-6.0, 23.0), Vector2(-15.0, 22.0)],
-		[Vector2(15.0, 7.0), Vector2(27.0, 17.0), Vector2(34.0, 14.0)]
-	]
-	for leg_variant in leg_points:
-		var leg: Array = leg_variant
-		draw_polyline(
-			PackedVector2Array([
-				p + leg[0],
-				p + leg[1],
-				p + leg[2]
-			]),
-			body_color,
-			4.0
-		)
-	draw_line(
-		p + Vector2(-11.0, -12.0),
-		p + Vector2(11.0, 5.0),
-		PresentationPalette.with_alpha(&"bone", 0.32),
-		1.5
-	)
-	draw_circle(
-		p + Vector2(-20.0, -4.0),
-		4.0,
-		PresentationPalette.color(&"ember", UITheme.high_contrast())
-	)
-	draw_circle(p + Vector2(-20.0, -4.0), 1.5, PresentationPalette.BONE)
-
-
-func _draw_boarder(e: Enemy) -> void:
-	var p: Vector2 = e.position
-	var body_color: Color = _threat_color("Boarder")
-	var outline: Color = _threat_outline()
-	draw_circle(p + Vector2(0.0, -20.0), 7.0, body_color)
-	draw_arc(
-		p + Vector2(0.0, -20.0),
-		7.0,
-		0.0,
-		TAU,
-		16,
-		outline,
-		1.5
-	)
-	_draw_outlined_polygon(
-		PackedVector2Array([
-			p + Vector2(-6.0, -14.0),
-			p + Vector2(6.0, -14.0),
-			p + Vector2(8.0, 9.0),
-			p + Vector2(0.0, 15.0),
-			p + Vector2(-8.0, 9.0)
-		]),
-		body_color,
-		outline,
-		1.5
-	)
-	draw_polyline(
-		PackedVector2Array([
-			p + Vector2(-4.0, -9.0),
-			p + Vector2(-19.0, -2.0),
-			p + Vector2(-29.0, 12.0)
-		]),
-		body_color,
-		4.0
-	)
-	draw_polyline(
-		PackedVector2Array([
-			p + Vector2(5.0, -8.0),
-			p + Vector2(17.0, 1.0),
-			p + Vector2(22.0, 17.0)
-		]),
-		body_color,
-		4.0
-	)
-	draw_polyline(
-		PackedVector2Array([
-			p + Vector2(-3.0, 12.0),
-			p + Vector2(-12.0, 28.0),
-			p + Vector2(-21.0, 31.0)
-		]),
-		body_color,
-		4.0
-	)
-	draw_polyline(
-		PackedVector2Array([
-			p + Vector2(3.0, 12.0),
-			p + Vector2(11.0, 29.0),
-			p + Vector2(20.0, 32.0)
-		]),
-		body_color,
-		4.0
-	)
-	var hook_center := p + Vector2(-29.0, 12.0)
-	draw_arc(
-		hook_center,
-		10.0,
-		-PI * 0.65,
-		PI * 0.65,
-		16,
-		PresentationPalette.color(&"brass", UITheme.high_contrast()),
-		3.0
-	)
-	draw_line(
-		p + Vector2(22.0, 17.0),
-		p + Vector2(29.0, 24.0),
-		PresentationPalette.color(&"brass", UITheme.high_contrast()),
-		2.0
-	)
-
-
-func _draw_drainer(e: Enemy) -> void:
-	var p: Vector2 = e.position
-	var t: float = 0.0 if _reduced_motion else _elapsed * 1.8
-	var body_color: Color = _threat_color("Drainer")
-	var outline: Color = _threat_outline()
-	var shell := PackedVector2Array()
-	for i in range(9):
-		var angle: float = float(i) * TAU / 9.0
-		var radius: float = 12.0 + float((i * 7) % 5)
-		shell.append(p + Vector2.from_angle(angle + t * 0.08) * radius)
-	_draw_outlined_polygon(shell, PresentationPalette.COAL, body_color, 2.5)
-	draw_circle(p, 7.0, PresentationPalette.NIGHT_VOID)
-	draw_arc(p, 8.0, 0.0, TAU, 20, outline, 1.5)
-	var tendril_angles := [-2.72, -0.62, 0.92, 2.18]
-	var tendril_lengths := [24.0, 18.0, 29.0, 21.0]
-	for i in range(tendril_angles.size()):
-		var sway: float = 0.0 if _reduced_motion else sin(t + float(i) * 1.7) * 0.16
-		var angle: float = float(tendril_angles[i]) + sway
-		var length: float = float(tendril_lengths[i])
-		var joint: Vector2 = p + Vector2.from_angle(angle) * length * 0.55
-		var end: Vector2 = (
-			joint
-			+ Vector2.from_angle(angle + (0.38 if i % 2 == 0 else -0.42))
-			* length
-			* 0.55
-		)
-		draw_polyline(
-			PackedVector2Array([p, joint, end]),
-			body_color,
-			2.5
-		)
-		draw_circle(end, 2.5, body_color)
-	if e.position.distance_to(e.target) < 190.0:
-		var bend := Vector2(lerpf(p.x, e.target.x, 0.55), minf(p.y, e.target.y) - 18.0)
-		draw_polyline(
-			PackedVector2Array([p, bend, e.target]),
-			PresentationPalette.with_alpha(
-				&"drainer_glow",
-				0.68,
-				UITheme.high_contrast()
-			),
-			2.5
-		)
-		draw_rect(
-			Rect2(e.target - Vector2(6.0, 6.0), Vector2(12.0, 12.0)),
-			PresentationPalette.with_alpha(
-				&"drainer_glow",
-				0.38,
-				UITheme.high_contrast()
-			),
-			false,
-			2.0
-		)
-
-
-func _draw_accessibility_label(
-	e: Enemy,
-	occupied_labels: Array[Rect2]
-) -> Rect2:
-	var text: String = {
-		"Pursuer": "REAR / HEARTH [2]",
-		"Boarder": "ROOF / STANDARD [1]",
-		"Drainer": "AIR / PALE [3]"
-	}.get(e.kind, "THREAT")
-	var label_center := Vector2(
-		clampf(e.position.x, 78.0, _view_size.x - 78.0),
-		maxf(e.position.y, 84.0)
-	)
-	var font_size: int = UITheme.font_size(10)
-	var rect_size := Vector2(152.0, float(font_size) + 8.0)
-	var label_offset_y: float = -104.0 if e.warded else -78.0
-	var rect := Rect2(
-		label_center + Vector2(-rect_size.x * 0.5, label_offset_y),
-		rect_size
-	)
-	var safe_bottom: float = UITheme.gameplay_safe_bottom(_view_size)
-	rect.position.y = clampf(
-		rect.position.y,
-		8.0,
-		safe_bottom - rect.size.y - 8.0
-	)
-	var base_position: Vector2 = rect.position
-	for existing in occupied_labels:
-		if not rect.intersects(existing.grow(4.0)):
-			continue
-		rect.position.y = existing.position.y - rect.size.y - 5.0
-		if rect.position.y < 8.0:
-			rect.position.y = existing.end.y + 5.0
-	rect.position.y = clampf(
-		rect.position.y,
-		8.0,
-		safe_bottom - rect.size.y - 8.0
-	)
-	if not rect.position.is_equal_approx(base_position):
-		draw_line(
-			e.position + Vector2(0.0, -28.0),
-			Vector2(rect.get_center().x, rect.end.y),
-			PresentationPalette.with_alpha(&"brass", 0.72, true),
-			1.5
-		)
-	draw_rect(
-		rect,
-		PresentationPalette.with_alpha(&"night_void", 0.94, true)
-	)
-	draw_rect(
-		rect,
-		PresentationPalette.color(&"brass", true),
-		false,
-		1.5
-	)
-	draw_string(
-		UITheme.bold_font(),
-		rect.position + Vector2(4.0, float(font_size) + 2.0),
-		text,
-		HORIZONTAL_ALIGNMENT_CENTER,
-		rect.size.x - 8.0,
-		font_size,
-		PresentationPalette.color(&"bone", true)
-	)
-	return rect
-
-
-func _draw_attack_warning(e: Enemy) -> void:
-	if e.position.distance_to(e.target) >= 44.0 or e.attack_timer > e.attack_warning_time:
-		return
-	var ratio: float = 1.0 - clampf(e.attack_timer / e.attack_warning_time, 0.0, 1.0)
-	var visual_ratio: float = 1.0 if _reduced_motion else ratio
-	var warning_color: Color = PresentationPalette.with_alpha(
-		&"danger",
-		0.7 + ratio * 0.3,
-		UITheme.high_contrast()
-	)
-	var radius: float = (40.0 if e.warded else 31.0) + visual_ratio * 5.0
-	for quadrant in range(4):
-		var start: float = float(quadrant) * PI * 0.5 + 0.13
-		draw_arc(
-			e.position,
-			radius,
-			start,
-			start + 0.72,
-			8,
-			warning_color,
-			3.0
-		)
-	draw_line(
-		e.position,
-		e.target,
-		PresentationPalette.with_alpha(
-			&"danger",
-			0.18 + ratio * 0.22,
-			UITheme.high_contrast()
-		),
-		1.5
-	)
-	draw_line(
-		e.target + Vector2(-7.0, 0.0),
-		e.target + Vector2(7.0, 0.0),
-		warning_color,
-		2.0
-	)
-	draw_line(
-		e.target + Vector2(0.0, -7.0),
-		e.target + Vector2(0.0, 7.0),
-		warning_color,
-		2.0
-	)
-	var warning: String = {
-		"Pursuer": "REAR",
-		"Boarder": "BOARD",
-		"Drainer": "LUMEN"
-	}.get(e.kind, "THREAT")
-	var warning_font_size: int = UITheme.font_size(10)
-	var warning_offset_y: float = 52.0 if e.warded else -40.0
-	draw_string(
-		UITheme.bold_font(),
-		e.position + Vector2(-34.0, warning_offset_y),
-		warning,
-		HORIZONTAL_ALIGNMENT_CENTER,
-		68.0,
-		warning_font_size,
-		PresentationPalette.color(&"danger", UITheme.high_contrast())
-	)
-
-
-func _draw_hp(e: Enemy) -> void:
-	if e.max_hp <= 0.0:
-		return
-	var ratio: float = clampf(e.hp / e.max_hp, 0.0, 1.0)
-	var w: float = 28.0
-	var pos: Vector2 = e.position + Vector2(-w * 0.5, -31.0)
-	draw_rect(
-		Rect2(pos, Vector2(w, 4.0)),
-		PresentationPalette.color(&"night_void", UITheme.high_contrast())
-	)
-	draw_rect(
-		Rect2(pos, Vector2(w * ratio, 4.0)),
-		PresentationPalette.color(&"danger", UITheme.high_contrast())
-	)
-
-
-func _threat_color(kind: String) -> Color:
-	match kind:
-		"Pursuer":
-			return PresentationPalette.color(
-				&"pursuer_rust",
-				UITheme.high_contrast()
+		state.attack_timer = enemy.attack_timer
+		state.attack_warning_time = enemy.attack_warning_time
+		if enemy.attack_warning_time > 0.0 and enemy.attack_timer <= enemy.attack_warning_time:
+			state.attack_ratio = clampf(
+				1.0 - enemy.attack_timer / enemy.attack_warning_time, 0.0, 1.0
 			)
-		"Boarder":
-			return PresentationPalette.color(
-				&"boarder_ochre",
-				UITheme.high_contrast()
-			)
-		"Drainer":
-			return PresentationPalette.color(
-				&"drainer_glow",
-				UITheme.high_contrast()
-			)
-		_:
-			return PresentationPalette.color(&"danger", UITheme.high_contrast())
+		else:
+			state.attack_ratio = 0.0
+		state.warded = enemy.warded
+		state.ward_hp_ratio = (
+			clampf(enemy.ward_hp / enemy.ward_max_hp, 0.0, 1.0)
+			if enemy.warded and enemy.ward_max_hp > 0.0
+			else 0.0
+		)
+		state.boarder_car_index = enemy.boarder_car_index
 
 
-func _threat_outline() -> Color:
-	return PresentationPalette.with_alpha(
-		&"bone",
-		0.9 if UITheme.high_contrast() else 0.48,
-		UITheme.high_contrast()
-	)
+func elapsed_time() -> float:
+	return _elapsed
 
 
-func _draw_outlined_polygon(
-	points: PackedVector2Array,
-	fill: Color,
-	outline: Color,
-	width: float
+func _emit_sim(
+	type: StringName,
+	source_id: String,
+	target_id: String,
+	position: Vector2,
+	direction: Vector2,
+	strength: float,
+	material: StringName,
+	payload: Dictionary
 ) -> void:
-	if points.size() < 3:
+	if _event_bus == null:
 		return
-	draw_colored_polygon(points, fill)
-	var closed: PackedVector2Array = points.duplicate()
-	closed.append(points[0])
-	draw_polyline(closed, outline, width, true)
+	_event_bus.emit_sim(
+		PRODUCER_ID,
+		type,
+		source_id,
+		target_id,
+		_run_state.travel_time,
+		position,
+		direction,
+		strength,
+		material,
+		payload
+	)
 
 
 func _announce_threat(kind: String) -> void:
@@ -973,3 +784,25 @@ func _announce_threat(kind: String) -> void:
 		_:
 			guidance = "THREAT APPROACHING"
 	emit_signal("threat_announced", kind, guidance)
+
+
+static func _kind_material(kind: String) -> StringName:
+	match kind:
+		"Pursuer":
+			return &"iron_hide"
+		"Boarder":
+			return &"canvas"
+		"Drainer":
+			return &"shadow_lumen"
+		_:
+			return &"unknown"
+
+
+static func _mount_material(mode: String) -> StringName:
+	match mode:
+		"cannon":
+			return &"heavy_shell"
+		"flak":
+			return &"flak_burst"
+		_:
+			return &"defense_bolt"

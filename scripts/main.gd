@@ -107,7 +107,9 @@ func _should_run_runtime_probe() -> bool:
 		or OS.has_environment("LANTERN_PROBE_DENSE_COMBAT")
 		or OS.has_environment("LANTERN_PROBE_AUDIO")
 		or OS.has_environment("LANTERN_VISUAL_BENCHMARK")
+		or OS.has_environment("LANTERN_REFERENCE_SCENARIO")
 		or not WebRuntimeQuery.benchmark_parameter("benchmark").is_empty()
+		or not WebRuntimeQuery.benchmark_parameter("scenario").is_empty()
 	):
 		return true
 	var args: PackedStringArray = OS.get_cmdline_args()

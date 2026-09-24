@@ -22,6 +22,8 @@ var _reduced_flashes: bool = false
 var _screen_shake_enabled: bool = true
 var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var _seeded: bool = false
+var _configured_seed_value: int = 0xEFFECC7
+var _reference_capture_enabled: bool = false
 
 
 func _ready() -> void:
@@ -31,6 +33,7 @@ func _ready() -> void:
 
 
 func setup(seed_value: int) -> void:
+	_configured_seed_value = seed_value
 	_rng.seed = seed_value ^ 0xEFFECC7
 	_seeded = true
 
@@ -106,10 +109,29 @@ func shake_offset() -> Vector2:
 	return _shake_offset
 
 
+func set_reference_capture_state(enabled: bool, _frame_time: float) -> void:
+	if enabled and not _reference_capture_enabled:
+		_hits.clear()
+		_tracers.clear()
+		_detached_cars.clear()
+		_shake = 0.0
+		_shake_offset = Vector2.ZERO
+		_dawn_progress = 0.0
+		_flash_color = Color.TRANSPARENT
+		_flash_time = 0.0
+		_rng.seed = _configured_seed_value ^ 0xEFFECC7
+	_reference_capture_enabled = enabled
+	queue_redraw()
+
+
 func _process(delta: float) -> void:
 	_reduced_motion = bool(GameManager.get_setting("reduced_motion", false))
 	_reduced_flashes = bool(GameManager.get_setting("reduced_flashes", false))
 	_screen_shake_enabled = bool(GameManager.get_setting("screen_shake", true))
+	if _reference_capture_enabled:
+		_shake_offset = Vector2.ZERO
+		queue_redraw()
+		return
 	if _reduced_motion or not _screen_shake_enabled:
 		_shake = 0.0
 	if _shake > 0.0:

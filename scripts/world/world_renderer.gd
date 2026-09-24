@@ -11,6 +11,7 @@ var _view_size: Vector2 = Vector2(1280, 720)
 var _train_x: float = 320.0
 var _train_y: float = 460.0
 var _reduced_motion: bool = false
+var _reference_capture_enabled: bool = false
 var _presentation_state: Dictionary = {}
 var _route_context: Dictionary = {
 	"category": "neutral",
@@ -45,9 +46,16 @@ func set_route_context(context: Dictionary) -> void:
 	queue_redraw()
 
 
+func set_reference_capture_state(enabled: bool, frame_time: float) -> void:
+	_reference_capture_enabled = enabled
+	if enabled:
+		_time = maxf(0.0, frame_time)
+	queue_redraw()
+
+
 func _process(delta: float) -> void:
 	_reduced_motion = bool(GameManager.get_setting("reduced_motion", false))
-	if not _reduced_motion:
+	if not _reference_capture_enabled and not _reduced_motion:
 		_time += delta
 	queue_redraw()
 

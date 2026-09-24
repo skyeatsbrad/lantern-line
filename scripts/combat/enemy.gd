@@ -3,7 +3,13 @@ extends RefCounted
 ## Enemy
 ##
 ## Pure data enemy for pooled use. game_world owns the pool.
+##
+## `visual_id` is a stable runtime identifier assigned by `EnemyDirector` from
+## a deterministic sequence tied to `run_seed`. It uniquely identifies the
+## enemy across ticks so the view layer can track it without depending on the
+## pool index or memory address.
 
+var visual_id: int = 0
 var kind: String = "Pursuer"
 var display: String = "Rail Pursuer"
 var hp: float = 30.0
@@ -24,6 +30,10 @@ var attack_warning_time: float = 0.65
 var warded: bool = false
 var ward_hp: float = 0.0
 var ward_max_hp: float = 0.0
+
+
+func stable_id() -> String:
+	return VisualStateIds.enemy(visual_id)
 
 
 func init_from_config(kind_key: String, cfg: Dictionary) -> void:
